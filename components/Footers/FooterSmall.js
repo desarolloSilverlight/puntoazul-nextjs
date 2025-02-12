@@ -13,18 +13,12 @@ export default function FooterSmall(props) {
         <div className="container mx-auto px-4">
           <hr className="mb-6 border-b-1 border-blueGray-600" />
           <div className="flex flex-wrap items-center md:justify-between justify-center">
-            <div className="w-full md:w-4/12 px-4">
-              <div className="text-sm text-blueGray-500 font-semibold py-1 text-center md:text-left">
+            <div className="w-full md:w-12/12 px-4">
+              <div className="text-sm text-blueGray-500 font-semibold py-1 text-center md:text-center">
                 Copyright © {new Date().getFullYear()}{" "}
-                <a
-                  href="https://www.creative-tim.com?ref=nnjs-footer-small"
-                  className="text-white hover:text-blueGray-300 text-sm font-semibold py-1"
-                >
-                  Creative Tim
-                </a>
               </div>
             </div>
-            <div className="w-full md:w-8/12 px-4">
+            {/* <div className="w-full md:w-8/12 px-4">
               <ul className="flex flex-wrap list-none md:justify-end  justify-center">
                 <li>
                   <a
@@ -59,7 +53,7 @@ export default function FooterSmall(props) {
                   </a>
                 </li>
               </ul>
-            </div>
+            </div> */}
           </div>
         </div>
       </footer>

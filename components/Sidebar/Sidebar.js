@@ -207,7 +207,7 @@ export default function Sidebar() {
 
             <ul className="md:flex-col md:min-w-full flex flex-col list-none md:mb-4">
               <li className="items-center">
-                <Link legacyBehavior href="/admin/settings">
+                <Link legacyBehavior href="/admin/literalf">
                   <a
                     href="#pablo"
                     className="text-blueGray-700 hover:text-blueGray-500 text-xs uppercase py-3 font-bold block"
@@ -219,7 +219,7 @@ export default function Sidebar() {
               </li>
 
               <li className="items-center">
-                <Link legacyBehavior href="/admin/tables">
+                <Link legacyBehavior href="/admin/literalb">
                   <a
                     href="#pablo"
                     className="text-blueGray-700 hover:text-blueGray-500 text-xs uppercase py-3 font-bold block"
@@ -274,7 +274,7 @@ export default function Sidebar() {
 
             <ul className="md:flex-col md:min-w-full flex flex-col list-none md:mb-4">
               <li className="items-center">
-                <Link legacyBehavior href="/admin/maps">
+                <Link legacyBehavior href="/admin/usuarios">
                   <a
                     href="#pablo"
                     className="text-blueGray-700 hover:text-blueGray-500 text-xs uppercase py-3 font-bold block"
@@ -286,7 +286,7 @@ export default function Sidebar() {
               </li>
 
               <li className="items-center">
-                <Link legacyBehavior href="/admin/maps">
+                <Link legacyBehavior href="/admin/perfiles">
                   <a
                     href="#pablo"
                     className="text-blueGray-700 hover:text-blueGray-500 text-xs uppercase py-3 font-bold block"
@@ -298,7 +298,7 @@ export default function Sidebar() {
               </li>
 
               <li className="items-center">
-                <Link legacyBehavior href="/admin/maps">
+                <Link legacyBehavior href="/admin/asociados">
                   <a
                     href="#pablo"
                     className="text-blueGray-700 hover:text-blueGray-500 text-xs uppercase py-3 font-bold block"
@@ -310,7 +310,7 @@ export default function Sidebar() {
               </li>
 
               <li className="items-center">
-                <Link legacyBehavior href="/admin/maps">
+                <Link legacyBehavior href="/admin/parametros">
                   <a
                     href="#pablo"
                     className="text-blueGray-700 hover:text-blueGray-500 text-xs uppercase py-3 font-bold block"

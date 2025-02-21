@@ -20,7 +20,7 @@ export default function FormularioAfiliado({ color }) {
         <h3 className="text-lg font-semibold">
           Información General de Productos Plásticos
         </h3>
-        <button
+        {/* <button
           className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
           onClick={agregarProducto}
         >
@@ -69,7 +69,7 @@ export default function FormularioAfiliado({ color }) {
           className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
         >
           Guardar
-        </button>
+        </button> */}
       </div>
     </div>
   );

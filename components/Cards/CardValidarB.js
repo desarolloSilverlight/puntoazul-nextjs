@@ -1,15 +1,49 @@
 import React from "react";
 import PropTypes from "prop-types";
 import Button from "/components/Button";
-
-const perfiles = [
-  { id: 1, nombre: "Administrador", cantidad: 5 },
-  { id: 2, nombre: "Asociado", cantidad: 8 },
-  { id: 3, nombre: "Coordinador", cantidad: 3 },
-  { id: 3, nombre: "Vinculado", cantidad: 4 },
-  { id: 4, nombre: "Invitado", cantidad: 10 },
-];
+import { useRouter } from "next/router";
+const asociados = [
+    {
+      id: 1,
+      nombre: "Juan Pérez",
+      nit: "900123456-7",
+      celular: "3101234567",
+      email: "juan.perez@example.com",
+    },
+    {
+      id: 2,
+      nombre: "María Gómez",
+      nit: "901234567-8",
+      celular: "3207654321",
+      email: "maria.gomez@example.com",
+    },
+    {
+      id: 3,
+      nombre: "Carlos Ramírez",
+      nit: "902345678-9",
+      celular: "3159876543",
+      email: "carlos.ramirez@example.com",
+    },
+    {
+      id: 4,
+      nombre: "Laura Fernández",
+      nit: "903456789-0",
+      celular: "3123456789",
+      email: "laura.fernandez@example.com",
+    },
+  ];
+  
 export default function CardTable({ color, data, onEdit }) {
+  const router = useRouter();
+  const handleValidar = (asociado) => {
+    router.push({
+      pathname: "/Forms/formValidarB",
+      query: {
+        nombre: asociado.nombre,
+        nit: asociado.nit,
+      },
+    });
+  };
   return (
     <div
       className={
@@ -26,16 +60,9 @@ export default function CardTable({ color, data, onEdit }) {
                 (color === "light" ? "text-blueGray-700" : "text-white")
               }
             >
-              Tabla de Perfiles
-            </h3>
-            
+              Seleccione un asociado
+            </h3>            
           </div>
-          <button
-              className="bg-lightBlue-600 active:bg-lightBlue-400 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
-              type="button"
-            >
-              Nuevo Perfil
-            </button>
         </div>
       </div>
       <div className="block w-full overflow-x-auto">
@@ -46,7 +73,13 @@ export default function CardTable({ color, data, onEdit }) {
                 Nombre
               </th>
               <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                Cantidad
+                NIT
+              </th>
+              <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
+                Celular
+              </th>
+              <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
+                Email
               </th>
               <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
                 Acciones
@@ -54,16 +87,18 @@ export default function CardTable({ color, data, onEdit }) {
             </tr>
           </thead>
           <tbody>
-            {perfiles.map((perfil) => (
-              <tr key={perfil.id} className="border-t">
-                <td className="p-2">{perfil.nombre}</td>
-                <td className="p-2">{perfil.cantidad}</td>
+            {asociados.map((asociado) => (
+              <tr key={asociado.id} className="border-t">
+                <td className="p-2">{asociado.nombre}</td>
+                <td className="p-2">{asociado.nit}</td>
+                <td className="p-2">{asociado.celular}</td>
+                <td className="p-2">{asociado.email}</td>
                 <td className="p-2">
                   <button
-                    className="bg-blueGray-700 active:bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
-                    type="button"
+                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                    onClick={() => handleValidar(asociado)}
                   >
-                    Editar
+                    Validar
                   </button>
                 </td>
               </tr>

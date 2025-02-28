@@ -60,7 +60,7 @@ export default function CardTable({ color, data, onEdit }) {
                 (color === "light" ? "text-blueGray-700" : "text-white")
               }
             >
-              Seleccione un asociado
+              Seleccione un vinculado
             </h3>            
           </div>
         </div>

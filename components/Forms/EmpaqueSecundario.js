@@ -19,12 +19,20 @@ export default function FormularioAfiliado({ color }) {
       {/* SECCIÓN II */}
       <div className="p-4">
         <h3 className="text-lg font-semibold">Información General de Productos</h3>
-        <button
-          className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-          onClick={agregarProducto}
-        >
-          Agregar Producto
-        </button>
+        <div className="flex justify-between mt-3">
+          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded" onClick={agregarProducto}>
+            Agregar Producto
+          </button>
+          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
+            Cargar Informacion
+          </button>
+          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
+            Descargar Excel
+          </button>
+        </div>
+        <div className="text-red-500 text-center mt-3 font-semibold">
+          Todos los pesos de la tabla deben estar en gramos.
+        </div>
         <div className="overflow-x-auto mt-4">
         <table className="w-full bg-transparent border-collapse">
             <thead>

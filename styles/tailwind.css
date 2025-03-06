@@ -2463,6 +2463,10 @@ select {
   max-height: 860px;
 }
 
+.max-h-260-px {
+  max-height: 200px;
+}
+
 .max-w-sm {
   max-width: 24rem;
 }

@@ -1,10 +1,6 @@
-import { useRouter } from "next/router";
 import { useState } from "react";
 
-export default function FormValidarB() {
-  const router = useRouter();
-  const { nombre, nit } = router.query;
-
+export default function FormValidarB({ nombre, nit }) {
   const [productos, setProductos] = useState([
     { id: 1, razonSocial: nombre || "", nit: nit || "", pesoEmpaque: "", pesoProducto: "" }
   ]);

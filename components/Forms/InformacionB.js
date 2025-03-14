@@ -49,7 +49,11 @@ export default function FormularioAfiliado({ color }) {
 
         {/* Quinta fila (2 columnas) */}
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <input className="border p-2 w-full" type="text" placeholder="Capital de origen (Nacional / Multinacional)" />
+          <select className="border p-2">            
+            <option value="50+">Seleccione ...</option>
+            <option value="50+">Nacional</option>
+            <option value="50+">Multinacional</option>
+          </select>
           <input className="border p-2 w-full" type="text" placeholder="Correo de facturacion" />
         </div>
 

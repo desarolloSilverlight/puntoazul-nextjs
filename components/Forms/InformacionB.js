@@ -1,7 +1,55 @@
 import React, { useState } from "react";
 import PropTypes from "prop-types";
+
 export default function FormularioAfiliado({ color }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+  
+    const formData = {
+      nombre: e.target.nombre.value,
+      nit: e.target.nit.value,
+      direccion: e.target.direccion.value,
+      ciudad: e.target.ciudad.value,
+      telefono: e.target.telefono.value,
+      representante: e.target.representanteLegal.value,
+      telefonoRe: e.target.telefonoRepresentante.value,
+      contactoRe: e.target.personaContacto.value,
+      cargoRe: e.target.cargo.value,
+      correoRe: e.target.correo.value,
+      ano: e.target.año.value,
+      anoReporte: e.target.añoReporte.value,
+      titulares: e.target.titularesRepresentados.value,
+      origen: e.target.nacionalidad.value,
+      correoFacturacion: e.target.correoFacturacion.value,
+    };
+  
+    try {
+      const response = await fetch('https://nestbackend.fidare.com/informacion-b/createInfo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: "include",
+        body: JSON.stringify(formData),
+      });
+  
+      // Verificar si la respuesta es correcta
+      if (!response.ok) {
+        const errorText = await response.text(); // Obtener respuesta en texto para debug
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+  
+      const result = await response.json();
+      console.log("Respuesta de la API:", result); // Ver respuesta en consola
+      alert(result.message);
+      localStorage.setItem("idInformacionB", result.data.idInformacionB); // Guardar id en localStorage
+    } catch (error) {
+      console.error("Error al enviar el formulario:", error);
+      alert(`Error: ${error.message}`); // Mostrar error en una alerta
+    }
+  };
+  
+
   return (
     <div
       className={
@@ -9,65 +57,69 @@ export default function FormularioAfiliado({ color }) {
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
     >
-      {/* SECCIÓN I */}
-      <div className="p-4 border-b">
-        <h3 className="text-lg font-semibold flex items-center">
-          Información sobre el Afiliado&nbsp;
-          <i 
-            className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
-            onClick={() => setIsOpen(true)}
-          ></i>
-        </h3>
-        {/* Primera fila (2 columnas) */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <input className="border p-2 w-full" type="text" placeholder="Nombre o razón social" />
-          <input className="border p-2 w-full" type="text" placeholder="NIT" />
-        </div>
+      {/* Formulario */}
+      <form onSubmit={handleSubmit}>
+        <div className="p-4 border-b">
+          <h3 className="text-lg font-semibold flex items-center">
+            Información sobre el Afiliado&nbsp;
+            <i 
+              className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
+              onClick={() => setIsOpen(true)}
+            ></i>
+          </h3>
 
-        {/* Segunda fila (3 columnas) */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <input className="border p-2 w-full" type="text" placeholder="Dirección" />
-          <input className="border p-2 w-full" type="text" placeholder="Ciudad" />
-          <input className="border p-2 w-full" type="text" placeholder="Telefono" />
-        </div>
+          {/* Primera fila */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <input name="nombre" className="border p-2 w-full" type="text" placeholder="Nombre o razón social" required />
+            <input name="nit" className="border p-2 w-full" type="text" placeholder="NIT" required />
+          </div>
 
-        {/* Tercera fila (5 columnas) */}
-        <div className="grid grid-cols-5 gap-4 mb-4">
-          <input className="border p-2 w-full" type="text" placeholder="Representante Legal" />
-          <input className="border p-2 w-full" type="text" placeholder="Telefono" />
-          <input className="border p-2 w-full" type="text" placeholder="Persona de contacto" />
-          <input className="border p-2 w-full" type="text" placeholder="Cargo" />
-          <input className="border p-2 w-full" type="text" placeholder="Correo" />
-        </div>
+          {/* Segunda fila */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <input name="direccion" className="border p-2 w-full" type="text" placeholder="Dirección" />
+            <input name="ciudad" className="border p-2 w-full" type="text" placeholder="Ciudad" />
+            <input name="telefono" className="border p-2 w-full" type="text" placeholder="Teléfono" />
+          </div>
 
-        {/* Cuarta fila (3 columnas) */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <input className="border p-2 w-full" type="text" placeholder="Año" />
-          <input className="border p-2 w-full" type="text" placeholder="Año reporte" />
-          <input className="border p-2 w-full" type="text" placeholder="Titulares Representados" />
-        </div>
+          {/* Tercera fila */}
+          <div className="grid grid-cols-5 gap-4 mb-4">
+            <input name="representanteLegal" className="border p-2 w-full" type="text" placeholder="Representante Legal" />
+            <input name="telefonoRepresentante" className="border p-2 w-full" type="text" placeholder="Teléfono Representante" />
+            <input name="personaContacto" className="border p-2 w-full" type="text" placeholder="Persona de contacto" />
+            <input name="cargo" className="border p-2 w-full" type="text" placeholder="Cargo" />
+            <input name="correo" className="border p-2 w-full" type="email" placeholder="Correo" />
+          </div>
 
-        {/* Quinta fila (2 columnas) */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <select className="border p-2">            
-            <option value="50+">Seleccione ...</option>
-            <option value="50+">Nacional</option>
-            <option value="50+">Multinacional</option>
-          </select>
-          <input className="border p-2 w-full" type="text" placeholder="Correo de facturacion" />
-        </div>
+          {/* Cuarta fila */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <input name="año" className="border p-2 w-full" type="number" placeholder="Año" />
+            <input name="añoReporte" className="border p-2 w-full" type="number" placeholder="Año reporte" />
+            <input name="titularesRepresentados" className="border p-2 w-full" type="number" placeholder="Titulares Representados" />
+          </div>
 
-        {/* Botón Guardar */}
-        <button className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3">
-          Guardar
-        </button>
-      </div>
+          {/* Quinta fila */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <select name="nacionalidad" className="border p-2">
+              <option value="">Seleccione ...</option>
+              <option value="Nacional">Nacional</option>
+              <option value="Multinacional">Multinacional</option>
+            </select>
+            <input name="correoFacturacion" className="border p-2 w-full" type="email" placeholder="Correo de facturación" />
+          </div>
+
+          {/* Botón Guardar */}
+          <button type="submit" className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3">
+            Guardar
+          </button>
+        </div>
+      </form>
+
       {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 ">
           <div className="bg-white p-5 rounded-lg shadow-lg max-h-260-px overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
-            {/* Tabla */}
+            {/* Tabla con información */}
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-gray-300 text-sm">
                 <thead>
@@ -84,15 +136,8 @@ export default function FormularioAfiliado({ color }) {
                     ["2", "NIT", "Número", "Número de Identificación Tributaria."],
                     ["3", "Dirección", "Texto", "Dirección de recepción de notificaciones."],
                     ["4", "Ciudad", "Texto", "Ciudad correspondiente a la Dirección de Notificación."],
-                    ["5", "Casa matriz", "Texto", "Nacional de la empresa inscrita al Plan."],
-                    ["6", "Correo de Facturación", "Texto", "Correo electrónico de la persona que recibe facturas."],
-                    ["7", "Persona de Contacto", "Texto", "Nombre de la persona encargada de los trámites."],
-                    ["8", "Teléfono", "Número", "Teléfono de contacto con el Representante Legal."],
-                    ["9", "Cargo", "Texto", "Cargo de la persona de contacto."],
-                    ["10", "Correo Electrónico", "Texto", "Correo de la persona de contacto de la empresa."],
-                    ["11", "Fecha de diligenciamiento", "Número", "Fecha de presentación del formulario."],
-                    ["12", "Año reportado", "Número", "Año para el cual se reporta la información."],
-                    ["13", "Empresas Representadas", "Número", "Cantidad de empresas representadas en el plan."]
+                    ["5", "Correo de Facturación", "Texto", "Correo electrónico de la persona que recibe facturas."],
+                    ["6", "Persona de Contacto", "Texto", "Nombre de la persona encargada de los trámites."],
                   ].map((row, index) => (
                     <tr key={index} className="hover:bg-gray-100">
                       {row.map((cell, cellIndex) => (

@@ -2,10 +2,68 @@ import React, { useState } from "react";
 import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
+  let idInformacionB = localStorage.getItem("idInformacionB");
   const [productos, setProductos] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const agregarProducto = () => {
-    setProductos([...productos, { id: productos.length + 1 }]);
+    setProductos([
+      ...productos,
+      {
+        id: productos.length + 1,
+        idInformacionB,
+        razonSocial: "",
+        marca: "",
+        nombreGenerico: "",
+        numeroRegistros: "",
+        codigoEstandarDatos: "",
+        pesoEmpaqueComercialRX: "",
+        pesoTotalComercialRX: "",
+        pesoEmpaqueComercialOTC: "",
+        pesoTotalComercialOTC: "",
+        pesoEmpaqueInstitucional: "",
+        pesoTotalInstitucional: "",
+        pesoEmpaqueIntrahospitalario: "",
+        pesoTotalIntrahospitalario: "",
+        pesoEmpaqueMuestrasMedicas: "",
+        pesoTotalMuestrasMedicas: "",
+        fabricacionLocal: "",
+        fabricacionImportado: "",
+        totalPesoEmpaques: "",
+        totalPesoProducto: "",
+      },
+    ]);
+  };
+
+  const handleChange = (index, field, value) => {
+    const nuevosProductos = [...productos];
+    nuevosProductos[index][field] = value;
+    setProductos(nuevosProductos);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log(typeof productos, Array.isArray(productos), productos);
+
+    try {
+      const response = await fetch("https://nestbackend.fidare.com/informacion-b/createProductos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify( productos ),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text(); // Obtener respuesta en texto para debug
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log("Respuesta de la API:", result); // Ver respuesta en consola
+      alert("Productos enviados correctamente");
+    } catch (error) {
+      console.error("Error al enviar los productos:", error);
+      alert(`Error: ${error.message}`); // Mostrar error en una alerta
+    }
   };
 
   return (
@@ -38,6 +96,7 @@ export default function FormularioAfiliado({ color }) {
         <div className="text-red-500 text-center mt-3 font-semibold">
           Todos los pesos de la tabla deben estar en gramos.
         </div>
+        <form onSubmit={handleSubmit}>
         <div className="overflow-x-auto mt-4">
           <table className="w-full bg-transparent border-collapse">
             <thead>
@@ -79,17 +138,71 @@ export default function FormularioAfiliado({ color }) {
               </tr>
             </thead>
             <tbody>
-              {productos.map((producto) => (
+              {productos.map((producto, index) => (
                 <tr key={producto.id} className="border-t text-center">
                   <td className="p-2">{producto.id}</td>
-                  <td><input className="border p-1 w-full" type="text" /></td>
-                  <td><input className="border p-1 w-full" type="text" /></td>
-                  <td><input className="border p-1 w-full" type="number" /></td>
-                  <td><input className="border p-1 w-full" type="number" /></td>
-                  {[...Array(15)].map((_, i) => (
-                    <td key={i}><input className="border p-1 w-full" type="number" /></td>
-                  ))}
-                  <td><button className="bg-red-500 text-white px-4 py-1 rounded">Eliminar</button></td>
+                    <td>
+                      <input className="border p-1 w-full" type="text" value={producto.razonSocial} onChange={(e) => handleChange(index, "razonSocial", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="text" value={producto.marca} onChange={(e) => handleChange(index, "marca", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="text" value={producto.nombreGenerico} onChange={(e) => handleChange(index, "nombreGenerico", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.numeroRegistros} onChange={(e) => handleChange(index, "numeroRegistros", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="text" value={producto.codigoEstandarDatos} onChange={(e) => handleChange(index, "codigoEstandarDatos", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialRX} onChange={(e) => handleChange(index, "pesoEmpaqueComercialRX", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialRX} onChange={(e) => handleChange(index, "pesoTotalComercialRX", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialOTC} onChange={(e) => handleChange(index, "pesoEmpaqueComercialOTC", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialOTC} onChange={(e) => handleChange(index, "pesoTotalComercialOTC", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueInstitucional} onChange={(e) => handleChange(index, "pesoEmpaqueInstitucional", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalInstitucional} onChange={(e) => handleChange(index, "pesoTotalInstitucional", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueIntrahospitalario} onChange={(e) => handleChange(index, "pesoEmpaqueIntrahospitalario", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalIntrahospitalario} onChange={(e) => handleChange(index, "pesoTotalIntrahospitalario", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueMuestrasMedicas} onChange={(e) => handleChange(index, "pesoEmpaqueMuestrasMedicas", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalMuestrasMedicas} onChange={(e) => handleChange(index, "pesoTotalMuestrasMedicas", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.fabricacionLocal} onChange={(e) => handleChange(index, "fabricacionLocal", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.fabricacionImportado} onChange={(e) => handleChange(index, "fabricacionImportado", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.totalPesoEmpaques} onChange={(e) => handleChange(index, "totalPesoEmpaques", e.target.value)} />
+                    </td>
+                    <td>
+                      <input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} onChange={(e) => handleChange(index, "totalPesoProducto", e.target.value)} />
+                    </td>
+                    <td>
+                      <button className="bg-red-500 text-white px-4 py-1 rounded" onClick={() => setProductos(productos.filter((_, i) => i !== index))}>
+                        Eliminar
+                      </button>
+                    </td>
                 </tr>
               ))}
             </tbody>
@@ -100,6 +213,7 @@ export default function FormularioAfiliado({ color }) {
         >
           Guardar
         </button>
+        </form>
       </div>
       {/* Modal */}
       {isOpen && (

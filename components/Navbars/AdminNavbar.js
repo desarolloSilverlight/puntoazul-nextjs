@@ -1,8 +1,11 @@
 import React from "react";
+import { useRouter } from "next/router";
 
 import UserDropdown from "components/Dropdowns/UserDropdown.js";
 
 export default function Navbar() {
+  const router = useRouter();
+  const { username } = router.query;
   return (
     <>
       {/* Navbar */}
@@ -38,7 +41,7 @@ export default function Navbar() {
             href="#pablo"
             onClick={(e) => e.preventDefault()}
           >
-            Administrador
+            {username || "Administrador"}
           </a>
         </div>
       </nav>

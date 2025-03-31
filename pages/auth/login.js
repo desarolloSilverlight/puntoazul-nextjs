@@ -15,21 +15,27 @@ export default function Login() {
     setError(""); // Reiniciar error
   
     try {
-      const response = await fetch("http://3.136.246.0:3000/auth/login", {
+      // Realizar la solicitud de inicio de sesión
+      const loginResponse = await fetch("https://nestbackend.fidare.com/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // 🔥 Permitir cookies en la petición
         body: JSON.stringify({ username, password }),
       });
   
-      const data = await response.json();
+      const loginData = await loginResponse.json();
+      console.log(loginData);
   
-      if (!response.ok) {
-        throw new Error(data.message || "Error al iniciar sesión");
+      if (!loginResponse.ok) {
+        throw new Error(loginData.message || "Error al iniciar sesión");
       }
-  
-      // No guardamos el token en localStorage, ya está en cookies
-      router.push("/admin/dashboard");
+      const userName = loginData.id;
+      const perfil = loginData.perfil;
+      localStorage.setItem("perfil", perfil); // Guardar el perfil en localStorage
+      router.push({
+        pathname: "/admin/dashboard",
+        query: { username: userName },
+      });
     } catch (err) {
       setError(err.message);
     }

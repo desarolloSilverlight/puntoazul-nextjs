@@ -12,11 +12,11 @@ export default function Sidebar() {
 
   // Lista de accesos totales disponibles en el frontend
   const ACCESOS_DISPONIBLES = [
-    { nombre: "Formulario F", ruta: "/admin/literalf", icono: "fas fa-clipboard-list" },
-    { nombre: "Formulario B", ruta: "/admin/literalb", icono: "fas fa-clipboard-list" },
+    { nombre: "Formulario Literal F", ruta: "/admin/literalf", icono: "fas fa-clipboard-list" },
+    { nombre: "Formulario Literal B", ruta: "/admin/literalb", icono: "fas fa-clipboard-list" },
     { nombre: "Enviar Formulario", ruta: "/admin/tables", icono: "fas fa-envelope" },
-    { nombre: "Validar F", ruta: "/admin/validarf", icono: "fas fa-clipboard-list" },
-    { nombre: "Validar B", ruta: "/admin/validarb", icono: "fas fa-clipboard-list" },
+    { nombre: "Validar Literal F", ruta: "/admin/validarf", icono: "fas fa-clipboard-list" },
+    { nombre: "Validar Literal B", ruta: "/admin/validarb", icono: "fas fa-clipboard-list" },
     { nombre: "Reportes", ruta: "/admin/maps", icono: "fas fa-table" },
     { nombre: "Usuarios", ruta: "/admin/usuarios", icono: "fas fa-user-circle" },
     { nombre: "Perfiles", ruta: "/admin/perfiles", icono: "fas fa-user-tie" },

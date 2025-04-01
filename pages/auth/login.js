@@ -32,6 +32,7 @@ export default function Login() {
       const userName = loginData.id;
       const perfil = loginData.perfil;
       localStorage.setItem("perfil", perfil); // Guardar el perfil en localStorage
+      localStorage.setItem("username", userName); // Guardar el perfil en localStorage
       router.push({
         pathname: "/admin/dashboard",
         query: { username: userName },

@@ -5,7 +5,7 @@ import UserDropdown from "components/Dropdowns/UserDropdown.js";
 
 export default function Navbar() {
   const router = useRouter();
-  const { username } = router.query;
+  let  username  = localStorage.getItem("username") || "Admin"; // Cambia "default" por el valor que desees usar como predeterminado
   return (
     <>
       {/* Navbar */}
@@ -41,7 +41,7 @@ export default function Navbar() {
             href="#pablo"
             onClick={(e) => e.preventDefault()}
           >
-            {username || "Administrador"}
+            {username}
           </a>
         </div>
       </nav>

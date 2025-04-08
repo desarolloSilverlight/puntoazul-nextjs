@@ -2,13 +2,87 @@ import React, { useState } from "react";
 import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
-  const [productos, setProductos] = useState([]);
+  // Estado único para todos los campos del formulario
+  const [formData, setFormData] = useState({
+    nombre: "",
+    nit: "",
+    direccion: "",
+    ciudad: "",
+    pais: "",
+    correoFacturacion: "",
+    personaContacto: "",
+    telefono: "",
+    celular: "",
+    cargo: "",
+    correoElectronico: "",
+    fechaDiligenciamiento: "",
+    anioReportado: "",
+    empresasRepresentadas: "",
+    reporte: "unitario", // Valor por defecto
+  });
+
   const [isOpen, setIsOpen] = useState(false);
 
-  const agregarProducto = () => {
-    setProductos([...productos, { id: productos.length + 1 }]);
+  // Función para manejar los cambios en los campos del formulario
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
   };
-  
+
+  // Función para manejar el envío del formulario
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validar campos obligatorios
+    if (!formData.nombre || !formData.nit || !formData.correoFacturacion || !formData.personaContacto) {
+      alert("Por favor, completa todos los campos obligatorios.");
+      return;
+    }
+
+    try {
+      // Enviar los datos al backend
+      const response = await fetch("https://tu-backend.com/api/formulario", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      alert("Formulario enviado correctamente.");
+      console.log("Respuesta del backend:", data);
+
+      // Limpiar el formulario después de enviarlo
+      setFormData({
+        nombre: "",
+        nit: "",
+        direccion: "",
+        ciudad: "",
+        pais: "",
+        correoFacturacion: "",
+        personaContacto: "",
+        telefono: "",
+        celular: "",
+        cargo: "",
+        correoElectronico: "",
+        fechaDiligenciamiento: "",
+        anioReportado: "",
+        empresasRepresentadas: "",
+        reporte: "unitario",
+      });
+    } catch (err) {
+      console.error("Error al enviar el formulario:", err);
+      alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");
+    }
+  };
 
   return (
     <div
@@ -22,57 +96,160 @@ export default function FormularioAfiliado({ color }) {
         {/* Título con Icono */}
         <h3 className="text-lg font-semibold flex items-center">
           Información sobre el vinculado&nbsp;
-          <i 
-            className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
+          <i
+            className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
             onClick={() => setIsOpen(true)}
           ></i>
         </h3>
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <input className="border p-2" type="text" placeholder="Nombre o razón social" />
-          <input className="border p-2" type="text" placeholder="NIT" />
-          <input className="border p-2" type="text" placeholder="Dirección" />
-          <input className="border p-2" type="text" placeholder="Ciudad" />
-          <input className="border p-2" type="text" placeholder="Pais Casa matriz" />
-          <input className="border p-2" type="text" placeholder="Correo de Facturación" />
-          <input className="border p-2" type="text" placeholder="Persona de contacto" />
-          <input className="border p-2" type="text" placeholder="Teléfono y extension" />
-          <input className="border p-2" type="text" placeholder="Celular" />
-          <input className="border p-2" type="text" placeholder="Cargo" />
-          <input className="border p-2" type="text" placeholder="Correo electrónico" />
-          <input className="border p-2" type="date" placeholder="Fecha de diligenciamiento" />
-          <input className="border p-2" type="text" placeholder="Año reportado" />
-          <select className="border p-2">
-            {Array.from({ length: 49 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>{i + 1}</option>
-            ))}
-            <option value="50+">50 o más</option>
-          </select>
-        </div>
-        <div className="mt-4">
-          <label className="mr-4">
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-2 gap-4 mt-4">
             <input
-              type="radio"
-              name="reporte"
-              value="unitario"
-              // checked={reporte === "unitario"}
-              // onChange={() => setReporte("unitario")}
-            /> Reporte Unitario
-          </label>
-          <label>
+              className="border p-2"
+              type="text"
+              name="nombre"
+              placeholder="Nombre o razón social"
+              value={formData.nombre}
+              onChange={handleChange}
+            />
             <input
-              type="radio"
-              name="reporte"
-              value="totalizado"
-              // checked={reporte === "totalizado"}
-              // onChange={() => setReporte("totalizado")}
-            /> Reporte Totalizado
-          </label>
-        </div>
-        <button
-          className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-        >
-          Guardar
-        </button>
+              className="border p-2"
+              type="text"
+              name="nit"
+              placeholder="NIT"
+              value={formData.nit}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="direccion"
+              placeholder="Dirección"
+              value={formData.direccion}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="ciudad"
+              placeholder="Ciudad"
+              value={formData.ciudad}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="pais"
+              placeholder="Pais Casa matriz"
+              value={formData.pais}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="correoFacturacion"
+              placeholder="Correo de Facturación"
+              value={formData.correoFacturacion}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="personaContacto"
+              placeholder="Persona de contacto"
+              value={formData.personaContacto}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="telefono"
+              placeholder="Teléfono y extensión"
+              value={formData.telefono}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="celular"
+              placeholder="Celular"
+              value={formData.celular}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="cargo"
+              placeholder="Cargo"
+              value={formData.cargo}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="correoElectronico"
+              placeholder="Correo electrónico"
+              value={formData.correoElectronico}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="date"
+              name="fechaDiligenciamiento"
+              placeholder="Fecha de diligenciamiento"
+              value={formData.fechaDiligenciamiento}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="anioReportado"
+              placeholder="Año reportado"
+              value={formData.anioReportado}
+              onChange={handleChange}
+            />
+            <select
+              className="border p-2"
+              name="empresasRepresentadas"
+              value={formData.empresasRepresentadas}
+              onChange={handleChange}
+            >
+              {Array.from({ length: 49 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+              <option value="50+">50 o más</option>
+            </select>
+          </div>
+          <div className="mt-4">
+            <label className="mr-4">
+              <input
+                type="radio"
+                name="reporte"
+                value="unitario"
+                checked={formData.reporte === "unitario"}
+                onChange={handleChange}
+              />{" "}
+              Reporte Unitario
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="reporte"
+                value="totalizado"
+                checked={formData.reporte === "totalizado"}
+                onChange={handleChange}
+              />{" "}
+              Reporte Totalizado
+            </label>
+          </div>
+          <button
+            type="submit"
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+          >
+            Guardar
+          </button>
+        </form>
       </div>
       {/* Modal */}
       {isOpen && (
@@ -104,18 +281,20 @@ export default function FormularioAfiliado({ color }) {
                     ["10", "Correo Electrónico", "Texto", "Correo de la persona de contacto de la empresa."],
                     ["11", "Fecha de diligenciamiento", "Número", "Fecha de presentación del formulario."],
                     ["12", "Año reportado", "Número", "Año para el cual se reporta la información."],
-                    ["13", "Empresas Representadas", "Número", "Cantidad de empresas representadas en el plan."]
+                    ["13", "Empresas Representadas", "Número", "Cantidad de empresas representadas en el plan."],
                   ].map((row, index) => (
                     <tr key={index} className="hover:bg-gray-100">
                       {row.map((cell, cellIndex) => (
-                        <td key={cellIndex} className="border border-gray-300 px-4 py-2">{cell}</td>
+                        <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                          {cell}
+                        </td>
                       ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <button 
+            <button
               className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
               onClick={() => setIsOpen(false)}
             >
@@ -124,7 +303,7 @@ export default function FormularioAfiliado({ color }) {
           </div>
         </div>
       )}
-    </div>    
+    </div>
   );
 }
 

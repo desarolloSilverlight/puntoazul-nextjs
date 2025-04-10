@@ -98,43 +98,43 @@ export default function FormularioAfiliado({ color }) {
         </div>
         <form onSubmit={handleSubmit}>
         <div className="overflow-x-auto mt-4">
-          <table className="w-full bg-transparent border-collapse">
+          <table className="w-full bg-transparent border-separate table-auto">
             <thead>
               <tr className="bg-gray-200">
-                <th rowSpan={4} colSpan={1} className="p-2 border">No.</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border">Razón Social</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border">Marca</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border">Nombre Generico</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border">Número de Registros</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border">Código de estándar de datos</th>
-                <th colSpan={10} rowSpan={1} className="p-2 border">Distribución y comercialización</th>  
-                <th colSpan={2} rowSpan={1} className="p-2 border">Fabricacion</th>              
-                <th rowSpan={4} colSpan={1} className="p-2 border">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border">TOTAL DE PESO DEL PRODUCTO</th>
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">No.</th>
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Razón Social</th>
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Marca</th>
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Nombre Generico</th>
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Número de Registros</th>
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Código de estándar de datos</th>
+                <th colSpan={10} rowSpan={1} className="p-2 border border-blueGray-500">Distribución y comercialización</th>  
+                <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">Fabricacion</th>              
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
+                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DEL PRODUCTO</th>
               </tr>
               <tr className="bg-gray-200">
-                <th colSpan={4} rowSpan={1} className="p-2 border">Comercial</th>
-                <th colSpan={2} rowSpan={2} className="p-2 border">Institucional</th>
-                <th colSpan={2} rowSpan={2} className="p-2 border">Intrahospitalario</th>
-                <th colSpan={2} rowSpan={2} className="p-2 border">Muestras médicas</th>           
-                <th colSpan={1} rowSpan={3} className="p-2 border">Local</th>           
-                <th colSpan={1} rowSpan={3} className="p-2 border">Importado</th>           
+                <th colSpan={4} rowSpan={1} className="p-2 border border-blueGray-500">Comercial</th>
+                <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Institucional</th>
+                <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Intrahospitalario</th>
+                <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Muestras médicas</th>           
+                <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Local</th>           
+                <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Importado</th>           
               </tr>
               <tr className="bg-gray-200">
-                <th colSpan={2} rowSpan={1} className="p-2 border">RX</th>
-                <th colSpan={2} rowSpan={1} className="p-2 border">OTC</th>
+                <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">RX</th>
+                <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">OTC</th>
               </tr>
               <tr className="bg-gray-200">
-                <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border">Peso total del producto</th>              
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>              
               </tr>
             </thead>
             <tbody>

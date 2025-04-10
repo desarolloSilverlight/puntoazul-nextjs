@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
+  // Estado único para todos los campos del formulario
   const [formData, setFormData] = useState({
     nombre: "",
     nit: "",
@@ -17,63 +18,69 @@ export default function FormularioAfiliado({ color }) {
     fechaDiligenciamiento: "",
     anioReportado: "",
     empresasRepresentadas: "",
-    reporte: "",
+    reporte: "unitario", // Valor por defecto
   });
 
   const [isOpen, setIsOpen] = useState(false);
 
-  // Manejar cambios en los inputs
+  // Función para manejar los cambios en los campos del formulario
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
   };
 
-  // Manejar el envío del formulario
+  // Función para manejar el envío del formulario
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Prevenir el comportamiento por defecto del formulario
-  
-    // Crear el objeto formData a partir del estado actual
-    const formData = {
-      nombre: formData.nombre,
-      nit: formData.nit,
-      direccion: formData.direccion,
-      ciudad: formData.ciudad,
-      pais: formData.pais,
-      correoFacturacion: formData.correoFacturacion,
-      personaContacto: formData.personaContacto,
-      telefono: formData.telefono,
-      celular: formData.celular,
-      cargo: formData.cargo,
-      correoElectronico: formData.correoElectronico,
-      fechaDiligenciamiento: formData.fechaDiligenciamiento,
-      anioReportado: formData.anioReportado,
-      empresasRepresentadas: formData.empresasRepresentadas,
-      reporte: formData.reporte,
-    };
-  
+    e.preventDefault();
+
+    // Validar campos obligatorios
+    if (!formData.nombre || !formData.nit || !formData.correoFacturacion || !formData.personaContacto) {
+      alert("Por favor, completa todos los campos obligatorios.");
+      return;
+    }
+
     try {
       // Enviar los datos al backend
-      const response = await fetch('https://nestbackend.fidare.com/informacion-b/createInfo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Incluir cookies si es necesario
-        body: JSON.stringify(formData), // Convertir los datos a JSON
+      const response = await fetch("https://tu-backend.com/api/formulario", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
       });
-  
-      // Verificar si la respuesta es correcta
+
       if (!response.ok) {
-        const errorText = await response.text(); // Obtener respuesta en texto para debug
-        throw new Error(`Error ${response.status}: ${errorText}`);
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
-  
-      // Procesar la respuesta del servidor
-      const result = await response.json();
-      console.log('Respuesta de la API:', result); // Ver respuesta en consola
-      alert(result.message); // Mostrar mensaje del servidor
-      // localStorage.setItem('idInformacionB', result.data.idInformacionB); // Guardar id en localStorage
-    } catch (error) {
-      console.error('Error al enviar el formulario:', error);
-      alert(`Error: ${error.message}`); // Mostrar error en una alerta
+
+      const data = await response.json();
+      alert("Formulario enviado correctamente.");
+      console.log("Respuesta del backend:", data);
+
+      // Limpiar el formulario después de enviarlo
+      setFormData({
+        nombre: "",
+        nit: "",
+        direccion: "",
+        ciudad: "",
+        pais: "",
+        correoFacturacion: "",
+        personaContacto: "",
+        telefono: "",
+        celular: "",
+        cargo: "",
+        correoElectronico: "",
+        fechaDiligenciamiento: "",
+        anioReportado: "",
+        empresasRepresentadas: "",
+        reporte: "unitario",
+      });
+    } catch (err) {
+      console.error("Error al enviar el formulario:", err);
+      alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");
     }
   };
 
@@ -84,15 +91,17 @@ export default function FormularioAfiliado({ color }) {
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
     >
-      <form onSubmit={handleSubmit}>
-        <div className="p-4 border-b">
-          <h3 className="text-lg font-semibold flex items-center">
-            Información sobre el vinculado&nbsp;
-            <i
-              className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
-              onClick={() => setIsOpen(true)}
-            ></i>
-          </h3>
+      {/* SECCIÓN I */}
+      <div className="p-4 border-b">
+        {/* Título con Icono */}
+        <h3 className="text-lg font-semibold flex items-center">
+          Información sobre el vinculado&nbsp;
+          <i
+            className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
+            onClick={() => setIsOpen(true)}
+          ></i>
+        </h3>
+        <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-4 mt-4">
             <input
               className="border p-2"
@@ -186,6 +195,7 @@ export default function FormularioAfiliado({ color }) {
               className="border p-2"
               type="date"
               name="fechaDiligenciamiento"
+              placeholder="Fecha de diligenciamiento"
               value={formData.fechaDiligenciamiento}
               onChange={handleChange}
             />
@@ -239,8 +249,8 @@ export default function FormularioAfiliado({ color }) {
           >
             Guardar
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
       {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 ">
@@ -270,11 +280,13 @@ export default function FormularioAfiliado({ color }) {
                     ["10", "Correo Electrónico", "Texto", "Correo de la persona de contacto de la empresa."],
                     ["11", "Fecha de diligenciamiento", "Número", "Fecha de presentación del formulario."],
                     ["12", "Año reportado", "Número", "Año para el cual se reporta la información."],
-                    ["13", "Empresas Representadas", "Número", "Cantidad de empresas representadas en el plan."]
+                    ["13", "Empresas Representadas", "Número", "Cantidad de empresas representadas en el plan."],
                   ].map((row, index) => (
                     <tr key={index} className="hover:bg-gray-100">
                       {row.map((cell, cellIndex) => (
-                        <td key={cellIndex} className="border border-gray-300 px-4 py-2">{cell}</td>
+                        <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                          {cell}
+                        </td>
                       ))}
                     </tr>
                   ))}

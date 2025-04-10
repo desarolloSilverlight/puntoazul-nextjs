@@ -94,7 +94,7 @@ export default function FormularioAfiliado({ color }) {
           </button>
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
-          Todos los pesos de la tabla deben estar en gramos.
+          Todos los pesos de la tabla deben estar en gramos
         </div>
         <form onSubmit={handleSubmit}>
           <div className="w-full overflow-x-auto p-4">

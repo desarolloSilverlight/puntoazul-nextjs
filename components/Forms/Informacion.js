@@ -2,13 +2,80 @@ import React, { useState } from "react";
 import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
-  const [productos, setProductos] = useState([]);
+  const [formData, setFormData] = useState({
+    nombre: "",
+    nit: "",
+    direccion: "",
+    ciudad: "",
+    pais: "",
+    correoFacturacion: "",
+    personaContacto: "",
+    telefono: "",
+    celular: "",
+    cargo: "",
+    correoElectronico: "",
+    fechaDiligenciamiento: "",
+    anioReportado: "",
+    empresasRepresentadas: "",
+    reporte: "",
+  });
+
   const [isOpen, setIsOpen] = useState(false);
 
-  const agregarProducto = () => {
-    setProductos([...productos, { id: productos.length + 1 }]);
+  // Manejar cambios en los inputs
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
+
+  // Manejar el envío del formulario
+  const handleSubmit = async (e) => {
+    e.preventDefault(); // Prevenir el comportamiento por defecto del formulario
   
+    // Crear el objeto formData a partir del estado actual
+    const formData = {
+      nombre: formData.nombre,
+      nit: formData.nit,
+      direccion: formData.direccion,
+      ciudad: formData.ciudad,
+      pais: formData.pais,
+      correoFacturacion: formData.correoFacturacion,
+      personaContacto: formData.personaContacto,
+      telefono: formData.telefono,
+      celular: formData.celular,
+      cargo: formData.cargo,
+      correoElectronico: formData.correoElectronico,
+      fechaDiligenciamiento: formData.fechaDiligenciamiento,
+      anioReportado: formData.anioReportado,
+      empresasRepresentadas: formData.empresasRepresentadas,
+      reporte: formData.reporte,
+    };
+  
+    try {
+      // Enviar los datos al backend
+      const response = await fetch('https://nestbackend.fidare.com/informacion-b/createInfo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Incluir cookies si es necesario
+        body: JSON.stringify(formData), // Convertir los datos a JSON
+      });
+  
+      // Verificar si la respuesta es correcta
+      if (!response.ok) {
+        const errorText = await response.text(); // Obtener respuesta en texto para debug
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+  
+      // Procesar la respuesta del servidor
+      const result = await response.json();
+      console.log('Respuesta de la API:', result); // Ver respuesta en consola
+      alert(result.message); // Mostrar mensaje del servidor
+      // localStorage.setItem('idInformacionB', result.data.idInformacionB); // Guardar id en localStorage
+    } catch (error) {
+      console.error('Error al enviar el formulario:', error);
+      alert(`Error: ${error.message}`); // Mostrar error en una alerta
+    }
+  };
 
   return (
     <div
@@ -17,69 +84,168 @@ export default function FormularioAfiliado({ color }) {
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
     >
-      {/* SECCIÓN I */}
-      <div className="p-4 border-b">
-        {/* Título con Icono */}
-        <h3 className="text-lg font-semibold flex items-center">
-          Información sobre el vinculado&nbsp;
-          <i 
-            className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
-            onClick={() => setIsOpen(true)}
-          ></i>
-        </h3>
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <input className="border p-2" type="text" placeholder="Nombre o razón social" />
-          <input className="border p-2" type="text" placeholder="NIT" />
-          <input className="border p-2" type="text" placeholder="Dirección" />
-          <input className="border p-2" type="text" placeholder="Ciudad" />
-          <input className="border p-2" type="text" placeholder="Pais Casa matriz" />
-          <input className="border p-2" type="text" placeholder="Correo de Facturación" />
-          <input className="border p-2" type="text" placeholder="Persona de contacto" />
-          <input className="border p-2" type="text" placeholder="Teléfono y extension" />
-          <input className="border p-2" type="text" placeholder="Celular" />
-          <input className="border p-2" type="text" placeholder="Cargo" />
-          <input className="border p-2" type="text" placeholder="Correo electrónico" />
-          <input className="border p-2" type="date" placeholder="Fecha de diligenciamiento" />
-          <input className="border p-2" type="text" placeholder="Año reportado" />
-          <select className="border p-2">
-            {Array.from({ length: 49 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>{i + 1}</option>
-            ))}
-            <option value="50+">50 o más</option>
-          </select>
-        </div>
-        <div className="mt-4">
-          <label className="mr-4">
+      <form onSubmit={handleSubmit}>
+        <div className="p-4 border-b">
+          <h3 className="text-lg font-semibold flex items-center">
+            Información sobre el vinculado&nbsp;
+            <i
+              className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
+              onClick={() => setIsOpen(true)}
+            ></i>
+          </h3>
+          <div className="grid grid-cols-2 gap-4 mt-4">
             <input
-              type="radio"
-              name="reporte"
-              value="unitario"
-              // checked={reporte === "unitario"}
-              // onChange={() => setReporte("unitario")}
-            /> Reporte Unitario
-          </label>
-          <label>
+              className="border p-2"
+              type="text"
+              name="nombre"
+              placeholder="Nombre o razón social"
+              value={formData.nombre}
+              onChange={handleChange}
+            />
             <input
-              type="radio"
-              name="reporte"
-              value="totalizado"
-              // checked={reporte === "totalizado"}
-              // onChange={() => setReporte("totalizado")}
-            /> Reporte Totalizado
-          </label>
+              className="border p-2"
+              type="text"
+              name="nit"
+              placeholder="NIT"
+              value={formData.nit}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="direccion"
+              placeholder="Dirección"
+              value={formData.direccion}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="ciudad"
+              placeholder="Ciudad"
+              value={formData.ciudad}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="pais"
+              placeholder="Pais Casa matriz"
+              value={formData.pais}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="correoFacturacion"
+              placeholder="Correo de Facturación"
+              value={formData.correoFacturacion}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="personaContacto"
+              placeholder="Persona de contacto"
+              value={formData.personaContacto}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="telefono"
+              placeholder="Teléfono y extensión"
+              value={formData.telefono}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="celular"
+              placeholder="Celular"
+              value={formData.celular}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="cargo"
+              placeholder="Cargo"
+              value={formData.cargo}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="correoElectronico"
+              placeholder="Correo electrónico"
+              value={formData.correoElectronico}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="date"
+              name="fechaDiligenciamiento"
+              value={formData.fechaDiligenciamiento}
+              onChange={handleChange}
+            />
+            <input
+              className="border p-2"
+              type="text"
+              name="anioReportado"
+              placeholder="Año reportado"
+              value={formData.anioReportado}
+              onChange={handleChange}
+            />
+            <select
+              className="border p-2"
+              name="empresasRepresentadas"
+              value={formData.empresasRepresentadas}
+              onChange={handleChange}
+            >
+              {Array.from({ length: 49 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+              <option value="50+">50 o más</option>
+            </select>
+          </div>
+          <div className="mt-4">
+            <label className="mr-4">
+              <input
+                type="radio"
+                name="reporte"
+                value="unitario"
+                checked={formData.reporte === "unitario"}
+                onChange={handleChange}
+              />{" "}
+              Reporte Unitario
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="reporte"
+                value="totalizado"
+                checked={formData.reporte === "totalizado"}
+                onChange={handleChange}
+              />{" "}
+              Reporte Totalizado
+            </label>
+          </div>
+          <button
+            type="submit"
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+          >
+            Guardar
+          </button>
         </div>
-        <button
-          className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-        >
-          Guardar
-        </button>
-      </div>
+      </form>
       {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 ">
           <div className="bg-white p-5 rounded-lg shadow-lg max-h-260-px overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
-            {/* Tabla */}
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-gray-300 text-sm">
                 <thead>
@@ -115,7 +281,7 @@ export default function FormularioAfiliado({ color }) {
                 </tbody>
               </table>
             </div>
-            <button 
+            <button
               className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
               onClick={() => setIsOpen(false)}
             >
@@ -124,7 +290,7 @@ export default function FormularioAfiliado({ color }) {
           </div>
         </div>
       )}
-    </div>    
+    </div>
   );
 }
 

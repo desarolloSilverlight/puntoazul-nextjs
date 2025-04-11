@@ -1,10 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
   let idInformacionB = localStorage.getItem("idInformacionB");
-  const [productos, setProductos] = useState([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [productos, setProductos] = useState([]); // Estado para los productos
+  const [isOpen, setIsOpen] = useState(false); // Estado para el modal
+
+  // Obtener productos desde el backend al cargar el componente
+  useEffect(() => {
+    const fetchProductos = async () => {
+      try {
+        const response = await fetch(`https://nestbackend.fidare.com/informacion-b/getProdValidarB/${idInformacionB}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log("No se encontraron productos para este idInformacionB.");
+            return; // Si no hay productos, no hacemos nada
+          }
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Productos obtenidos:", data);
+        setProductos(data); // Guardar los productos en el estado
+      } catch (error) {
+        console.error("Error al obtener los productos:", error);
+      }
+    };
+
+    if (idInformacionB) {
+      fetchProductos();
+    }
+  }, [idInformacionB]);
+
   const agregarProducto = () => {
     setProductos([
       ...productos,
@@ -42,14 +73,13 @@ export default function FormularioAfiliado({ color }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(typeof productos, Array.isArray(productos), productos);
 
     try {
       const response = await fetch("https://nestbackend.fidare.com/informacion-b/createProductos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify( productos ),
+        body: JSON.stringify(productos),
       });
 
       if (!response.ok) {
@@ -77,8 +107,8 @@ export default function FormularioAfiliado({ color }) {
       <div className="p-4">
         <h3 className="text-lg font-semibold flex items-center">
           Medicamentos&nbsp;
-          <i 
-            className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
+          <i
+            className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
             onClick={() => setIsOpen(true)}
           ></i>
         </h3>
@@ -97,52 +127,57 @@ export default function FormularioAfiliado({ color }) {
           Todos los pesos de la tabla deben estar en gramos.
         </div>
         <form onSubmit={handleSubmit}>
-        <div className="overflow-x-auto mt-4">
-          <table className="w-full bg-transparent border-separate table-auto">
-            <thead>
-              <tr className="bg-gray-200">
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">No.</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Razón Social</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Marca</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Nombre Generico</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Número de Registros</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Código de estándar de datos</th>
-                <th colSpan={10} rowSpan={1} className="p-2 border border-blueGray-500">Distribución y comercialización</th>  
-                <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">Fabricacion</th>              
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
-                <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DEL PRODUCTO</th>
-              </tr>
-              <tr className="bg-gray-200">
-                <th colSpan={4} rowSpan={1} className="p-2 border border-blueGray-500">Comercial</th>
-                <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Institucional</th>
-                <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Intrahospitalario</th>
-                <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Muestras médicas</th>           
-                <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Local</th>           
-                <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Importado</th>           
-              </tr>
-              <tr className="bg-gray-200">
-                <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">RX</th>
-                <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">OTC</th>
-              </tr>
-              <tr className="bg-gray-200">
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>              
-              </tr>
-            </thead>
-            <tbody>
-              {productos.map((producto, index) => (
-                <tr key={producto.id} className="border-t text-center">
-                  <td className="p-2">{producto.id}</td>
+          <div className="overflow-x-auto mt-4">
+            <table className="w-full bg-transparent border-separate table-auto">
+              <thead>
+                <tr className="bg-gray-200">
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">No.</th>
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Razón Social</th>
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Marca</th>
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Nombre Generico</th>
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Número de Registros</th>
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Código de estándar de datos</th>
+                  <th colSpan={10} rowSpan={1} className="p-2 border border-blueGray-500">Distribución y comercialización</th>
+                  <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">Fabricacion</th>
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
+                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DEL PRODUCTO</th>
+                </tr>
+                <tr className="bg-gray-200">
+                  <th colSpan={4} rowSpan={1} className="p-2 border border-blueGray-500">Comercial</th>
+                  <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Institucional</th>
+                  <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Intrahospitalario</th>
+                  <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Muestras médicas</th>
+                  <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Local</th>
+                  <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Importado</th>
+                </tr>
+                <tr className="bg-gray-200">
+                  <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">RX</th>
+                  <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">OTC</th>
+                </tr>
+                <tr className="bg-gray-200">
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productos.map((producto, index) => (
+                  <tr key={producto.id} className="border-t text-center">
+                    <td className="p-2">{producto.id}</td>
                     <td>
-                      <input className="border p-1 w-full" type="text" value={producto.razonSocial} onChange={(e) => handleChange(index, "razonSocial", e.target.value)} />
+                      <input
+                        className="border p-1 w-full"
+                        type="text"
+                        value={producto.razonSocial}
+                        onChange={(e) => handleChange(index, "razonSocial", e.target.value)}
+                      />
                     </td>
                     <td>
                       <input className="border p-1 w-full" type="text" value={producto.marca} onChange={(e) => handleChange(index, "marca", e.target.value)} />
@@ -208,11 +243,7 @@ export default function FormularioAfiliado({ color }) {
             </tbody>
           </table>
         </div>
-        <button
-          className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-        >
-          Guardar
-        </button>
+        <button className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3">Guardar</button>
         </form>
       </div>
       {/* Modal */}

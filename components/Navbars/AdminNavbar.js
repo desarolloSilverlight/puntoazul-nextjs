@@ -1,11 +1,19 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
 import UserDropdown from "components/Dropdowns/UserDropdown.js";
 
 export default function Navbar() {
   const router = useRouter();
-  let  username  = localStorage.getItem("username") || "Admin"; // Cambia "default" por el valor que desees usar como predeterminado
+  const [username, setUsername] = useState("Admin"); // Valor predeterminado
+
+  useEffect(() => {
+    // Verificar si estamos en el cliente antes de acceder a localStorage
+    if (typeof window !== "undefined") {
+      const storedUsername = localStorage.getItem("username") || "Admin";
+      setUsername(storedUsername);
+    }
+  }, []);
   return (
     <>
       {/* Navbar */}

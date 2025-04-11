@@ -1,33 +1,72 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
-const asociados = [
-  { id: 1, nombre: "Juan Pérez", nit: "900123456-7", celular: "3101234567", email: "juan.perez@example.com" },
-  { id: 2, nombre: "María Gómez", nit: "901234567-8", celular: "3207654321", email: "maria.gomez@example.com" },
-  { id: 3, nombre: "Carlos Ramírez", nit: "902345678-9", celular: "3159876543", email: "carlos.ramirez@example.com" },
-  { id: 4, nombre: "Laura Fernández", nit: "903456789-0", celular: "3123456789", email: "laura.fernandez@example.com" },
-];
-
 export default function CardTable({ color }) {
-  const [showForm, setShowForm] = useState(false);
-  const [selectedAsociado, setSelectedAsociado] = useState(null);
+  const [usuarios, setUsuarios] = useState([]); // Estado para los usuarios
+  const [productos, setProductos] = useState([]); // Estado para los productos
+  const [showForm, setShowForm] = useState(false); // Mostrar tabla de validación
+  const [selectedAsociado, setSelectedAsociado] = useState(null); // Usuario seleccionado
+  const [isOpen, setIsOpen] = useState(false); // Estado para el modal
 
-  const handleValidar = (asociado) => {
-    setSelectedAsociado(asociado);
-    setShowForm(true);
+  // Función para obtener usuarios desde el backend
+  const fetchUsuarios = async () => {
+    try {
+      const response = await fetch("https://nestbackend.fidare.com/informacion-b/getValidarB", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Usuarios obtenidos:", data); // Ver usuarios en consola
+      setUsuarios(data); // Guardar usuarios en el estado
+    } catch (error) {
+      console.error("Error al obtener los usuarios:", error);
+    }
   };
 
-  const [isOpen, setIsOpen] = useState(false);
+  // Llamar a fetchUsuarios al cargar el componente
+  useEffect(() => {
+    fetchUsuarios();
+  }, []);
+
+  // Manejar la validación de un usuario
+  const handleValidar = async (idInformacionB) => {
+    console.log("ID de usuario seleccionado:", idInformacionB); // Ver ID en consola
+    try {
+      const response = await fetch(`https://nestbackend.fidare.com/informacion-b/getProdValidarB/${idInformacionB}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log("Productos obtenidos:", data); // Ver productos en consola
+      setProductos(data); // Guardar productos en el estado
+      setShowForm(true); // Mostrar la tabla de validación
+    } catch (error) {
+      console.error("Error al obtener los productos:", error);
+    }
+  };
 
   return (
-    <div className={`relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded ${color === "light" ? "bg-white" : "bg-blueGray-700 text-white"}`}>
+    <div
+      className={`relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded ${
+        color === "light" ? "bg-white" : "bg-blueGray-700 text-white"
+      }`}
+    >
       {!showForm ? (
         <>
           <div className="rounded-t mb-0 px-4 py-3 border-0">
             <h3 className="text-lg font-semibold flex items-center">
               Seleccione un vinculado&nbsp;
-              <i 
-                className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
+              <i
+                className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
                 onClick={() => setIsOpen(true)}
               ></i>
             </h3>
@@ -38,20 +77,23 @@ export default function CardTable({ color }) {
                 <tr className="bg-gray-100">
                   <th className="p-2">Nombre</th>
                   <th className="p-2">NIT</th>
-                  <th className="p-2">Celular</th>
+                  <th className="p-2">Telefono</th>
                   <th className="p-2">Email</th>
                   <th className="p-2">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {asociados.map((asociado) => (
-                  <tr key={asociado.id} className="border-t">
-                    <td className="p-2">{asociado.nombre}</td>
-                    <td className="p-2">{asociado.nit}</td>
-                    <td className="p-2">{asociado.celular}</td>
-                    <td className="p-2">{asociado.email}</td>
+                {usuarios.map((usuario) => (
+                  <tr key={usuario.idInformacionB} className="border-t text-center">
+                    <td className="p-2">{usuario.nombre}</td>
+                    <td className="p-2">{usuario.nit}</td>
+                    <td className="p-2">{usuario.telefono}</td>
+                    <td className="p-2">{usuario.correoFacturacion}</td>
                     <td className="p-2">
-                      <button className="bg-lightBlue-600 text-white font-bold text-xs px-4 py-2 rounded shadow hover:shadow-md" onClick={() => handleValidar(asociado)}>
+                      <button
+                        className="bg-lightBlue-600 text-white font-bold text-xs px-4 py-2 rounded shadow hover:shadow-md"
+                        onClick={() => handleValidar(usuario.idInformacionB)}
+                      >
                         Validar
                       </button>
                     </td>
@@ -84,24 +126,19 @@ export default function CardTable({ color }) {
                         ["4", "Ciudad", "Texto", "Ciudad correspondiente a la Dirección de Notificación."],
                         ["5", "Casa matriz", "Texto", "Nacional de la empresa inscrita al Plan."],
                         ["6", "Correo de Facturación", "Texto", "Correo electrónico de la persona que recibe facturas."],
-                        ["7", "Persona de Contacto", "Texto", "Nombre de la persona encargada de los trámites."],
-                        ["8", "Teléfono", "Número", "Teléfono de contacto con el Representante Legal."],
-                        ["9", "Cargo", "Texto", "Cargo de la persona de contacto."],
-                        ["10", "Correo Electrónico", "Texto", "Correo de la persona de contacto de la empresa."],
-                        ["11", "Fecha de diligenciamiento", "Número", "Fecha de presentación del formulario."],
-                        ["12", "Año reportado", "Número", "Año para el cual se reporta la información."],
-                        ["13", "Empresas Representadas", "Número", "Cantidad de empresas representadas en el plan."]
                       ].map((row, index) => (
                         <tr key={index} className="hover:bg-gray-100">
                           {row.map((cell, cellIndex) => (
-                            <td key={cellIndex} className="border border-gray-300 px-4 py-2">{cell}</td>
+                            <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                              {cell}
+                            </td>
                           ))}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <button 
+                <button
                   className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
                   onClick={() => setIsOpen(false)}
                 >
@@ -112,24 +149,67 @@ export default function CardTable({ color }) {
           )}
         </>
       ) : (
-        <FormValidarB asociado={selectedAsociado} goBack={() => setShowForm(false)} />
+        <FormValidarB productos={productos} goBack={() => setShowForm(false)} fetchUsuarios={fetchUsuarios} />
       )}
     </div>
   );
 }
 
-function FormValidarB({ asociado, goBack }) {
-  const [productos, setProductos] = useState([
-    { id: 1, razonSocial: asociado.nombre || "", nit: asociado.nit || "", pesoEmpaque: "", pesoProducto: "" }
-  ]);
+function FormValidarB({ productos, goBack, fetchUsuarios }) {
+  // Función para manejar la acción de firmar
+  const handleFirmar = async () => {
+    const idInformacionB = productos[0].idInformacionB.idInformacionB; // Obtener el ID
+    try {
+      const response = await fetch(`https://nestbackend.fidare.com/informacion-b/updateEstado/${idInformacionB}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "Aprobado" }), // Enviar el nuevo estado
+      });
 
-  const agregarProducto = () => {
-    setProductos([...productos, { id: productos.length + 1, razonSocial: "", nit: "", pesoEmpaque: "", pesoProducto: "" }]);
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("Estado actualizado a Aprobado:", result);
+      alert("El estado se ha actualizado a Aprobado.");
+      goBack(); // Volver a la tabla principal
+    } catch (error) {
+      console.error("Error al actualizar el estado:", error);
+      alert("Hubo un error al actualizar el estado.");
+    }
+    fetchUsuarios(); // Volver a cargar los usuarios
+    goBack(); // Volver a la tabla principal
   };
 
+  // Función para manejar la acción de rechazar
+  const handleRechazar = async () => {
+    const idInformacionB = productos[0].idInformacionB.idInformacionB; // Obtener el ID
+    try {
+      const response = await fetch(`https://nestbackend.fidare.com/informacion-b/updateEstado/${idInformacionB}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "Rechazado" }), // Enviar el nuevo estado
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("Estado actualizado a Rechazado:", result);
+      alert("El estado se ha actualizado a Rechazado.");
+      goBack(); // Volver a la tabla principal
+    } catch (error) {
+      console.error("Error al actualizar el estado:", error);
+      alert("Hubo un error al actualizar el estado.");
+    }
+    fetchUsuarios(); // Volver a cargar los usuarios
+    goBack(); // Volver a la tabla principal
+  };
   return (
     <div className="p-4 bg-white shadow-lg rounded">
-      <h3 className="text-lg font-semibold">Validacion {productos[0].razonSocial}</h3>
+      <h3 className="text-lg font-semibold">Validacion {productos[0].idInformacionB.nombre}</h3>
       <div className="overflow-x-auto mt-4">
         <table className="w-full bg-transparent border-collapse">
           <thead>
@@ -146,7 +226,6 @@ function FormValidarB({ asociado, goBack }) {
               <th colSpan={4} rowSpan={2} className="p-2 border">Grupo</th>
               <th colSpan={1} rowSpan={4} className="p-2 border">Conformidad según literal</th>
               <th colSpan={1} rowSpan={4} className="p-2 border">Tendencia de comportamiento</th>
-              <th colSpan={1} rowSpan={4} className="p-2 border">Validación HSEQ <br /> Datos / Firma y Grupo</th>
             </tr>
             <tr className="bg-gray-200">
               <th colSpan={4} rowSpan={1} className="p-2 border">Comercial</th>
@@ -183,43 +262,41 @@ function FormValidarB({ asociado, goBack }) {
           <tbody>
             {productos.map((producto, index) => (
               <tr key={index} className="border-t">
-                <td className="p-2">{producto.id}</td>
+                <td className="p-2">{producto.idProductosB}</td>
                 <td><input className="border p-1 w-full" type="text" value={producto.razonSocial} readOnly /></td>
-                <td><input className="border p-1 w-full" type="text" value={producto.nit} readOnly /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><input className="border p-1 w-full" type="number" /></td>
-                <td><button className="bg-lightBlue-600 text-white font-bold text-xs px-4 py-2 rounded shadow hover:shadow-md">
-                  Firmar
-                </button></td>
+                <td><input className="border p-1 w-full" type="text" value={producto.idInformacionB.nit} readOnly /></td>
+                <td><input className="border p-1 w-full" type="text" value={producto.idInformacionB.origen} readOnly /></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialRX} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialRX} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialOTC} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialOTC} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueInstitucional} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalInstitucional} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueIntrahospitalario} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalIntrahospitalario} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueMuestrasMedicas} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalMuestrasMedicas} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.totalPesoEmpaques} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
+                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
+                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
+                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
+                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
+                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
+                <td><input className="border p-1 w-full" type="text" value="CONFORME" readOnly/></td>
+                <td><input className="border p-1 w-full" type="text" value="SE MANTIENE" readOnly/></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div className="mt-4 flex gap-2">
-        <button className="bg-green text-white mr-3 px-4 py-2 rounded">Guardar</button>
+        <button className="bg-green text-white mr-3 px-4 py-2 rounded" onClick={handleFirmar}>Firmar</button>
+        <button className="bg-orange-500 text-white mr-3 px-4 py-2 rounded" onClick={handleRechazar}>Rechazar</button>
         <button className="bg-blueGray-600 text-white px-4 py-2 rounded" onClick={goBack}>Atrás</button>
       </div>
     </div>

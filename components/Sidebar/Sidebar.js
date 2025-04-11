@@ -28,7 +28,12 @@ export default function Sidebar() {
   useEffect(() => {
     const fetchPermisos = async () => {
       try {
-        let nombre = localStorage.getItem("perfil"); // Cambia "default" por el valor que desees usar como predeterminado
+        let nombre = localStorage.getItem("perfil");
+        if (!nombre) {
+          // Si no hay perfil, redirigir al login
+          router.push("/auth/login");
+          return;
+        }
         const response = await fetch("https://nestbackend.fidare.com/users/accesos?idPerfil="+nombre, {
           method: "GET",
           headers: { "Content-Type": "application/json" },

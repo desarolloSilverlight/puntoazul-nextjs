@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
   let idInformacionB = localStorage.getItem("idInformacionB");
+  let estado = localStorage.getItem("estadoInformacionB");
   const [productos, setProductos] = useState([]); // Estado para los productos
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
 
@@ -67,7 +68,39 @@ export default function FormularioAfiliado({ color }) {
 
   const handleChange = (index, field, value) => {
     const nuevosProductos = [...productos];
+  
+    // Actualizar el campo modificado
     nuevosProductos[index][field] = value;
+  
+    // Calcular `totalPesoEmpaques`
+    const pesoEmpaqueComercialRX = parseFloat(nuevosProductos[index].pesoEmpaqueComercialRX) || 0;
+    const pesoEmpaqueComercialOTC = parseFloat(nuevosProductos[index].pesoEmpaqueComercialOTC) || 0;
+    const pesoEmpaqueInstitucional = parseFloat(nuevosProductos[index].pesoEmpaqueInstitucional) || 0;
+    const pesoEmpaqueIntrahospitalario = parseFloat(nuevosProductos[index].pesoEmpaqueIntrahospitalario) || 0;
+    const pesoEmpaqueMuestrasMedicas = parseFloat(nuevosProductos[index].pesoEmpaqueMuestrasMedicas) || 0;
+  
+    nuevosProductos[index].totalPesoEmpaques =
+      pesoEmpaqueComercialRX +
+      pesoEmpaqueComercialOTC +
+      pesoEmpaqueInstitucional +
+      pesoEmpaqueIntrahospitalario +
+      pesoEmpaqueMuestrasMedicas;
+  
+    // Calcular `totalPesoProducto`
+    const pesoTotalComercialRX = parseFloat(nuevosProductos[index].pesoTotalComercialRX) || 0;
+    const pesoTotalComercialOTC = parseFloat(nuevosProductos[index].pesoTotalComercialOTC) || 0;
+    const pesoTotalInstitucional = parseFloat(nuevosProductos[index].pesoTotalInstitucional) || 0;
+    const pesoTotalIntrahospitalario = parseFloat(nuevosProductos[index].pesoTotalIntrahospitalario) || 0;
+    const pesoTotalMuestrasMedicas = parseFloat(nuevosProductos[index].pesoTotalMuestrasMedicas) || 0;
+  
+    nuevosProductos[index].totalPesoProducto =
+      pesoTotalComercialRX +
+      pesoTotalComercialOTC +
+      pesoTotalInstitucional +
+      pesoTotalIntrahospitalario +
+      pesoTotalMuestrasMedicas;
+  
+    // Actualizar el estado
     setProductos(nuevosProductos);
   };
 
@@ -80,7 +113,6 @@ export default function FormularioAfiliado({ color }) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(productos),
-        body: JSON.stringify(productos),
       });
 
       if (!response.ok) {
@@ -90,7 +122,8 @@ export default function FormularioAfiliado({ color }) {
 
       const result = await response.json();
       console.log("Respuesta de la API:", result); // Ver respuesta en consola
-      alert("Productos enviados correctamente");
+      alert(result.message);
+      window.location.reload();
     } catch (error) {
       console.error("Error al enviar los productos:", error);
       alert(`Error: ${error.message}`); // Mostrar error en una alerta
@@ -174,7 +207,7 @@ export default function FormularioAfiliado({ color }) {
                     <td className="p-2">{index+1}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "razonSocial", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -183,25 +216,25 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "marca", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
-                        {producto.numeroRegistros}
+                        {producto.marca}
                       </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "nombreGenerico", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
-                        {producto.numeroRegistros}
+                        {producto.nombreGenerico}
                       </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -210,7 +243,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "codigoEstandarDatos", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -219,7 +252,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueComercialRX", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -228,7 +261,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoTotalComercialRX", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -237,7 +270,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueComercialOTC", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -246,7 +279,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoTotalComercialOTC", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -255,7 +288,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueInstitucional", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -264,7 +297,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoTotalInstitucional", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -273,7 +306,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueIntrahospitalario", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -282,7 +315,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoTotalIntrahospitalario", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -291,7 +324,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueMuestrasMedicas", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -300,7 +333,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "pesoTotalMuestrasMedicas", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -309,7 +342,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "fabricacionLocal", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -318,7 +351,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "fabricacionImportado", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -327,7 +360,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "totalPesoEmpaques", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -336,7 +369,7 @@ export default function FormularioAfiliado({ color }) {
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable
+                        contentEditable={estado !== "Aprobado"}
                         onBlur={(e) => handleChange(index, "totalPesoProducto", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -353,7 +386,13 @@ export default function FormularioAfiliado({ color }) {
             </tbody>
           </table>
         </div>
-        <button className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3">Guardar</button>
+          <button
+            type="submit"
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+            disabled={estado == "Aprobado"} // Bloquear si el estado no es "Aprobado" o si isSaveDisabled es true
+          >
+          Guardar
+          </button>
         </form>
       </div>
       {/* Modal */}

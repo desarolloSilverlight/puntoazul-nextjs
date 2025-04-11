@@ -21,7 +21,40 @@ export default function FormularioAfiliado({ color }) {
   });
   const [estado, setEstado] = useState(""); // Estado del formulario
   const [isDisabled, setIsDisabled] = useState(false); // Controlar si los campos están bloqueados
+  const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
+
+  let timeoutId; // Variable para almacenar el temporizador
+
+  const handleAnoReporteChange = (e) => {
+    const { value } = e.target;
+
+    // Actualizar el estado del formulario inmediatamente para reflejar el input
+    setFormData((prev) => ({ ...prev, anoReporte: value }));
+
+    // Limpiar el temporizador anterior si el usuario sigue escribiendo
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    // Configurar un nuevo temporizador
+    timeoutId = setTimeout(() => {
+      // Validar si el valor tiene 4 dígitos
+      if (value.length === 4) {
+        const anoReporte = parseInt(value, 10);
+        const ano = parseInt(formData.ano, 10);
+
+        if (!isNaN(anoReporte) && !isNaN(ano)) {
+          if (anoReporte > ano - 3) {
+            alert("El año de reporte no puede ser inferior a 3 años al año actual.");
+            setIsSaveDisabled(true); // Deshabilitar el botón "Guardar"
+          } else {
+            setIsSaveDisabled(false); // Habilitar el botón "Guardar"
+          }
+        }
+      }
+    }, 1000); // Esperar 500 ms después de que el usuario deje de escribir
+  };
 
   // Obtener datos del backend al cargar el componente
   useEffect(() => {
@@ -44,6 +77,7 @@ export default function FormularioAfiliado({ color }) {
         const data = await response.json();
         console.log("Datos obtenidos:", data);
         localStorage.setItem("idInformacionB", data.idInformacionB); // Guardar id en localStorage
+        localStorage.setItem("estadoInformacionB", data.estado); // Guardar id en localStorage
         // Llenar los campos del formulario con los datos obtenidos
         setFormData({
           nombre: data.nombre || "",
@@ -54,7 +88,7 @@ export default function FormularioAfiliado({ color }) {
           representante: data.representante || "",
           telefonoRe: data.telefonoRe || "",
           contactoRe: data.contactoRe || "",
-          cargo: data.cargo || "",
+          cargoRe: data.cargoRe || "",
           correoRe: data.correoRe || "",
           ano: data.ano || "",
           anoReporte: data.anoReporte || "",
@@ -62,6 +96,7 @@ export default function FormularioAfiliado({ color }) {
           origen: data.origen || "",
           correoFacturacion: data.correoFacturacion || "",
         });
+
 
         // Manejar el estado del formulario según el valor de "estado"
         setEstado(data.estado);
@@ -90,6 +125,7 @@ export default function FormularioAfiliado({ color }) {
       ...formData,
       idUsuario,
     };
+    console.log("Datos del formulario a enviar:", updatedFormData);
 
     try {
       // Verificar si el usuario ya tiene datos guardados
@@ -241,12 +277,12 @@ export default function FormularioAfiliado({ color }) {
               disabled={isDisabled}
             />
             <input
-              name="cargo"
+              name="cargoRe"
               className="border p-2 w-full"
               type="text"
               placeholder="Cargo"
-              value={formData.cargo}
-              onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+              value={formData.cargoRe}
+              onChange={(e) => setFormData({ ...formData, cargoRe: e.target.value })}
               disabled={isDisabled}
             />
             <input
@@ -277,7 +313,7 @@ export default function FormularioAfiliado({ color }) {
               type="number"
               placeholder="Año reporte"
               value={formData.anoReporte}
-              onChange={(e) => setFormData({ ...formData, anoReporte: e.target.value })}
+              onChange={handleAnoReporteChange} 
               disabled={isDisabled}
             />
             <input
@@ -319,7 +355,7 @@ export default function FormularioAfiliado({ color }) {
           <button
             type="submit"
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={isDisabled}
+            disabled={isDisabled || isSaveDisabled}
           >
             Guardar
           </button>

@@ -80,6 +80,7 @@ export default function FormularioAfiliado({ color }) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(productos),
+        body: JSON.stringify(productos),
       });
 
       if (!response.ok) {
@@ -109,6 +110,8 @@ export default function FormularioAfiliado({ color }) {
           Medicamentos&nbsp;
           <i
             className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
+          <i
+            className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
             onClick={() => setIsOpen(true)}
           ></i>
         </h3>
@@ -124,7 +127,7 @@ export default function FormularioAfiliado({ color }) {
           </button>
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
-          Todos los pesos de la tabla deben estar en gramos.
+          Todos los pesos de la tabla deben estar en gramos
         </div>
         <form onSubmit={handleSubmit}>
           <div className="overflow-x-auto mt-4">
@@ -179,59 +182,167 @@ export default function FormularioAfiliado({ color }) {
                         onChange={(e) => handleChange(index, "razonSocial", e.target.value)}
                       />
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="text" value={producto.marca} onChange={(e) => handleChange(index, "marca", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.numeroRegistros}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="text" value={producto.nombreGenerico} onChange={(e) => handleChange(index, "nombreGenerico", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.numeroRegistros}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.numeroRegistros} onChange={(e) => handleChange(index, "numeroRegistros", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.numeroRegistros}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="text" value={producto.codigoEstandarDatos} onChange={(e) => handleChange(index, "codigoEstandarDatos", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "codigoEstandarDatos", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.codigoEstandarDatos}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialRX} onChange={(e) => handleChange(index, "pesoEmpaqueComercialRX", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoEmpaqueComercialRX", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoEmpaqueComercialRX}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialRX} onChange={(e) => handleChange(index, "pesoTotalComercialRX", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoTotalComercialRX", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoTotalComercialRX}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialOTC} onChange={(e) => handleChange(index, "pesoEmpaqueComercialOTC", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoEmpaqueComercialOTC", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoEmpaqueComercialOTC}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialOTC} onChange={(e) => handleChange(index, "pesoTotalComercialOTC", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoTotalComercialOTC", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoTotalComercialOTC}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueInstitucional} onChange={(e) => handleChange(index, "pesoEmpaqueInstitucional", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoEmpaqueInstitucional", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoEmpaqueInstitucional}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalInstitucional} onChange={(e) => handleChange(index, "pesoTotalInstitucional", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoTotalInstitucional", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoTotalInstitucional}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueIntrahospitalario} onChange={(e) => handleChange(index, "pesoEmpaqueIntrahospitalario", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoEmpaqueIntrahospitalario", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoEmpaqueIntrahospitalario}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalIntrahospitalario} onChange={(e) => handleChange(index, "pesoTotalIntrahospitalario", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoTotalIntrahospitalario", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoTotalIntrahospitalario}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueMuestrasMedicas} onChange={(e) => handleChange(index, "pesoEmpaqueMuestrasMedicas", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoEmpaqueMuestrasMedicas", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoEmpaqueMuestrasMedicas}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.pesoTotalMuestrasMedicas} onChange={(e) => handleChange(index, "pesoTotalMuestrasMedicas", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "pesoTotalMuestrasMedicas", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.pesoTotalMuestrasMedicas}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.fabricacionLocal} onChange={(e) => handleChange(index, "fabricacionLocal", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "fabricacionLocal", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.fabricacionLocal}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.fabricacionImportado} onChange={(e) => handleChange(index, "fabricacionImportado", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "fabricacionImportado", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.fabricacionImportado}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.totalPesoEmpaques} onChange={(e) => handleChange(index, "totalPesoEmpaques", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "totalPesoEmpaques", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.totalPesoEmpaques}
+                      </div>
                     </td>
-                    <td>
-                      <input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} onChange={(e) => handleChange(index, "totalPesoProducto", e.target.value)} />
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "totalPesoProducto", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.totalPesoProducto}
+                      </div>
                     </td>
                     <td>
                       <button className="bg-red-500 text-white px-4 py-1 rounded" onClick={() => setProductos(productos.filter((_, i) => i !== index))}>
@@ -287,7 +398,7 @@ export default function FormularioAfiliado({ color }) {
                 </tbody>
               </table>
             </div>
-            <button 
+            <button
               className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
               onClick={() => setIsOpen(false)}
             >

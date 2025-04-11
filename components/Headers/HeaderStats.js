@@ -16,7 +16,7 @@ export default function HeaderStats() {
               <div className="w-full lg:w-6/12 xl:w-3/12 px-4">
                 <CardStats
                   statSubtitle="Total empaque primario"
-                  statTitle="350,897"
+                  statTitle="350,789"
                   statArrow="up"
                   statPercent="3.48"
                   statPercentColor="text-emerald-500"

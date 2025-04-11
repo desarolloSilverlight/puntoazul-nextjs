@@ -351,6 +351,11 @@ export default function FormularioAfiliado({ color }) {
             />
           </div>
 
+          {/* Sexta fila */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            
+          </div>
+
           {/* Botón Guardar */}
           <button
             type="submit"

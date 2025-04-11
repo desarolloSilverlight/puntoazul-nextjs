@@ -69,6 +69,7 @@ export default function FormularioAfiliado({ color }) {
           setIsDisabled(true); // Bloquear los campos
         } else if (data.estado === "Aprobado") {
           alert("Felicidades, tu formulario ha sido aprobado.");
+          setIsDisabled(true)
         } else if (data.estado === "Rechazado") {
           alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
         }

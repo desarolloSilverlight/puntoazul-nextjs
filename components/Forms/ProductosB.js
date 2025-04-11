@@ -128,62 +128,63 @@ export default function FormularioAfiliado({ color }) {
           Todos los pesos de la tabla deben estar en gramos
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full bg-transparent border-separate table-auto">
+        <div className="w-full overflow-x-auto p-4">
+            <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
                 <tr className="bg-gray-200">
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">No.</th>
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Razón Social</th>
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Marca</th>
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Nombre Generico</th>
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Número de Registros</th>
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">Código de estándar de datos</th>
-                  <th colSpan={10} rowSpan={1} className="p-2 border border-blueGray-500">Distribución y comercialización</th>
-                  <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">Fabricacion</th>
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
-                  <th rowSpan={4} colSpan={1} className="p-2 border border-blueGray-500">TOTAL DE PESO DEL PRODUCTO</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">No.</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Razón Social</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Marca</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Nombre Generico</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Número de Registros</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Código de estándar de datos</th>
+                  <th colSpan={10} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Distribución y comercialización</th>
+                  <th colSpan={2} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Fabricacion</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
+                  <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DEL PRODUCTO</th>
                 </tr>
                 <tr className="bg-gray-200">
-                  <th colSpan={4} rowSpan={1} className="p-2 border border-blueGray-500">Comercial</th>
-                  <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Institucional</th>
-                  <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Intrahospitalario</th>
-                  <th colSpan={2} rowSpan={2} className="p-2 border border-blueGray-500">Muestras médicas</th>
-                  <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Local</th>
-                  <th colSpan={1} rowSpan={3} className="p-2 border border-blueGray-500">Importado</th>
+                  <th colSpan={4} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Comercial</th>
+                  <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Institucional</th>
+                  <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Intrahospitalario</th>
+                  <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Muestras médicas</th>
+                  <th colSpan={1} rowSpan={3} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Local</th>
+                  <th colSpan={1} rowSpan={3} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Importado</th>
                 </tr>
                 <tr className="bg-gray-200">
-                  <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">RX</th>
-                  <th colSpan={2} rowSpan={1} className="p-2 border border-blueGray-500">OTC</th>
+                  <th colSpan={2} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">RX</th>
+                  <th colSpan={2} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">OTC</th>
                 </tr>
                 <tr className="bg-gray-200">
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso de empaques, envases y envolturas</th>
-                  <th colSpan={1} className="p-2 border border-blueGray-500">Peso total del producto</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+                  <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
                 </tr>
               </thead>
               <tbody>
                 {productos.map((producto, index) => (
-                  <tr key={producto.id} className="border-t text-center">
-                    <td className="p-2">{producto.id}</td>
-                    <td>
-                      <input
-                        className="border p-1 w-full"
-                        type="text"
-                        value={producto.razonSocial}
-                        onChange={(e) => handleChange(index, "razonSocial", e.target.value)}
-                      />
+                  <tr key={producto.idProductosB} className="border-t text-center">
+                    <td className="p-2">{index+1}</td>
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable
+                        onBlur={(e) => handleChange(index, "razonSocial", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.razonSocial}
+                      </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable
-                        onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(index, "marca", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.numeroRegistros}
@@ -192,7 +193,7 @@ export default function FormularioAfiliado({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable
-                        onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(index, "nombreGenerico", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.numeroRegistros}

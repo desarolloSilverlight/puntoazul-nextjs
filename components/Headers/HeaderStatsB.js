@@ -2,6 +2,7 @@ import React from "react";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import Image from "next/image";
 
 export default function HeaderStats() {
   const settings = {
@@ -18,10 +19,10 @@ export default function HeaderStats() {
   };
 
   const images = [
-    "/img/carrusel/img1.png",
-    "/img/carrusel/img2.png",
-    "/img/carrusel/img3.png",
-    "/img/carrusel/img4.png"
+    "/img/carrusel/img1.PNG",
+    "/img/carrusel/img2.PNG",
+    "/img/carrusel/img3.PNG",
+    "/img/carrusel/img4.PNG"
   ];
 
   const carouselHeight = '390px'; // Puedes ajustar esto
@@ -32,11 +33,13 @@ export default function HeaderStats() {
       <Slider {...settings} className="absolute inset-0" style={{ height: carouselHeight }}>
         {images.map((img, index) => (
           <div key={index} style={{ height: carouselHeight }}>
-            <img
+            <Image
               src={img}
               alt={`Background ${index + 1}`}
               className="w-full h-full object-cover object-center"
               loading="lazy"
+              width={400}
+              height={200}
             />
           </div>
         ))}

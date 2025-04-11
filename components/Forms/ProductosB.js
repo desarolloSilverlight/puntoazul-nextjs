@@ -110,8 +110,6 @@ export default function FormularioAfiliado({ color }) {
           Medicamentos&nbsp;
           <i
             className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
-          <i
-            className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
             onClick={() => setIsOpen(true)}
           ></i>
         </h3>

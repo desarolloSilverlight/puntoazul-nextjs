@@ -28,28 +28,28 @@ export default function HeaderStats() {
   const carouselHeight = '390px'; // Puedes ajustar esto
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ height: carouselHeight }}>
+    <div className="relative w-full min-h-[390px] overflow-hidden">
       {/* Carrusel principal */}
-      <Slider {...settings} className="absolute inset-0" style={{ height: carouselHeight }}>
+      <Slider {...settings} className="w-full h-full">
         {images.map((img, index) => (
-          <div key={index} style={{ height: carouselHeight }}>
+          <div key={index} className="w-full h-full">
             <Image
               src={img}
               alt={`Background ${index + 1}`}
               className="w-full h-full object-cover object-center"
               loading="lazy"
-              width={400}
-              height={200}
+              width={1920} // mejor resolución si es para pantalla completa
+              height={390}
             />
           </div>
         ))}
       </Slider>
 
       {/* Overlay para contraste */}
-      <div className="absolute inset-0 bg-black/30" style={{ height: carouselHeight }} />
+      <div className="absolute inset-0 bg-black/30 z-0" />
 
       {/* Contenido encima del carrusel */}
-      <div className="relative z-10 h-full flex flex-col justify-between p-8 text-white">
+      <div className="absolute inset-0 z-10 flex flex-col justify-between p-8 text-white">
         <div className="flex justify-between items-start">
           <div className="space-x-6">
             <a href="#" className="hover:underline">Information</a>
@@ -58,7 +58,7 @@ export default function HeaderStats() {
           <span className="font-medium">ADMINISTRATOR</span>
         </div>
 
-        <div>{/* Aquí puedes meter tus tarjetas */}</div>
+        <div>{/* Aquí puedes meter tus tarjetas si las usas en el futuro */}</div>
       </div>
     </div>
   );

@@ -68,6 +68,9 @@ export default function FormularioAfiliado({ color }) {
 
   const handleChange = (index, field, value) => {
     const nuevosProductos = [...productos];
+
+    // Reemplazar comas por puntos en los valores ingresados
+    const sanitizedValue = value.replace(",", ".");
   
     // Actualizar el campo modificado
     nuevosProductos[index][field] = value;

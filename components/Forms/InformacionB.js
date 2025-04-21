@@ -45,8 +45,8 @@ export default function FormularioAfiliado({ color }) {
         const ano = parseInt(formData.ano, 10);
 
         if (!isNaN(anoReporte) && !isNaN(ano)) {
-          if (anoReporte > ano - 3) {
-            alert("El año de reporte no puede ser inferior a 3 años al año actual.");
+          if (ano != anoReporte-1) {
+            alert("El año de reporte solo puede ser del año anterior.");
             setIsSaveDisabled(true); // Deshabilitar el botón "Guardar"
           } else {
             setIsSaveDisabled(false); // Habilitar el botón "Guardar"

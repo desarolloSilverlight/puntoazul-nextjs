@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
@@ -21,7 +21,12 @@ export default function FormularioAfiliado({ color }) {
     reporte: "unitario", // Valor por defecto
   });
 
+  const [estado, setEstado] = useState(""); // Estado del formulario
+  const [isDisabled, setIsDisabled] = useState(false); // Controlar si los campos están bloqueados
+  const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false);
+
+  let timeoutId; // Variable para almacenar el temporizador
 
   // Función para manejar los cambios en los campos del formulario
   const handleChange = (e) => {
@@ -32,55 +37,160 @@ export default function FormularioAfiliado({ color }) {
     }));
   };
 
+  // Función para validar el año de reporte
+  const handleAnoReporteChange = (e) => {
+    const { value } = e.target;
+    setFormData((prev) => ({ ...prev, anioReportado: value }));
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    timeoutId = setTimeout(() => {
+      if (value.length === 4) {
+        const anoReporte = parseInt(value, 10);
+        const ano = new Date().getFullYear(); // Obtiene el año actual
+
+        if (!isNaN(anoReporte) && !isNaN(ano)) {
+          if (anoReporte !== ano - 3) {
+            alert("El año de reporte solo puede ser de hace 3 años.");
+            setIsSaveDisabled(true);
+          } else {
+            setIsSaveDisabled(false);
+          }
+        }
+      }
+    }, 1000);
+  };
+
+  // Obtener datos del backend al cargar el componente
+  useEffect(() => {
+    const fetchData = async () => {
+      const idUsuario = localStorage.getItem("id");
+      try {
+        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getByIdUsuario/${idUsuario}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log("No se encontraron datos para este usuario.");
+            return;
+          }
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Datos obtenidos:", data);
+        localStorage.setItem("idInformacion", data.idInformacion);
+        localStorage.setItem("estadoInformacion", data.estado);
+
+        setFormData({
+          nombre: data.nombre || "",
+          nit: data.nit || "",
+          direccion: data.direccion || "",
+          ciudad: data.ciudad || "",
+          pais: data.pais || "",
+          correoFacturacion: data.correoFacturacion || "",
+          personaContacto: data.personaContacto || "",
+          telefono: data.telefono || "",
+          celular: data.celular || "",
+          cargo: data.cargo || "",
+          correoElectronico: data.correoElectronico || "",
+          fechaDiligenciamiento: data.fechaDiligenciamiento || "",
+          anioReportado: data.anioReportado || "",
+          empresasRepresentadas: data.empresasRepresentadas || "",
+          reporte: data.reporte || "unitario",
+        });
+
+        setEstado(data.estado);
+        if (data.estado === "Pendiente") {
+          setIsDisabled(true);
+        } else if (data.estado === "Aprobado") {
+          alert("Felicidades, tu formulario ha sido aprobado.");
+          setIsDisabled(true);
+        } else if (data.estado === "Rechazado") {
+          alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
+        }
+      } catch (error) {
+        console.error("Error al obtener los datos:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   // Función para manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const idUsuario = localStorage.getItem("id");
 
-    // Validar campos obligatorios
-    if (!formData.nombre || !formData.nit || !formData.correoFacturacion || !formData.personaContacto) {
-      alert("Por favor, completa todos los campos obligatorios.");
+    // Validar que ningún campo esté vacío
+    const camposRequeridos = [
+      'nombre', 'nit', 'direccion', 'ciudad', 'pais', 
+      'correoFacturacion', 'personaContacto', 'telefono', 
+      'celular', 'cargo', 'correoElectronico', 
+      'fechaDiligenciamiento', 'anioReportado', 'empresasRepresentadas'
+    ];
+
+    const camposVacios = camposRequeridos.filter(campo => !formData[campo]);
+
+    if (camposVacios.length > 0) {
+      alert("Por favor completa todos los campos del formulario.");
       return;
     }
 
+    const updatedFormData = {
+      ...formData,
+      idUsuario,
+    };
+    console.log("Datos del formulario a enviar:", updatedFormData);
+
     try {
-      // Enviar los datos al backend
-      const response = await fetch("https://tu-backend.com/api/formulario", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      // Verificar si el usuario ya tiene datos guardados
+      const checkResponse = await fetch(`https://nestbackend.fidare.com/informacion-f/getByIdUsuario/${idUsuario}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
       });
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      if (checkResponse.ok) {
+        // Si ya existen datos, actualizarlos
+        const response = await fetch("https://nestbackend.fidare.com/informacion-f/actualizarInformacion", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedFormData),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log("Formulario actualizado:", result);
+        alert("Formulario actualizado correctamente.");
+      } else if (checkResponse.status === 404) {
+        // Si no existen datos, crearlos
+        const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearInformacion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedFormData),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log("Formulario creado:", result);
+        alert("Formulario creado correctamente.");
+        localStorage.setItem("idInformacionF", result.data.idInformacionF);
+      } else {
+        throw new Error(`Error ${checkResponse.status}: ${response.statusText}`);
       }
-
-      const data = await response.json();
-      alert("Formulario enviado correctamente.");
-      console.log("Respuesta del backend:", data);
-
-      // Limpiar el formulario después de enviarlo
-      setFormData({
-        nombre: "",
-        nit: "",
-        direccion: "",
-        ciudad: "",
-        pais: "",
-        correoFacturacion: "",
-        personaContacto: "",
-        telefono: "",
-        celular: "",
-        cargo: "",
-        correoElectronico: "",
-        fechaDiligenciamiento: "",
-        anioReportado: "",
-        empresasRepresentadas: "",
-        reporte: "unitario",
-      });
-    } catch (err) {
-      console.error("Error al enviar el formulario:", err);
-      alert("Hubo un error al enviar el formulario. Por favor, inténtalo de nuevo.");
+    } catch (error) {
+      console.error("Error al enviar el formulario:", error);
+      alert("Hubo un error al enviar el formulario.");
     }
   };
 
@@ -110,6 +220,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Nombre o razón social"
               value={formData.nombre}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -118,6 +230,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="NIT"
               value={formData.nit}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -126,6 +240,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Dirección"
               value={formData.direccion}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -134,6 +250,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Ciudad"
               value={formData.ciudad}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -142,6 +260,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Pais Casa matriz"
               value={formData.pais}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -150,6 +270,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Correo de Facturación"
               value={formData.correoFacturacion}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -158,6 +280,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Persona de contacto"
               value={formData.personaContacto}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -166,6 +290,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Teléfono y extensión"
               value={formData.telefono}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -174,6 +300,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Celular"
               value={formData.celular}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -182,6 +310,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Cargo"
               value={formData.cargo}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -190,6 +320,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Correo electrónico"
               value={formData.correoElectronico}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -198,6 +330,8 @@ export default function FormularioAfiliado({ color }) {
               placeholder="Fecha de diligenciamiento"
               value={formData.fechaDiligenciamiento}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             />
             <input
               className="border p-2"
@@ -205,14 +339,19 @@ export default function FormularioAfiliado({ color }) {
               name="anioReportado"
               placeholder="Año reportado"
               value={formData.anioReportado}
-              onChange={handleChange}
+              onChange={handleAnoReporteChange}
+              disabled={isDisabled}
+              required
             />
             <select
               className="border p-2"
               name="empresasRepresentadas"
               value={formData.empresasRepresentadas}
               onChange={handleChange}
+              disabled={isDisabled}
+              required
             >
+              <option value="">Seleccione el número de empresas representadas</option>
               {Array.from({ length: 49 }, (_, i) => (
                 <option key={i + 1} value={i + 1}>
                   {i + 1}
@@ -246,6 +385,7 @@ export default function FormularioAfiliado({ color }) {
           <button
             type="submit"
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+            disabled={isDisabled || isSaveDisabled}
           >
             Guardar
           </button>

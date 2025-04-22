@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
 const departamentos = [
@@ -10,7 +10,55 @@ const departamentos = [
 ];
 
 export default function FormularioDepartamentos({ color }) {
+  let idInformacionF = localStorage.getItem("idInformacionF");
+  let estado = localStorage.getItem("estadoInformacion");
   const [filas, setFilas] = useState([]);
+  const [pregunta1, setPregunta1] = useState("");
+  const [pregunta2, setPregunta2] = useState("");
+  const [pregunta3, setPregunta3] = useState("");
+  const [observaciones, setObservaciones] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Obtener datos desde el backend al cargar el componente
+  useEffect(() => {
+    const fetchDatos = async () => {
+      try {
+        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getDistribucionGeografica/${idInformacionF}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log("No se encontraron datos de distribución geográfica para este idInformacionF.");
+            return;
+          }
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Datos de distribución geográfica obtenidos:", data);
+        
+        // Convertir el objeto de departamentos a array de filas
+        const departamentosArray = Object.entries(data.departamentos || {}).map(([departamento, porcentaje]) => ({
+          departamento,
+          porcentaje
+        }));
+        
+        setFilas(departamentosArray);
+        setPregunta1(data.pregunta1 || "");
+        setPregunta2(data.pregunta2 || "");
+        setPregunta3(data.pregunta3 || "");
+        setObservaciones(data.observaciones || "");
+      } catch (error) {
+        console.error("Error al obtener los datos de distribución geográfica:", error);
+      }
+    };
+
+    if (idInformacionF) {
+      fetchDatos();
+    }
+  }, [idInformacionF]);
 
   const agregarFila = () => {
     setFilas([...filas, { departamento: "", porcentaje: "" }]);
@@ -18,10 +66,58 @@ export default function FormularioDepartamentos({ color }) {
 
   const actualizarFila = (index, campo, valor) => {
     const nuevasFilas = [...filas];
-    nuevasFilas[index][campo] = valor;
+    const sanitizedValue = campo === "porcentaje" ? valor.replace(",", ".") : valor;
+    nuevasFilas[index][campo] = sanitizedValue;
     setFilas(nuevasFilas);
   };
-  const [isOpen, setIsOpen] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validar que todos los campos requeridos estén llenos
+    const camposRequeridos = filas.filter(fila => !fila.departamento || !fila.porcentaje);
+    if (camposRequeridos.length > 0) {
+      alert("Por favor complete todos los campos de departamentos y porcentajes.");
+      return;
+    }
+
+    // Convertir el array de filas a un objeto de departamentos
+    const departamentosObj = {};
+    filas.forEach(fila => {
+      if (fila.departamento && fila.porcentaje) {
+        departamentosObj[fila.departamento] = parseFloat(fila.porcentaje);
+      }
+    });
+
+    try {
+      const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearDistribucion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          idInformacionF,
+          departamentos: departamentosObj,
+          pregunta1,
+          pregunta2,
+          pregunta3,
+          observaciones
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log("Respuesta de la API:", result);
+      alert(result.message);
+    } catch (error) {
+      console.error("Error al enviar los datos de distribución geográfica:", error);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
   return (
     <div className={`relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded ${color === "light" ? "bg-white" : "bg-blueGray-700 text-white"}`}>
       <div className="p-4">
@@ -32,77 +128,112 @@ export default function FormularioDepartamentos({ color }) {
             onClick={() => setIsOpen(true)}
           ></i>
         </h3>
-        {/* Botón para agregar filas */}
-        <button onClick={agregarFila} className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3">
-          Agregar Departamento
-        </button>
+        <form onSubmit={handleSubmit}>
+          {/* Botón para agregar filas */}
+          <button 
+            type="button"
+            onClick={agregarFila} 
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+            disabled={estado === "Aprobado"}
+          >
+            Agregar Departamento
+          </button>
 
-        {/* Tabla Dinámica */}
-        <div className="overflow-x-auto mt-4">
-          <table className="w-full bg-transparent border-collapse">
-            <thead>
-              <tr className="bg-blueGray-50 text-blueGray-500">
-                <th className="p-2">Departamento</th>
-                <th className="p-2">AU (%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filas.map((fila, index) => (
-                <tr key={index} className="border-t">
-                  <td>
-                    <select 
-                      className="border p-1 w-full"
-                      value={fila.departamento}
-                      onChange={(e) => actualizarFila(index, "departamento", e.target.value)}
-                    >
-                      <option value="">Seleccione un departamento</option>
-                      {departamentos.map((dep, i) => (
-                        <option key={i} value={dep}>{dep}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input 
-                      type="number" 
-                      className="border p-1 w-full"
-                      value={fila.porcentaje}
-                      onChange={(e) => actualizarFila(index, "porcentaje", e.target.value)}
-                    />
-                  </td>
+          {/* Tabla Dinámica */}
+          <div className="overflow-x-auto mt-4">
+            <table className="w-full bg-transparent border-collapse">
+              <thead>
+                <tr className="bg-blueGray-50 text-blueGray-500">
+                  <th className="p-2">Departamento</th>
+                  <th className="p-2">AU (%)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filas.map((fila, index) => (
+                  <tr key={index} className="border-t">
+                    <td>
+                      <select 
+                        className="border p-1 w-full"
+                        value={fila.departamento}
+                        onChange={(e) => actualizarFila(index, "departamento", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                      >
+                        <option value="">Seleccione un departamento</option>
+                        {departamentos.map((dep, i) => (
+                          <option key={i} value={dep}>{dep}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input 
+                        type="number" 
+                        className="border p-1 w-full"
+                        value={fila.porcentaje}
+                        onChange={(e) => actualizarFila(index, "porcentaje", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Textareas debajo de la tabla */}
-        <div className="mt-6">
-          <label className="block font-medium">¿La empresa actualmente realiza interna o externamente actividades
-            dirigidas al aprovechamiento de materiales (reciclaje, reutilización, reprocesamiento, aprovechamiento
-            energético, tratamiento fisicoquímico, tratamiento térmico, etc.)? (SI/NO) Cuales? Cuenta actualmente con
-             gestores formales o informales para realizar el procesamiento o manejo de estos materiales? (AV)							
-					</label>
-          <textarea className="border p-2 w-full" rows="3"></textarea>
+          {/* Textareas debajo de la tabla */}
+          <div className="mt-6">
+            <label className="block font-medium">¿La empresa actualmente realiza interna o externamente actividades
+              dirigidas al aprovechamiento de materiales (reciclaje, reutilización, reprocesamiento, aprovechamiento
+              energético, tratamiento fisicoquímico, tratamiento térmico, etc.)? (SI/NO) Cuales? Cuenta actualmente con
+               gestores formales o informales para realizar el procesamiento o manejo de estos materiales? (AV)							
+            </label>
+            <textarea 
+              className="border p-2 w-full" 
+              rows="3"
+              value={pregunta1}
+              onChange={(e) => setPregunta1(e.target.value)}
+              disabled={estado === "Aprobado"}
+            ></textarea>
 
-          <label className="block mt-4 font-medium">¿La empresa actualmente realiza actividades dirigidas a la investigación 
-            y desarrollo para la innovación de empaques y envases o mecanismos de ecodiseño? Cuales?  (AW)									
-          </label>
-          <textarea className="border p-2 w-full" rows="3"></textarea>
+            <label className="block mt-4 font-medium">¿La empresa actualmente realiza actividades dirigidas a la investigación 
+              y desarrollo para la innovación de empaques y envases o mecanismos de ecodiseño? Cuales?  (AW)									
+            </label>
+            <textarea 
+              className="border p-2 w-full" 
+              rows="3"
+              value={pregunta2}
+              onChange={(e) => setPregunta2(e.target.value)}
+              disabled={estado === "Aprobado"}
+            ></textarea>
 
-          <label className="block mt-4 font-medium">¿La empresa realiza actividades dirigidas a la sensibilización o 
-            capacitaciones de la gestión ambiental de residuos, al interior o exterior de la empresa? Cuáles? (AX)									
-          </label>
-          <textarea className="border p-2 w-full" rows="3"></textarea>
-          
-          <label className="block mt-4 font-medium">4. ¿Observaciones?</label>
-          <textarea className="border p-2 w-full" rows="3"></textarea>
-        </div>
+            <label className="block mt-4 font-medium">¿La empresa realiza actividades dirigidas a la sensibilización o 
+              capacitaciones de la gestión ambiental de residuos, al interior o exterior de la empresa? Cuáles? (AX)									
+            </label>
+            <textarea 
+              className="border p-2 w-full" 
+              rows="3"
+              value={pregunta3}
+              onChange={(e) => setPregunta3(e.target.value)}
+              disabled={estado === "Aprobado"}
+            ></textarea>
+            
+            <label className="block mt-4 font-medium">4. ¿Observaciones?</label>
+            <textarea 
+              className="border p-2 w-full" 
+              rows="3"
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              disabled={estado === "Aprobado"}
+            ></textarea>
+          </div>
 
-        <button
-          className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-        >
-          Guardar
-        </button>
+          <button
+            type="submit"
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+            disabled={estado === "Aprobado"}
+          >
+            Guardar
+          </button>
+        </form>
       </div>
       {/* Modal */}
       {isOpen && (

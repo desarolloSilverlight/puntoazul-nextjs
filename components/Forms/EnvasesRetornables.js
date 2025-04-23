@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
 export default function TablaRetornabilidad({ color }) {
-  let idInformacionF = localStorage.getItem("idInformacionF");
+  let idInformacionF = localStorage.getItem("idInformacionF") || 0;
   let estado = localStorage.getItem("estadoInformacion");
   const [datos, setDatos] = useState({
     parametros: {
@@ -32,25 +32,6 @@ export default function TablaRetornabilidad({ color }) {
     descripcion: {}
   });
 
-  // Inicializar los objetos vacíos para cada campo
-  useEffect(() => {
-    const initialData = { ...datos };
-    Object.keys(datos.parametros).forEach(key => {
-      initialData.pesoTotal[key] = "";
-      initialData.papel[key] = "";
-      initialData.carton[key] = "";
-      initialData.plasticoRigidos[key] = "";
-      initialData.plasticoFlexibles[key] = "";
-      initialData.vidrio[key] = "";
-      initialData.metalesFerrosos[key] = "";
-      initialData.metalesNoFerrosos[key] = "";
-      initialData.multimaterial1[key] = "";
-      initialData.multimaterialn[key] = "";
-      initialData.descripcion[key] = "";
-    });
-    setDatos(initialData);
-  }, []);
-
   // Obtener datos desde el backend al cargar el componente
   useEffect(() => {
     const fetchDatos = async () => {
@@ -70,7 +51,26 @@ export default function TablaRetornabilidad({ color }) {
 
         const data = await response.json();
         console.log("Envases retornables obtenidos:", data);
-        setDatos(data);
+
+        // Procesar los datos recibidos
+        if (data && data.length > 0) {
+          const primerRegistro = data[0];
+          const nuevosDatos = {
+            ...datos,
+            pesoTotal: JSON.parse(primerRegistro.peso || "{}"),
+            papel: JSON.parse(primerRegistro.papel || "{}"),
+            carton: JSON.parse(primerRegistro.carton || "{}"),
+            plasticoRigidos: JSON.parse(primerRegistro.plasticoRig || "{}"),
+            plasticoFlexibles: JSON.parse(primerRegistro.platicoFlex || "{}"),
+            vidrio: JSON.parse(primerRegistro.vidrio || "{}"),
+            metalesFerrosos: JSON.parse(primerRegistro.metal_ferrosos || "{}"),
+            metalesNoFerrosos: JSON.parse(primerRegistro.metal_no_ferrososs || "{}"),
+            multimaterial1: JSON.parse(primerRegistro.multimaterial1 || "{}"),
+            multimaterialn: JSON.parse(primerRegistro.multimaterialn || "{}"),
+            descripcion: JSON.parse(primerRegistro.descripcion || "{}")
+          };
+          setDatos(nuevosDatos);
+        }
       } catch (error) {
         console.error("Error al obtener los envases retornables:", error);
       }
@@ -98,17 +98,17 @@ export default function TablaRetornabilidad({ color }) {
         credentials: "include",
         body: JSON.stringify({
           idInformacionF,
-          peso: datos.pesoTotal,
-          papel: datos.papel,
-          carton: datos.carton,
-          plasticoRig: datos.plasticoRigidos,
-          platicoFlex: datos.plasticoFlexibles,
-          vidrio: datos.vidrio,
-          metal_ferrosos: datos.metalesFerrosos,
-          metal_no_ferrososs: datos.metalesNoFerrosos,
-          multimaterial1: datos.multimaterial1,
-          multimaterialn: datos.multimaterialn,
-          descripcion: datos.descripcion
+          peso: JSON.stringify(datos.pesoTotal),
+          papel: JSON.stringify(datos.papel),
+          carton: JSON.stringify(datos.carton),
+          plasticoRig: JSON.stringify(datos.plasticoRigidos),
+          platicoFlex: JSON.stringify(datos.plasticoFlexibles),
+          vidrio: JSON.stringify(datos.vidrio),
+          metal_ferrosos: JSON.stringify(datos.metalesFerrosos),
+          metal_no_ferrososs: JSON.stringify(datos.metalesNoFerrosos),
+          multimaterial1: JSON.stringify(datos.multimaterial1),
+          multimaterialn: JSON.stringify(datos.multimaterialn),
+          descripcion: JSON.stringify(datos.descripcion)
         }),
       });
 
@@ -135,133 +135,129 @@ export default function TablaRetornabilidad({ color }) {
     >
       <div className="p-4">
         <h3 className="text-lg font-semibold flex items-center">
-          Cantidad total en peso (toneladas) de materiales de envases y empaques retornables&nbsp;
-          {/* <i 
-            className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
-            onClick={() => setIsOpen(true)}
-          ></i> */}
+          Cantidad total en peso (toneladas) de materiales de envases y empaques retornables
         </h3>
         <form onSubmit={handleSubmit}>
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full bg-transparent border-collapse">
+          <div className="w-full overflow-x-auto p-4">
+            <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
-                <tr className="bg-blueGray-50 text-blueGray-500">
-                  <th className="p-2">Parámetro</th>
-                  <th className="p-2">Peso total (ton) Año base</th>
-                  <th className="p-2">Papel</th>
-                  <th className="p-2">Cartón</th>
-                  <th className="p-2">Plástico Rígidos</th>
-                  <th className="p-2">Plástico Flexibles</th>
-                  <th className="p-2">Vidrio</th>
-                  <th className="p-2">Metales Ferrosos</th>
-                  <th className="p-2">Metales No Ferrosos</th>
-                  <th className="p-2">Multimaterial 1</th>
-                  <th className="p-2">Multimaterial n</th>
-                  <th className="p-2">Descripción del procedimiento</th>
+                <tr className="bg-gray-200">
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Parámetro</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total (ton) Año base</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Papel</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plástico Rígidos</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plástico Flexibles</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metales Ferrosos</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metales No Ferrosos</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial 1</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial n</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Descripción del procedimiento</th>
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(datos.parametros).map(([key, parametro]) => (
-                  <tr key={key} className="border-t">
+                {datos.parametros && Object.entries(datos.parametros).map(([key, parametro]) => (
+                  <tr key={key} className="border-t text-center">
                     <td className="p-2">{parametro}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "pesoTotal", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.pesoTotal[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.pesoTotal[key] || ""}
+                        onChange={(e) => handleChange(key, "pesoTotal", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "papel", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.papel[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.papel[key] || ""}
+                        onChange={(e) => handleChange(key, "papel", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "carton", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.carton[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.carton[key] || ""}
+                        onChange={(e) => handleChange(key, "carton", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "plasticoRigidos", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.plasticoRigidos[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.plasticoRigidos[key] || ""}
+                        onChange={(e) => handleChange(key, "plasticoRigidos", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "plasticoFlexibles", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.plasticoFlexibles[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.plasticoFlexibles[key] || ""}
+                        onChange={(e) => handleChange(key, "plasticoFlexibles", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "vidrio", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.vidrio[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.vidrio[key] || ""}
+                        onChange={(e) => handleChange(key, "vidrio", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "metalesFerrosos", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.metalesFerrosos[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.metalesFerrosos[key] || ""}
+                        onChange={(e) => handleChange(key, "metalesFerrosos", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "metalesNoFerrosos", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.metalesNoFerrosos[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.metalesNoFerrosos[key] || ""}
+                        onChange={(e) => handleChange(key, "metalesNoFerrosos", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "multimaterial1", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.multimaterial1[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.multimaterial1[key] || ""}
+                        onChange={(e) => handleChange(key, "multimaterial1", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "multimaterialn", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.multimaterialn[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.multimaterialn[key] || ""}
+                        onChange={(e) => handleChange(key, "multimaterialn", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(key, "descripcion", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {datos.descripcion[key]}
-                      </div>
+                      <input
+                        type="text"
+                        value={datos.descripcion[key] || ""}
+                        onChange={(e) => handleChange(key, "descripcion", e.target.value)}
+                        disabled={estado === "Aprobado"}
+                        className="w-full p-1 border border-gray-300 rounded"
+                      />
                     </td>
                   </tr>
                 ))}

@@ -6,7 +6,7 @@ const departamentos = [
   "Caquetá", "Casanare", "Cauca", "Cesar", "Chocó", "Córdoba", "Cundinamarca", "Guajira", 
   "Guanía", "Guaviare", "Huila", "Magdalena", "Meta", "Nariño", "Norte de Santander", 
   "Putumayo", "Quindío", "Risaralda", "San Andrés", "Santander", "Sucre", "Tolima", 
-  "Valle del Cauca", "Vaupés", "Vichada", "TOTAL"
+  "Valle del Cauca", "Vaupés", "Vichada"
 ];
 
 export default function FormularioDepartamentos({ color }) {
@@ -39,17 +39,24 @@ export default function FormularioDepartamentos({ color }) {
         const data = await response.json();
         console.log("Datos de distribución geográfica obtenidos:", data);
         
-        // Convertir el objeto de departamentos a array de filas
-        const departamentosArray = Object.entries(data.departamentos || {}).map(([departamento, porcentaje]) => ({
-          departamento,
-          porcentaje
-        }));
-        
-        setFilas(departamentosArray);
-        setPregunta1(data.pregunta1 || "");
-        setPregunta2(data.pregunta2 || "");
-        setPregunta3(data.pregunta3 || "");
-        setObservaciones(data.observaciones || "");
+        if (data && data.length > 0) {
+          const primerRegistro = data[0];
+          
+          // Convertir el string JSON de departamentos a un objeto
+          const departamentosObj = JSON.parse(primerRegistro.departamentos || "{}");
+          
+          // Convertir el objeto de departamentos a array de filas
+          const departamentosArray = Object.entries(departamentosObj).map(([departamento, porcentaje]) => ({
+            departamento,
+            porcentaje: porcentaje.toString()
+          }));
+          
+          setFilas(departamentosArray);
+          setPregunta1(primerRegistro.pregunta1 || "");
+          setPregunta2(primerRegistro.pregunta2 || "");
+          setPregunta3(primerRegistro.pregunta3 || "");
+          setObservaciones(primerRegistro.observaciones || "");
+        }
       } catch (error) {
         console.error("Error al obtener los datos de distribución geográfica:", error);
       }
@@ -96,7 +103,7 @@ export default function FormularioDepartamentos({ color }) {
         credentials: "include",
         body: JSON.stringify({
           idInformacionF,
-          departamentos: departamentosObj,
+          departamentos: JSON.stringify(departamentosObj),
           pregunta1,
           pregunta2,
           pregunta3,
@@ -140,17 +147,17 @@ export default function FormularioDepartamentos({ color }) {
           </button>
 
           {/* Tabla Dinámica */}
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full bg-transparent border-collapse">
+          <div className="w-full overflow-x-auto p-4">
+            <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
-                <tr className="bg-blueGray-50 text-blueGray-500">
-                  <th className="p-2">Departamento</th>
-                  <th className="p-2">AU (%)</th>
+                <tr className="bg-gray-200">
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Departamento</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">AU (%)</th>
                 </tr>
               </thead>
               <tbody>
                 {filas.map((fila, index) => (
-                  <tr key={index} className="border-t">
+                  <tr key={index} className="border-t text-center">
                     <td>
                       <select 
                         className="border p-1 w-full"

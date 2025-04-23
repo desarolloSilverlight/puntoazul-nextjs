@@ -13,8 +13,8 @@ export default function FormularioAfiliado({ color }) {
     contactoRe: "",
     cargo: "",
     correoRe: "",
-    ano: "",
-    anoReporte: "",
+    ano: new Date().getFullYear().toString(), // Inicializar con el año actual
+    anoReporte: (new Date().getFullYear() - 1).toString(), // Inicializar con el año anterior
     titulares: "",
     origen: "",
     correoFacturacion: "",
@@ -304,8 +304,7 @@ export default function FormularioAfiliado({ color }) {
               type="number"
               placeholder="Año"
               value={formData.ano}
-              onChange={(e) => setFormData({ ...formData, ano: e.target.value })}
-              disabled={isDisabled}
+              disabled={true} // Siempre deshabilitado
             />
             <input
               name="anoReporte"
@@ -313,8 +312,7 @@ export default function FormularioAfiliado({ color }) {
               type="number"
               placeholder="Año reporte"
               value={formData.anoReporte}
-              onChange={handleAnoReporteChange} 
-              disabled={isDisabled}
+              disabled={true} // Siempre deshabilitado
             />
             <input
               name="titulares"

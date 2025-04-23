@@ -210,85 +210,137 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
   return (
     <div className="p-4 bg-white shadow-lg rounded">
       <h3 className="text-lg font-semibold">Validacion {productos[0].idInformacionB.nombre}</h3>
-      <div className="overflow-x-auto mt-4">
-        <table className="w-full bg-transparent border-collapse">
+      <div className="w-full overflow-x-auto p-4">
+        <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
           <thead>
             <tr className="bg-gray-200">
-              <th rowSpan={4} colSpan={1} className="p-2 border">Item</th>
-              <th rowSpan={4} colSpan={1} className="p-2 border">Razón Social</th>
-              <th rowSpan={4} colSpan={1} className="p-2 border">NIT</th>
-              <th rowSpan={4} colSpan={1} className="p-2 border">Origen de capital MUNTINACIONAL / NACIONAL</th>
-              <th colSpan={10} rowSpan={1} className="p-2 border">Distribución y comercialización AÑO 2023</th>
-              
-              <th rowSpan={4} className="p-2 border">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
-              <th rowSpan={4} className="p-2 border">TOTAL DE PESO DEL PRODUCTO (2023)</th>
-              <th colSpan={5} rowSpan={2} className="p-2 border">Comparativo Peso Facturación</th>
-              <th colSpan={4} rowSpan={2} className="p-2 border">Grupo</th>
-              <th colSpan={1} rowSpan={4} className="p-2 border">Conformidad según literal</th>
-              <th colSpan={1} rowSpan={4} className="p-2 border">Tendencia de comportamiento</th>
+              <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Item</th>
+              <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Razón Social</th>
+              <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">NIT</th>
+              <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Origen de capital MUNTINACIONAL / NACIONAL</th>
+              <th colSpan={10} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Distribución y comercialización AÑO {new Date().getFullYear() - 1}</th>
+              <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
+              <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DEL PRODUCTO ({new Date().getFullYear() - 1})</th>
+              <th colSpan={4} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Comparativo Peso Facturación</th>
+              <th colSpan={4} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Grupo</th>
+              <th colSpan={1} rowSpan={4} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Conformidad según literal</th>
+              <th colSpan={1} rowSpan={4} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Tendencia de comportamiento</th>
             </tr>
             <tr className="bg-gray-200">
-              <th colSpan={4} rowSpan={1} className="p-2 border">Comercial</th>
-              <th colSpan={2} rowSpan={2} className="p-2 border">Institucional</th>
-              <th colSpan={2} rowSpan={2} className="p-2 border">Intrahospitalario</th>
-              <th colSpan={2} rowSpan={2} className="p-2 border">Muestras médicas</th>           
+              <th colSpan={4} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Comercial</th>
+              <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Institucional</th>
+              <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Intrahospitalario</th>
+              <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Muestras médicas</th>
             </tr>
             <tr className="bg-gray-200">
-              <th colSpan={2} className="p-2 border">RX</th>
-              <th colSpan={2} className="p-2 border">OTC</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">Total Peso Facturación 2023 (KG)</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">Total Peso Facturación 2022 (KG)</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">Total Peso Facturación 2021 (KG)</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">Total Peso Facturación 2020 (KG)</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">Total Peso Facturación 2019 (KG)</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">2020</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">2021</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">2022</th>
-              <th colSpan={1} rowSpan={2} className="p-2 border">2023</th>
+              <th colSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">RX</th>
+              <th colSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">OTC</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {new Date().getFullYear() - 1} (KG)</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {new Date().getFullYear() - 2} (KG)</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {new Date().getFullYear() - 3} (KG)</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {new Date().getFullYear() - 4} (KG)</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{new Date().getFullYear() - 4}</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{new Date().getFullYear() - 3}</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{new Date().getFullYear() - 2}</th>
+              <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{new Date().getFullYear() - 1}</th>
             </tr>
             <tr className="bg-gray-200">
-              <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-              <th colSpan={1} className="p-2 border">Peso total del producto</th>
-              <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-              <th colSpan={1} className="p-2 border">Peso total del producto</th>
-              <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-              <th colSpan={1} className="p-2 border">Peso total del producto</th>
-              <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-              <th colSpan={1} className="p-2 border">Peso total del producto</th>
-              <th colSpan={1} className="p-2 border">Peso de empaques, envases y envolturas</th>
-              <th colSpan={1} className="p-2 border">Peso total del producto</th>              
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
+              <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total del producto</th>
             </tr>
           </thead>
           <tbody>
             {productos.map((producto, index) => (
-              <tr key={index} className="border-t">
+              <tr key={index} className="border-t text-center">
                 <td className="p-2">{producto.idProductosB}</td>
-                <td><input className="border p-1 w-full" type="text" value={producto.razonSocial} readOnly /></td>
-                <td><input className="border p-1 w-full" type="text" value={producto.idInformacionB.nit} readOnly /></td>
-                <td><input className="border p-1 w-full" type="text" value={producto.idInformacionB.origen} readOnly /></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialRX} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialRX} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialOTC} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialOTC} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueInstitucional} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalInstitucional} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueIntrahospitalario} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalIntrahospitalario} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueMuestrasMedicas} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.pesoTotalMuestrasMedicas} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.totalPesoEmpaques} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
-                <td><input className="border p-1 w-full" type="number" value="0" readOnly/></td>
-                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
-                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
-                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
-                <td><input className="border p-1 w-full" type="text" value="Grupo 2" readOnly/></td>
-                <td><input className="border p-1 w-full" type="text" value="CONFORME" readOnly/></td>
-                <td><input className="border p-1 w-full" type="text" value="SE MANTIENE" readOnly/></td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value={producto.razonSocial} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value={producto.idInformacionB.nit} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value={producto.idInformacionB.origen} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialRX} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialRX} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialOTC} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialOTC} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueInstitucional} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalInstitucional} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueIntrahospitalario} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalIntrahospitalario} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueMuestrasMedicas} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalMuestrasMedicas} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.totalPesoEmpaques} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value={(
+                    (Number(producto.pesoTotalComercialRX) || 0) + 
+                    (Number(producto.pesoTotalComercialOTC) || 0) + 
+                    ((Number(producto.pesoTotalInstitucional) || 0) / 2) + 
+                    (Number(producto.pesoTotalMuestrasMedicas) || 0)
+                  ).toFixed(2)} readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value="0" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value="0" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="number" value="0" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value="No info" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value="No info" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value="No info" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value="Grupo 2" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value="CONFORME" readOnly />
+                </td>
+                <td className="min-w-[100px] p-1 border border-gray-300">
+                  <input className="border p-1 w-full" type="text" value="SE MANTIENE" readOnly />
+                </td>
               </tr>
             ))}
           </tbody>

@@ -26,7 +26,21 @@ export default function FormularioAfiliado({ color }) {
 
         const data = await response.json();
         console.log("Empaques plásticos obtenidos:", data);
-        setProductos(data);
+        // Mapear los datos recibidos al formato esperado por el componente
+        const productosFormateados = data.map(producto => ({
+          id: producto.idEmpaque,
+          idInformacionF: producto.idInformacionF,
+          empresaTitular: producto.empresa || "",
+          nombreProducto: producto.nombre_producto || "",
+          pesoUnitario: producto.peso || "",
+          unidades: producto.unidades || "",
+          liquidos: JSON.parse(producto.liquidos || "{}"),
+          otrosProductos: JSON.parse(producto.otros || "{}"),
+          construccion: JSON.parse(producto.construccion || "{}"),
+          excepciones: producto.excepciones || "",
+          prohibiciones: producto.prohibiciones || "",
+        }));
+        setProductos(productosFormateados);
       } catch (error) {
         console.error("Error al obtener los empaques plásticos:", error);
       }
@@ -93,6 +107,8 @@ export default function FormularioAfiliado({ color }) {
     } else if (field.startsWith("construccion.")) {
       const subField = field.split(".")[1];
       nuevosProductos[index].construccion[subField] = sanitizedValue;
+    } else if (field === "excepciones" || field === "prohibiciones") {
+      nuevosProductos[index][field] = value;
     } else {
       nuevosProductos[index][field] = sanitizedValue;
     }
@@ -166,27 +182,27 @@ export default function FormularioAfiliado({ color }) {
           Todos los pesos de la tabla deben estar en gramos.
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full bg-transparent border-collapse">
+          <div className="w-full overflow-x-auto p-4">
+            <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
-                <tr className="bg-blueGray-50 text-blueGray-500 text-center">
-                  <th rowSpan="3" className="p-2">No.</th>
-                  <th rowSpan="3" className="p-2">Empresa Titular</th>
-                  <th rowSpan="3" className="p-2">Nombre Producto</th>
-                  <th rowSpan="3" className="p-2">Peso Unitario (g)</th>
-                  <th rowSpan="3" className="p-2">Unidades</th>
-                  <th colSpan="7" className="p-2 border">Líquidos</th>
-                  <th colSpan="7" className="p-2 border">Otros Productos Plásticos</th>
-                  <th colSpan="7" className="p-2 border">Plásticos de Construcción</th>
-                  <th rowSpan="3" className="p-2">Excepciones Ley 2232</th>
-                  <th rowSpan="3" className="p-2">Prohibiciones Ley 2232</th>
-                  <th rowSpan="3" className="p-2">Acciones</th>
+                <tr className="bg-gray-200">
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">No.</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Empresa Titular</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Nombre Producto</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso Unitario (g)</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades</th>
+                  <th colSpan="7" rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Líquidos</th>
+                  <th colSpan="7" rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Otros Productos Plásticos</th>
+                  <th colSpan="7" rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plásticos de Construcción</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Excepciones Ley 2232</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Prohibiciones Ley 2232</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>
                 </tr>
-                <tr className="bg-gray-200 text-gray-700 text-center">
+                <tr className="bg-gray-200">
                   {[...Array(3)].flatMap(() =>
                     ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"].map(
                       (item, index) => (
-                        <th key={index} className="p-2 border">{item} (g)</th>
+                        <th key={index} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{item} (g)</th>
                       )
                     )
                   )}
@@ -233,7 +249,7 @@ export default function FormularioAfiliado({ color }) {
                       </div>
                     </td>
                     {/* Líquidos */}
-                    {Object.entries(producto.liquidos).map(([key, value]) => (
+                    {Object.entries(producto.liquidos || {}).map(([key, value]) => (
                       <td key={`liquidos-${key}`} className="min-w-[100px] p-1 border border-gray-300">
                         <div
                           contentEditable={estado !== "Aprobado"}
@@ -245,7 +261,7 @@ export default function FormularioAfiliado({ color }) {
                       </td>
                     ))}
                     {/* Otros Productos */}
-                    {Object.entries(producto.otrosProductos).map(([key, value]) => (
+                    {Object.entries(producto.otrosProductos || {}).map(([key, value]) => (
                       <td key={`otros-${key}`} className="min-w-[100px] p-1 border border-gray-300">
                         <div
                           contentEditable={estado !== "Aprobado"}
@@ -257,7 +273,7 @@ export default function FormularioAfiliado({ color }) {
                       </td>
                     ))}
                     {/* Construcción */}
-                    {Object.entries(producto.construccion).map(([key, value]) => (
+                    {Object.entries(producto.construccion || {}).map(([key, value]) => (
                       <td key={`construccion-${key}`} className="min-w-[100px] p-1 border border-gray-300">
                         <div
                           contentEditable={estado !== "Aprobado"}
@@ -268,7 +284,6 @@ export default function FormularioAfiliado({ color }) {
                         </div>
                       </td>
                     ))}
-                    {/* Excepciones */}
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <select
                         className="border p-1 w-full"

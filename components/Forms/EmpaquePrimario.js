@@ -37,7 +37,21 @@ export default function FormularioAfiliado({ color }) {
 
         const data = await response.json();
         console.log("Empaques primarios obtenidos:", data);
-        setProductos(data);
+        // Mapear los datos recibidos al formato esperado por el componente
+        const productosFormateados = data.map(producto => ({
+          id: producto.idEmpaque,
+          idInformacionF: producto.idInformacionF,
+          empresaTitular: producto.empresa || "",
+          nombreProducto: producto.nombre_producto || "",
+          papel: producto.papel || "",
+          metalFerrosos: producto.metal_ferrosos || "",
+          metalNoFerrosos: producto.metal_no_ferrososs || "",
+          carton: producto.carton || "",
+          vidrio: producto.vidrios || "",
+          multimaterial: producto.multimaterial || "",
+          unidades: producto.unidades || "",
+        }));
+        setProductos(productosFormateados);
       } catch (error) {
         console.error("Error al obtener los empaques primarios:", error);
       }
@@ -131,26 +145,26 @@ export default function FormularioAfiliado({ color }) {
           Todos los pesos de la tabla deben estar en gramos.
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="overflow-x-auto mt-4">
-            <table className="w-full bg-transparent border-collapse">
+          <div className="w-full overflow-x-auto p-4">
+            <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
-                <tr className="bg-blueGray-50 text-blueGray-500">
-                  <th className="p-2">No.</th>
-                  <th className="p-2">Empresa Titular</th>
-                  <th className="p-2">Nombre Producto</th>
-                  <th className="p-2">Papel (g)</th>
-                  <th className="p-2">Metal Ferrosos(g)</th>
-                  <th className="p-2">Metal No Ferrosos(g)</th>
-                  <th className="p-2">Cartón (g)</th>
-                  <th className="p-2">Vidrio (g)</th>
-                  <th className="p-2">Multimaterial</th>
-                  <th className="p-2">Unidades</th>
-                  <th className="p-2">Acciones</th>
+                <tr className="bg-gray-200">
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">No.</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Empresa Titular</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Nombre Producto</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Papel (g)</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal Ferrosos(g)</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal No Ferrosos(g)</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón (g)</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio (g)</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {productos.map((producto, index) => (
-                  <tr key={producto.id} className="border-t">
+                  <tr key={producto.id} className="border-t text-center">
                     <td className="p-2">{index + 1}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div

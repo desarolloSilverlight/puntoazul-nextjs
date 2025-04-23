@@ -63,6 +63,13 @@ export default function FormularioAfiliado({ color }) {
     }, 1000);
   };
 
+  // Función para formatear la fecha
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
   // Obtener datos del backend al cargar el componente
   useEffect(() => {
     const fetchData = async () => {
@@ -83,8 +90,8 @@ export default function FormularioAfiliado({ color }) {
 
         const data = await response.json();
         console.log("Datos obtenidos:", data);
-        localStorage.setItem("idInformacion", data.idInformacion);
-        localStorage.setItem("estadoInformacion", data.estado);
+        localStorage.setItem("idInformacionF", data.idInformacionF);
+        localStorage.setItem("estadoInformacionF", data.estado);
 
         setFormData({
           nombre: data.nombre || "",
@@ -92,16 +99,16 @@ export default function FormularioAfiliado({ color }) {
           direccion: data.direccion || "",
           ciudad: data.ciudad || "",
           pais: data.pais || "",
-          correoFacturacion: data.correoFacturacion || "",
-          personaContacto: data.personaContacto || "",
+          correoFacturacion: data.correo_facturacion || "",
+          personaContacto: data.persona_contacto || "",
           telefono: data.telefono || "",
           celular: data.celular || "",
           cargo: data.cargo || "",
-          correoElectronico: data.correoElectronico || "",
-          fechaDiligenciamiento: data.fechaDiligenciamiento || "",
-          anioReportado: data.anioReportado || "",
-          empresasRepresentadas: data.empresasRepresentadas || "",
-          reporte: data.reporte || "unitario",
+          correoElectronico: data.correo_electronico || "",
+          fechaDiligenciamiento: formatDate(data.fecha_diligenciamiento) || "",
+          anioReportado: data.ano_reportado || "",
+          empresasRepresentadas: data.empresas || "",
+          reporte: data.tipo_reporte || "unitario",
         });
 
         setEstado(data.estado);

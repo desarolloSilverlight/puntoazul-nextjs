@@ -193,7 +193,7 @@ export default function FormularioAfiliado({ color }) {
         alert("Formulario creado correctamente.");
         localStorage.setItem("idInformacionF", result.data.idInformacionF);
       } else {
-        throw new Error(`Error ${checkResponse.status}: ${response.statusText}`);
+        throw new Error(`Error ${checkResponse.status}: ${checkResponse.statusText}`);
       }
     } catch (error) {
       console.error("Error al enviar el formulario:", error);

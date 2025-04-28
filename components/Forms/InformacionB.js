@@ -383,12 +383,21 @@ export default function FormularioAfiliado({ color }) {
                 </thead>
                 <tbody>
                   {[
-                    ["1", "Nombre o Razón Social", "Texto", "Razón social o nombre de la persona natural o jurídica participante."],
-                    ["2", "NIT", "Número", "Número de Identificación Tributaria."],
-                    ["3", "Dirección", "Texto", "Dirección de recepción de notificaciones."],
-                    ["4", "Ciudad", "Texto", "Ciudad correspondiente a la Dirección de Notificación."],
-                    ["5", "Correo de Facturación", "Texto", "Correo electrónico de la persona que recibe facturas."],
-                    ["6", "Persona de Contacto", "Texto", "Nombre de la persona encargada de los trámites."],
+                    ["1", "Nombre o Razón Social", "Texto", "Razón social/Nombre de la persona natural o jurídica participante del plan colectivo de posconsumo de medicamentos de uso humano que presenta la información. Asociado a la Corporación Punto Azul."],
+                    ["2", "NIT", "Número", "Número de Identificación Tributaria de la persona natural o jurídica."],
+                    ["3", "Dirección", "Texto", "Dirección de recepción de notificaciones realizadas en los trámites ante la Autoridad Nacional de Licencias Ambientales - ANLA y la Corporación Punto Azul - CPA."],
+                    ["4", "Ciudad", "Texto", "Ciudad correspondiente a la dirección de notificación."],
+                    ["5", "Telefono", "Número", "Teléfono de contacto de la persona encargada del trámite por parte de la empresa."],
+                    ["6", "Representante Legal", "Texto", "Nombre del representante legal de la empresa."],
+                    ["7", "Telefono", "Número", "Teléfono de contacto con el Representante Legal para notificaciones correspondientes."],
+                    ["8", "Persona de Contacto", "Texto", "Nombre de contacto de la persona por parte de la empresa, quien está a cargo de los trámites, temas o actividades competentes ante la CPA."],
+                    ["9", "Cargo", "Texto", "Cargo de la persona de contacto por parte de la empresa a quien la CPA comunica la gestión, reuniones y otras actividades en el marco del objeto social de la CPA."],
+                    ["10", "Correo electrónico", "Texto", "Correo electrónico de la persona de contacto de la empresa."],
+                    ["11", "Año", "Número", "Fecha de presentación del Formato del Literal B. (año actual)"],
+                    ["12", "Año reporte de productos", "Número", "Año para el cual se reporta la información respecto a registros sanitarios y productos comercializados. Año inmediatamente anterior al vigente."],
+                    ["13", "Titulares representados", "Número", "Cantidad de titulares de registros sanitarios representados en el plan por la empresa asociada a la Corporación, adicional a esta última."],
+                    ["14", "Capital de origen (Nacional o Multinacional)", "Texto", "Diligencie si el capital de origen de su compañía es Nacional o Multinacional."],
+                    ["15", "Correo de Facturación", "Texto", "Diligencie el correo de facturación de su compañía."],
                   ].map((row, index) => (
                     <tr key={index} className="hover:bg-gray-100">
                       {row.map((cell, cellIndex) => (

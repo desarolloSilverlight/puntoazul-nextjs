@@ -229,13 +229,16 @@ export default function FormularioAfiliado({ color }) {
                       </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "multimaterial", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      <select
+                        value={producto.multimaterial}
+                        onChange={(e) => handleChange(index, "multimaterial", e.target.value)}
+                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={estado === "Aprobado"}
                       >
-                        {producto.multimaterial}
-                      </div>
+                        <option value="">Seleccione...</option>
+                        <option value="Sí">Sí</option>
+                        <option value="No">No</option>
+                      </select>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div

@@ -125,6 +125,12 @@ export default function FormularioAfiliado({ color }) {
       ...formData,
       idUsuario,
     };
+
+    // Mostrar un alert de confirmación
+    const isConfirmed = window.confirm("¿Estás seguro de que los datos ingresados son correctos?");
+    if (!isConfirmed) {
+      return; // Si el usuario cancela, no se ejecuta la lógica de guardar
+    }
     console.log("Datos del formulario a enviar:", updatedFormData);
 
     try {

@@ -301,6 +301,7 @@ export default function FormularioAfiliado({ color }) {
                         <option value="residuos">Empacar o envasar residuos peligrosos</option>
                         <option value="reciclado">Aquellos productos fabricados con 100% de materia reciclada</option>
                         <option value="pitillos">Pitillos adheridos a envases de hasta 300 ml con sistema de retención</option>
+                        <option value="no_aplica">No Aplica</option>
                       </select>
                     </td>
                     {/* Prohibiciones */}
@@ -325,6 +326,7 @@ export default function FormularioAfiliado({ color }) {
                         <option value="laminas_alimentos">Láminas para servir o envolver alimentos (2030)</option>
                         <option value="empaques_frutas">Empaques para frutas, verduras y tubérculos frescos (2030)</option>
                         <option value="adhesivos_etiquetas">Adhesivos, etiquetas o distintivos en vegetales (2030)</option>
+                        <option value="no_aplica">No Aplica</option>
                       </select>
                     </td>
                     <td>

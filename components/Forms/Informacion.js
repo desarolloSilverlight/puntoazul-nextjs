@@ -176,7 +176,7 @@ export default function FormularioAfiliado({ color }) {
         const result = await response.json();
         console.log("Formulario actualizado:", result);
         alert("Formulario actualizado correctamente.");
-      } else if (checkResponse.status === 404) {
+      } else if (checkResponse.status === 500) {
         // Si no existen datos, crearlos
         const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearInformacion", {
           method: "POST",

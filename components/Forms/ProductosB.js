@@ -108,7 +108,11 @@ export default function FormularioAfiliado({ color }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    // Mostrar un alert de confirmación
+    const isConfirmed = window.confirm("¿Estás seguro de que los datos ingresados son correctos?");
+    if (!isConfirmed) {
+      return; // Si el usuario cancela, no se ejecuta la lógica de guardar
+    }
     try {
       const response = await fetch("https://nestbackend.fidare.com/informacion-b/createProductos", {
         method: "POST",

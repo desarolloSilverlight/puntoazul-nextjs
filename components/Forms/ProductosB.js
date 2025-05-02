@@ -58,8 +58,7 @@ export default function FormularioAfiliado({ color }) {
         pesoTotalIntrahospitalario: "",
         pesoEmpaqueMuestrasMedicas: "",
         pesoTotalMuestrasMedicas: "",
-        fabricacionLocal: "",
-        fabricacionImportado: "",
+        fabricacion: "",
         totalPesoEmpaques: "",
         totalPesoProducto: "",
       },
@@ -346,19 +345,10 @@ export default function FormularioAfiliado({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "fabricacionLocal", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(index, "fabricacion", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
-                        {producto.fabricacionLocal}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "fabricacionImportado", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.fabricacionImportado}
+                        {producto.fabricacion}
                       </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">

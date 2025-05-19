@@ -319,12 +319,6 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
                   <input className="border p-1 w-full" type="number" value="0" readOnly />
                 </td>
                 <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value="0" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value="No info" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
                   <input className="border p-1 w-full" type="text" value="No info" readOnly />
                 </td>
                 <td className="min-w-[100px] p-1 border border-gray-300">

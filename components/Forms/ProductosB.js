@@ -178,7 +178,7 @@ export default function FormularioAfiliado({ color }) {
                   <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Número de Registros</th>
                   <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Código de estándar de datos</th>
                   <th colSpan={10} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Distribución y comercialización</th>
-                  <th colSpan={2} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Fabricacion</th>
+                  <th colSpan={1} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Fabricacion</th>
                   <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
                   <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DEL PRODUCTO</th>
                 </tr>
@@ -187,8 +187,7 @@ export default function FormularioAfiliado({ color }) {
                   <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Institucional</th>
                   <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Intrahospitalario</th>
                   <th colSpan={2} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Muestras médicas</th>
-                  <th colSpan={1} rowSpan={3} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Local</th>
-                  <th colSpan={1} rowSpan={3} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Importado</th>
+                  <th colSpan={1} rowSpan={3} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Local / Importado</th>
                 </tr>
                 <tr className="bg-gray-200">
                   <th colSpan={2} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">RX</th>
@@ -347,13 +346,21 @@ export default function FormularioAfiliado({ color }) {
                       </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "fabricacion", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.fabricacion}
-                      </div>
+                      {estado !== "Aprobado" ? (
+                        <select
+                          className="border p-1 w-full"
+                          value={producto.fabricacion || ""}
+                          onChange={(e) => handleChange(index, "fabricacion", e.target.value)}
+                        >
+                          <option value="">Seleccione...</option>
+                          <option value="Local">Local</option>
+                          <option value="Importado">Importado</option>
+                        </select>
+                      ) : (
+                        <div className="w-fit max-w-full p-1 border border-transparent bg-gray-100 cursor-not-allowed">
+                          {producto.fabricacion}
+                        </div>
+                      )}
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div

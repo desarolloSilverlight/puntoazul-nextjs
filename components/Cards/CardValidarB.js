@@ -207,6 +207,34 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
     fetchUsuarios(); // Volver a cargar los usuarios
     goBack(); // Volver a la tabla principal
   };
+  // Calcula los totales sumando todos los productos
+  const resumen = productos.reduce(
+    (acc, producto) => ({
+      pesoEmpaqueComercialRX: (acc.pesoEmpaqueComercialRX || 0) + (Number(producto.pesoEmpaqueComercialRX) || 0),
+      pesoTotalComercialRX: (acc.pesoTotalComercialRX || 0) + (Number(producto.pesoTotalComercialRX) || 0),
+      pesoEmpaqueComercialOTC: (acc.pesoEmpaqueComercialOTC || 0) + (Number(producto.pesoEmpaqueComercialOTC) || 0),
+      pesoTotalComercialOTC: (acc.pesoTotalComercialOTC || 0) + (Number(producto.pesoTotalComercialOTC) || 0),
+      pesoEmpaqueInstitucional: (acc.pesoEmpaqueInstitucional || 0) + (Number(producto.pesoEmpaqueInstitucional) || 0),
+      pesoTotalInstitucional: (acc.pesoTotalInstitucional || 0) + (Number(producto.pesoTotalInstitucional) || 0),
+      pesoEmpaqueIntrahospitalario: (acc.pesoEmpaqueIntrahospitalario || 0) + (Number(producto.pesoEmpaqueIntrahospitalario) || 0),
+      pesoTotalIntrahospitalario: (acc.pesoTotalIntrahospitalario || 0) + (Number(producto.pesoTotalIntrahospitalario) || 0),
+      pesoEmpaqueMuestrasMedicas: (acc.pesoEmpaqueMuestrasMedicas || 0) + (Number(producto.pesoEmpaqueMuestrasMedicas) || 0),
+      pesoTotalMuestrasMedicas: (acc.pesoTotalMuestrasMedicas || 0) + (Number(producto.pesoTotalMuestrasMedicas) || 0),
+      totalPesoEmpaques: (acc.totalPesoEmpaques || 0) + (Number(producto.totalPesoEmpaques) || 0),
+      totalPesoProducto: (acc.totalPesoProducto || 0) + (Number(producto.totalPesoProducto) || 0),
+      // Puedes agregar más campos si necesitas
+    }),
+    {}
+  );
+
+  // Calcula el campo especial de la fórmula
+  const totalFormula = (
+    (Number(resumen.pesoTotalComercialRX) || 0) +
+    (Number(resumen.pesoTotalComercialOTC) || 0) +
+    ((Number(resumen.pesoTotalInstitucional) || 0) / 2) +
+    (Number(resumen.pesoTotalMuestrasMedicas) || 0)
+  ).toFixed(2);
+
   return (
     <div className="p-4 bg-white shadow-lg rounded">
       <h3 className="text-lg font-semibold">Validacion {productos[0].idInformacionB.nombre}</h3>
@@ -256,85 +284,78 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
             </tr>
           </thead>
           <tbody>
-            {productos.map((producto, index) => (
-              <tr key={index} className="border-t text-center">
-                <td className="p-2">{producto.idProductosB}</td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value={producto.razonSocial} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value={producto.idInformacionB.nit} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value={producto.idInformacionB.origen} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialRX} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialRX} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueComercialOTC} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalComercialOTC} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueInstitucional} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalInstitucional} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueIntrahospitalario} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalIntrahospitalario} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoEmpaqueMuestrasMedicas} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.pesoTotalMuestrasMedicas} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.totalPesoEmpaques} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={producto.totalPesoProducto} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value={(
-                    (Number(producto.pesoTotalComercialRX) || 0) + 
-                    (Number(producto.pesoTotalComercialOTC) || 0) + 
-                    ((Number(producto.pesoTotalInstitucional) || 0) / 2) + 
-                    (Number(producto.pesoTotalMuestrasMedicas) || 0)
-                  ).toFixed(2)} readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value="0" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="number" value="0" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value="No info" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value="No info" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value="Grupo 2" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value="CONFORME" readOnly />
-                </td>
-                <td className="min-w-[100px] p-1 border border-gray-300">
-                  <input className="border p-1 w-full" type="text" value="SE MANTIENE" readOnly />
-                </td>
-              </tr>
-            ))}
+            <tr className="border-t text-center font-bold bg-blue-50">
+              <td className="p-2">RESUMEN</td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value={productos[0]?.idInformacionB.nombre || ""} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value={productos[0]?.idInformacionB.nit || ""} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value={productos[0]?.idInformacionB.origen || ""} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoEmpaqueComercialRX?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoTotalComercialRX?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoEmpaqueComercialOTC?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoTotalComercialOTC?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoEmpaqueInstitucional?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoTotalInstitucional?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoEmpaqueIntrahospitalario?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoTotalIntrahospitalario?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoEmpaqueMuestrasMedicas?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.pesoTotalMuestrasMedicas?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.totalPesoEmpaques?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={resumen.totalPesoProducto?.toFixed(2) || 0} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value={totalFormula} readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value="0" readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-full" type="number" value="0" readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value="No info" readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value="No info" readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value="Grupo 2" readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value="CONFORME" readOnly />
+              </td>
+              <td className="min-w-[100px] p-1 border border-gray-300">
+                <input className="border p-1 w-fit" type="text" value="SE MANTIENE" readOnly />
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

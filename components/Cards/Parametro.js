@@ -58,38 +58,11 @@ export default function Parametro({ idParametro, onBack }) {
     setParametro((prev) => ({ ...prev, nombre: e.target.value }));
   };
 
-  // Manejar cambios en la tabla JSON
-  const handleJsonChange = (idx, key, value) => {
-    setJsonArray((prev) =>
-      prev.map((item, i) =>
-        i === idx ? { ...item, [key]: value } : item
-      )
-    );
-  };
-
-  // Manejar cambios en rango_kg (min o max)
-  const handleRangoKgChange = (idx, subKey, value) => {
-    setJsonArray((prev) =>
-      prev.map((item, i) =>
-        i === idx
-          ? {
-              ...item,
-              rango_kg: {
-                ...item.rango_kg,
-                [subKey]: value,
-              },
-            }
-          : item
-      )
-    );
-  };
-
   // Agregar fila
   const handleAddRow = () => {
-    setJsonArray((prev) => [
-      ...prev,
-      { grupo: "", valor_facturar_2024: "", rango_kg: { min: "", max: "" } },
-    ]);
+    const emptyRow = {};
+    dynamicColumns.forEach(col => emptyRow[col] = "");
+    setJsonArray(prev => [...prev, emptyRow]);
   };
 
   // Eliminar fila
@@ -133,13 +106,13 @@ export default function Parametro({ idParametro, onBack }) {
     }
   };
 
-  // Definir las columnas a mostrar
-  const columns = [
-    { key: "grupo", label: "Grupo" },
-    { key: "valor_facturar_2024", label: "Valor Facturar" },
-    { key: "rango_kg.min", label: "Rango KG Mín" },
-    { key: "rango_kg.max", label: "Rango KG Máx" },
-  ];
+  const dynamicColumns = React.useMemo(() => {
+    if (!jsonArray.length) return [];
+    // Obtiene todas las claves únicas de todos los objetos
+    const keys = new Set();
+    jsonArray.forEach(obj => Object.keys(obj).forEach(k => keys.add(k)));
+    return Array.from(keys);
+  }, [jsonArray]);
 
   return (
     <div className="relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded bg-white">
@@ -167,6 +140,7 @@ export default function Parametro({ idParametro, onBack }) {
             {/* Nombre editable */}
             <div className="mb-4">
               <label className="block font-bold mb-1">Nombre del Parámetro</label>
+              <div className="grid grid-cols-2 gap-4 mb-4 justify-items-center">
               <input
                 name="nombre"
                 className="border p-2 w-full"
@@ -176,6 +150,14 @@ export default function Parametro({ idParametro, onBack }) {
                 required
                 onChange={handleNombreChange}
               />
+              <button
+                  type="button"
+                  className="bg-green text-white px-3 py-1 rounded mt-2 max-w-sm"
+                  onClick={handleAddRow}
+                >
+                  + Agregar fila
+                </button>
+              </div>
             </div>
             {/* Tabla editable para el JSON */}
             <div className="mb-4">
@@ -184,8 +166,8 @@ export default function Parametro({ idParametro, onBack }) {
                 <table className="min-w-full border border-gray-300 mb-2">
                   <thead>
                     <tr>
-                      {columns.map((col) => (
-                        <th key={col.key} className="p-2 border">{col.label}</th>
+                      {dynamicColumns.map((col) => (
+                        <th key={col} className="p-2 border">{col}</th>
                       ))}
                       <th className="p-2 border">Acciones</th>
                     </tr>
@@ -193,49 +175,34 @@ export default function Parametro({ idParametro, onBack }) {
                   <tbody>
                     {jsonArray.map((item, idx) => (
                       <tr key={idx}>
-                        {/* Grupo */}
-                        <td className="p-2 border">
-                          <input
-                            className="border p-1 w-full"
-                            value={item.grupo ?? ""}
-                            onChange={(e) =>
-                              handleJsonChange(idx, "grupo", e.target.value)
-                            }
-                          />
-                        </td>
-                        {/* Valor Facturar */}
-                        <td className="p-2 border">
-                          <input
-                            className="border p-1 w-full"
-                            value={item.valor_facturar_2024 ?? ""}
-                            onChange={(e) =>
-                              handleJsonChange(idx, "valor_facturar_2024", e.target.value)
-                            }
-                          />
-                        </td>
-                        {/* Rango KG Min */}
-                        <td className="p-2 border">
-                          <input
-                            className="border p-1 w-full"
-                            type="number"
-                            value={item.rango_kg?.min ?? ""}
-                            onChange={(e) =>
-                              handleRangoKgChange(idx, "min", e.target.value)
-                            }
-                          />
-                        </td>
-                        {/* Rango KG Max */}
-                        <td className="p-2 border">
-                          <input
-                            className="border p-1 w-full"
-                            type="number"
-                            value={item.rango_kg?.max ?? ""}
-                            onChange={(e) =>
-                              handleRangoKgChange(idx, "max", e.target.value)
-                            }
-                          />
-                        </td>
-                        {/* Acciones */}
+                        {dynamicColumns.map((col) => (
+                          <td className="p-2 border" key={col}>
+                            <input
+                              className="border p-1 w-full"
+                              value={
+                                typeof item[col] === "object" && item[col] !== null
+                                  ? JSON.stringify(item[col])
+                                  : item[col] ?? ""
+                              }
+                              onChange={(e) => {
+                                let value = e.target.value;
+                                // Si el campo es un objeto, intenta parsear JSON
+                                if (typeof item[col] === "object" && item[col] !== null) {
+                                  try {
+                                    value = JSON.parse(value);
+                                  } catch {
+                                    // Si no es JSON válido, lo deja como string
+                                  }
+                                }
+                                setJsonArray(prev =>
+                                  prev.map((row, i) =>
+                                    i === idx ? { ...row, [col]: value } : row
+                                  )
+                                );
+                              }}
+                            />
+                          </td>
+                        ))}
                         <td className="p-2 border">
                           <button
                             type="button"
@@ -248,14 +215,7 @@ export default function Parametro({ idParametro, onBack }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-                <button
-                  type="button"
-                  className="bg-green-500 text-white px-3 py-1 rounded"
-                  onClick={handleAddRow}
-                >
-                  + Agregar fila
-                </button>
+                </table>                
               </div>
             </div>
             <button

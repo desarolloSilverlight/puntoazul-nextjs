@@ -156,6 +156,7 @@ export default function CardTable({ color }) {
 }
 
 function FormValidarB({ productos, goBack, fetchUsuarios }) {
+  const [grupoFormula, setGrupoFormula] = useState("Calculando...");
   // Función para manejar la acción de firmar
   const handleFirmar = async () => {
     const idInformacionB = productos[0].idInformacionB.idInformacionB; // Obtener el ID
@@ -229,11 +230,53 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
 
   // Calcula el campo especial de la fórmula
   const totalFormula = (
-    (Number(resumen.pesoTotalComercialRX) || 0) +
+    ((Number(resumen.pesoTotalComercialRX) || 0) +
     (Number(resumen.pesoTotalComercialOTC) || 0) +
     ((Number(resumen.pesoTotalInstitucional) || 0) / 2) +
-    (Number(resumen.pesoTotalMuestrasMedicas) || 0)
+    (Number(resumen.pesoTotalMuestrasMedicas) || 0))*1000
   ).toFixed(2);
+
+  // Obtén los años del header (ajusta según tu header real)
+  const year1 = new Date().getFullYear() - 2; // Ejemplo: 2023
+  const year2 = new Date().getFullYear() - 3; // Ejemplo: 2022
+
+  // Busca el histórico correspondiente a cada año
+  const historicoYear1 = productos[0]?.historico?.find(h => h.anoReporte == year1.toString());
+  const historicoYear2 = productos[0]?.historico?.find(h => h.anoReporte == year2.toString());
+
+  // Fetch del parámetro y cálculo del grupo según el rango
+  useEffect(() => {
+    const fetchParametro = async () => {
+      try {
+        const response = await fetch("https://nestbackend.fidare.com/parametros/2");
+        if (!response.ok) throw new Error("No se pudo obtener el parámetro");
+        const data = await response.json();
+        const rangos = JSON.parse(data.valor);
+        // Busca el grupo correspondiente al totalFormula
+        const grupo = rangos.find(r =>
+          Number(totalFormula) >= Number(r.rango_kg.min) && Number(totalFormula) < Number(r.rango_kg.max)
+        );
+        setGrupoFormula(grupo ? `Grupo ${grupo.grupo}` : "Sin grupo");
+      } catch (e) {
+        setGrupoFormula("Sin grupo");
+      }
+    };
+    if (!isNaN(totalFormula)) fetchParametro();
+  }, [totalFormula]);
+
+  let tendencia = "SE MANTIENE";
+  if (grupoFormula !== "Sin grupo" && historicoYear1?.grupo) {
+    // Extraer solo el número del grupo, por ejemplo "Grupo 2" => 2
+    const grupoActual = Number((grupoFormula.match(/\d+/) || [])[0]);
+    const grupoAnterior = Number((historicoYear1.grupo.match(/\d+/) || [])[0]);
+    if (!isNaN(grupoActual) && !isNaN(grupoAnterior)) {
+      if (grupoActual > grupoAnterior) {
+        tendencia = "SUBE GRUPO";
+      } else if (grupoActual < grupoAnterior) {
+        tendencia = "BAJA GRUPO";
+      }
+    }
+  }
 
   return (
     <div className="p-4 bg-white shadow-lg rounded">
@@ -335,25 +378,25 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
                 <input className="border p-1 w-full" type="number" value={totalFormula} readOnly />
               </td>
               <td className="min-w-[100px] p-1 border border-gray-300">
-                <input className="border p-1 w-full" type="number" value="0" readOnly />
+                <input className="border p-1 w-full" type="number" value={historicoYear1?.totalPesoFacturacion || 0} readOnly />
               </td>
               <td className="min-w-[100px] p-1 border border-gray-300">
-                <input className="border p-1 w-full" type="number" value="0" readOnly />
+                <input className="border p-1 w-full" type="number" value={historicoYear2?.totalPesoFacturacion || 0} readOnly />
               </td>
               <td className="min-w-[100px] p-1 border border-gray-300">
-                <input className="border p-1 w-fit" type="text" value="No info" readOnly />
+                <input className="border p-1 w-fit" type="text" value={historicoYear2?.grupo || "No info"} readOnly />
               </td>
               <td className="min-w-[100px] p-1 border border-gray-300">
-                <input className="border p-1 w-fit" type="text" value="No info" readOnly />
+                <input className="border p-1 w-fit" type="text" value={historicoYear1?.grupo || "No info"} readOnly />
               </td>
               <td className="min-w-[100px] p-1 border border-gray-300">
-                <input className="border p-1 w-fit" type="text" value="Grupo 2" readOnly />
+                <input className="border p-1 w-fit" type="text" value={grupoFormula} readOnly />
               </td>
               <td className="min-w-[100px] p-1 border border-gray-300">
                 <input className="border p-1 w-fit" type="text" value="CONFORME" readOnly />
               </td>
               <td className="min-w-[100px] p-1 border border-gray-300">
-                <input className="border p-1 w-fit" type="text" value="SE MANTIENE" readOnly />
+                <input className="border p-1 w-fit" type="text" value={tendencia} readOnly />
               </td>
             </tr>
           </tbody>

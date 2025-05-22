@@ -6,12 +6,15 @@ import UserDropdown from "components/Dropdowns/UserDropdown.js";
 export default function Navbar() {
   const router = useRouter();
   const [username, setUsername] = useState("Admin"); // Valor predeterminado
+  const [perfil, setPerfil] = useState("Admin"); // Valor predeterminado
 
   useEffect(() => {
     // Verificar si estamos en el cliente antes de acceder a localStorage
     if (typeof window !== "undefined") {
       const storedUsername = localStorage.getItem("username") || "Admin";
+      const perfil = localStorage.getItem("perfil") || "Admin";
       setUsername(storedUsername);
+      setPerfil(perfil);
     }
   }, []);
   return (
@@ -25,7 +28,7 @@ export default function Navbar() {
             href="#pablo"
             onClick={(e) => e.preventDefault()}
           >
-            Dashboard
+           {perfil} 
           </a>
           {/* Form */}
           {/* <form className="md:flex hidden flex-row flex-wrap items-center lg:ml-auto mr-3">

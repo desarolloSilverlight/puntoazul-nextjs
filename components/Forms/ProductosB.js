@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
-export default function FormularioAfiliado({ color }) {
+export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) {
+  const idUsuario = propIdUsuario || localStorage.getItem("id");
   let idInformacionB = localStorage.getItem("idInformacionB");
   let estado = localStorage.getItem("estadoInformacionB");
   const [productos, setProductos] = useState([]); // Estado para los productos
@@ -35,7 +36,7 @@ export default function FormularioAfiliado({ color }) {
     if (idInformacionB) {
       fetchProductos();
     }
-  }, [idInformacionB]);
+  }, [idInformacionB,propIdUsuario]);
 
   const agregarProducto = () => {
     setProductos([

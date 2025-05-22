@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
-export default function FormularioAfiliado({ color }) {
+export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) {
   const [formData, setFormData] = useState({
     nombre: "",
     nit: "",
@@ -59,7 +59,7 @@ export default function FormularioAfiliado({ color }) {
   // Obtener datos del backend al cargar el componente
   useEffect(() => {
     const fetchData = async () => {
-      const idUsuario = localStorage.getItem("id"); // Obtener el idUsuario desde localStorage
+      const idUsuario = propIdUsuario || localStorage.getItem("id");
       try {
         const response = await fetch(`https://nestbackend.fidare.com/informacion-b/getByIdUsuario/${idUsuario}`, {
           method: "GET",
@@ -114,7 +114,7 @@ export default function FormularioAfiliado({ color }) {
     };
 
     fetchData();
-  }, []);
+  }, [propIdUsuario]);
 
   // Manejar el envío del formulario
   const handleSubmit = async (e) => {

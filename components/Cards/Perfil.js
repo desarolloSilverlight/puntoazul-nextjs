@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
 const ACCESOS_DISPONIBLES = [
-  "Formulario Literal F",
+  "Formulario Linea Base",
   "Formulario Literal B",
   "Enviar Formulario",
-  "Validar Literal F",
+  "Validar Linea Base",
   "Validar Literal B",
   "Reportes",
   "Usuarios",

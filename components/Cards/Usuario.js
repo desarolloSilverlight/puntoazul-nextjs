@@ -20,7 +20,7 @@ export default function Usuario({ idUsuario, onBack }) {
       const fetchUsuario = async () => {
         setLoading(true);
         try {
-          const response = await fetch(`https://nestbackend.fidare.com/users/${idUsuario}`, {
+          const response = await fetch(`https://nestbackend.fidare.com/users/getUsuario?id=${idUsuario}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -31,6 +31,7 @@ export default function Usuario({ idUsuario, onBack }) {
           }
 
           const data = await response.json();
+          console.log("Datos del usuario:", data); // Verifica los datos obtenidos
           // Excluir el campo password de los datos cargados
           const { password, ...rest } = data;
           setUsuario(rest); // Cargar solo los datos necesarios
@@ -127,6 +128,7 @@ export default function Usuario({ idUsuario, onBack }) {
                 <option value="Administrador">Administrador</option>
                 <option value="Empleado">Empleado</option>
                 <option value="Asociado">Asociado</option>
+                <option value="Vinculado">Vinculado</option>
               </select>
             </div>
 

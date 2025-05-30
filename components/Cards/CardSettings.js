@@ -9,7 +9,7 @@ export default function CardSettings({ color, onNew, onEdit }) {
   // Función para obtener los usuarios desde el backend
   const fetchUsuarios = async () => {
     try {
-      const response = await fetch("https://nestbackend.fidare.com/users", {
+      const response = await fetch("https://nestbackend.fidare.com/users/getUsers", {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // Si necesitas enviar cookies

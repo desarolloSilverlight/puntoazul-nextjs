@@ -14,10 +14,10 @@ export default function Sidebar() {
   const ACCESOS_DISPONIBLES = [
     { nombre: "Formulario Linea Base", ruta: "/admin/literalf", icono: "fas fa-clipboard-list" },
     { nombre: "Formulario Literal B", ruta: "/admin/literalb", icono: "fas fa-clipboard-list" },
-    { nombre: "Enviar Formulario", ruta: "/admin/tables", icono: "fas fa-envelope" },
+    { nombre: "Enviar Formulario", ruta: "/admin/correos", icono: "fas fa-envelope" },
     { nombre: "Validar Linea Base", ruta: "/admin/validarf", icono: "fas fa-clipboard-list" },
     { nombre: "Validar Literal B", ruta: "/admin/validarb", icono: "fas fa-clipboard-list" },
-    { nombre: "Reportes", ruta: "/admin/maps", icono: "fas fa-table" },
+    { nombre: "Reportes", ruta: "/admin/reportes", icono: "fas fa-table" },
     { nombre: "Usuarios", ruta: "/admin/usuarios", icono: "fas fa-user-circle" },
     { nombre: "Perfiles", ruta: "/admin/perfiles", icono: "fas fa-user-tie" },
     { nombre: "Asociados", ruta: "/admin/asociados", icono: "fas fa-people-arrows" },
@@ -67,7 +67,7 @@ export default function Sidebar() {
       if (!response.ok) {
         throw new Error("Error al cerrar sesión");
       }
-
+      localStorage.clear();
       router.push("/auth/login");
     } catch (error) {
       console.error("Error:", error);
@@ -88,12 +88,14 @@ export default function Sidebar() {
         <div className="md:flex-col md:items-stretch md:min-h-full md:flex-nowrap px-0 flex flex-wrap items-center justify-between w-full mx-auto">
           {/* Brand */}
           <div className="flex justify-center items-center">
-            <Image
-              src="/Logo_PuntoAzul_Horizontal.png"
-              alt="Logo Punto Azul"
-              width={250}
-              height={125}
-            />
+            <Link legacyBehavior href="/admin/dashboard">
+              <Image
+                src="/Logo_PuntoAzul_Horizontal.png"
+                alt="Logo Punto Azul"
+                width={250}
+                height={125}
+              />            
+            </Link>
           </div>
 
           {/* Navigation */}

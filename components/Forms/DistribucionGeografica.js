@@ -41,16 +41,25 @@ export default function FormularioDepartamentos({ color }) {
         
         if (data && data.length > 0) {
           const primerRegistro = data[0];
-          
-          // Convertir el string JSON de departamentos a un objeto
-          const departamentosObj = JSON.parse(primerRegistro.departamentos || "{}");
-          
-          // Convertir el objeto de departamentos a array de filas
-          const departamentosArray = Object.entries(departamentosObj).map(([departamento, porcentaje]) => ({
-            departamento,
-            porcentaje: porcentaje.toString()
-          }));
-          
+          // Convertir el string JSON de departamentos a un objeto (doble parseo si es necesario)
+          let departamentosObj = {};
+          try {
+            let temp = JSON.parse(primerRegistro.departamentos || "{}") || {};
+            if (typeof temp === "string") {
+              departamentosObj = JSON.parse(temp);
+            } else {
+              departamentosObj = temp;
+            }
+          } catch {
+            departamentosObj = {};
+          }
+          // Convertir el objeto de departamentos a array de filas, filtrando vacíos y asegurando que el porcentaje sea numérico
+          const departamentosArray = Object.entries(departamentosObj)
+            .filter(([departamento, porcentaje]) => departamento && porcentaje !== undefined && porcentaje !== null && porcentaje !== "")
+            .map(([departamento, porcentaje]) => ({
+              departamento,
+              porcentaje: porcentaje.toString()
+            }));
           setFilas(departamentosArray);
           setPregunta1(primerRegistro.pregunta1 || "");
           setPregunta2(primerRegistro.pregunta2 || "");

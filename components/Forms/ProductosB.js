@@ -126,7 +126,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
         const errorText = await response.text(); // Obtener respuesta en texto para debug
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
-
+      console.log("Productos enviados:", productos); // Ver productos en consola
       const result = await response.json();
       console.log("Respuesta de la API:", result); // Ver respuesta en consola
       alert(result.message);

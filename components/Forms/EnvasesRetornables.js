@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
+// Utilidad para deserializar doble JSON si es necesario
+function parseDoubleJSON(value) {
+  try {
+    if (typeof value === "string") {
+      let parsed = JSON.parse(value);
+      if (typeof parsed === "string") {
+        return JSON.parse(parsed);
+      }
+      return parsed;
+    }
+    return value || {};
+  } catch {
+    return {};
+  }
+}
+
 export default function TablaRetornabilidad({ color }) {
   let idInformacionF = localStorage.getItem("idInformacionF") || 0;
   let estado = localStorage.getItem("estadoInformacion");
@@ -52,22 +68,22 @@ export default function TablaRetornabilidad({ color }) {
         const data = await response.json();
         console.log("Envases retornables obtenidos:", data);
 
-        // Procesar los datos recibidos
+        // Procesar los datos recibidos usando parseDoubleJSON
         if (data && data.length > 0) {
           const primerRegistro = data[0];
           const nuevosDatos = {
             ...datos,
-            pesoTotal: JSON.parse(primerRegistro.peso || "{}"),
-            papel: JSON.parse(primerRegistro.papel || "{}"),
-            carton: JSON.parse(primerRegistro.carton || "{}"),
-            plasticoRigidos: JSON.parse(primerRegistro.plasticoRig || "{}"),
-            plasticoFlexibles: JSON.parse(primerRegistro.platicoFlex || "{}"),
-            vidrio: JSON.parse(primerRegistro.vidrio || "{}"),
-            metalesFerrosos: JSON.parse(primerRegistro.metal_ferrosos || "{}"),
-            metalesNoFerrosos: JSON.parse(primerRegistro.metal_no_ferrososs || "{}"),
-            multimaterial1: JSON.parse(primerRegistro.multimaterial1 || "{}"),
-            multimaterialn: JSON.parse(primerRegistro.multimaterialn || "{}"),
-            descripcion: JSON.parse(primerRegistro.descripcion || "{}")
+            pesoTotal: parseDoubleJSON(primerRegistro.peso),
+            papel: parseDoubleJSON(primerRegistro.papel),
+            carton: parseDoubleJSON(primerRegistro.carton),
+            plasticoRigidos: parseDoubleJSON(primerRegistro.plasticoRig),
+            plasticoFlexibles: parseDoubleJSON(primerRegistro.platicoFlex),
+            vidrio: parseDoubleJSON(primerRegistro.vidrio),
+            metalesFerrosos: parseDoubleJSON(primerRegistro.metal_ferrosos),
+            metalesNoFerrosos: parseDoubleJSON(primerRegistro.metal_no_ferrososs),
+            multimaterial1: parseDoubleJSON(primerRegistro.multimaterial1),
+            multimaterialn: parseDoubleJSON(primerRegistro.multimaterialn),
+            descripcion: parseDoubleJSON(primerRegistro.descripcion)
           };
           setDatos(nuevosDatos);
         }
@@ -82,10 +98,15 @@ export default function TablaRetornabilidad({ color }) {
   }, [idInformacionF]);
 
   const handleChange = (parametro, field, value) => {
-    const nuevosDatos = { ...datos };
-    const sanitizedValue = value.replace(",", ".");
-    nuevosDatos[field][parametro] = sanitizedValue;
-    setDatos(nuevosDatos);
+    setDatos((prevDatos) => {
+      // Clonar el objeto anidado de forma segura
+      const updatedField = { ...(prevDatos[field] || {}) };
+      updatedField[parametro] = value.replace(",", ".");
+      return {
+        ...prevDatos,
+        [field]: updatedField,
+      };
+    });
   };
 
   const handleSubmit = async (e) => {

@@ -194,7 +194,9 @@ export default function FormularioDepartamentos({ color }) {
               </tbody>
             </table>
           </div>
-
+          <div className="text-red-500 text-center mt-3 font-semibold">
+            Diligenciar todos los campos para continuar.
+          </div>
           {/* Textareas debajo de la tabla */}
           <div className="mt-6">
             <label className="block font-medium">¿La empresa actualmente realiza interna o externamente actividades

@@ -6,7 +6,7 @@ import Image from "next/image";
 
 export default function HeaderStats() {
   const settings = {
-    dots: true,
+    dots: false,
     infinite: true,
     speed: 1000,
     slidesToShow: 1,
@@ -28,18 +28,18 @@ export default function HeaderStats() {
   const carouselHeight = '390px'; // Puedes ajustar esto
 
   return (
-    <div className="relative w-full min-h-[390px] overflow-hidden">
+    <div className="relative h-350-px overflow-hidden w-full">
       {/* Carrusel principal */}
-      <Slider {...settings} className="w-full h-full">
+      <Slider {...settings} className="">
         {images.map((img, index) => (
-          <div key={index} className="w-full h-full">
+          <div key={index} className="">
             <Image
               src={img}
               alt={`Background ${index + 1}`}
-              className="w-full h-full object-cover object-center"
               loading="lazy"
-              width={1920} // mejor resolución si es para pantalla completa
-              height={390}
+              width={1800}
+              height={500}
+              className="h-350-px w-full"
             />
           </div>
         ))}

@@ -34,10 +34,14 @@ export default function CardTable({ color }) {
   }, []);
 
   // Manejar la validación de un usuario
-  const handleValidar = async (idInformacionB) => {
-    console.log("ID de usuario seleccionado:", idInformacionB); // Ver ID en consola
+  const handleValidar = async (usuario) => {
+    console.log("ID de usuario seleccionado:", usuario.informacionB_idInformacionB); // Ver ID en consola
+    if (!usuario.productosCount || Number(usuario.productosCount) === 0) {
+      alert("El usuario no ha registrado productos.");
+      return;
+    }
     try {
-      const response = await fetch(`https://nestbackend.fidare.com/informacion-b/getProdValidarB/${idInformacionB}`, {
+      const response = await fetch(`https://nestbackend.fidare.com/informacion-b/getProdValidarB/${usuario.informacionB_idInformacionB}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -77,22 +81,22 @@ export default function CardTable({ color }) {
                 <tr className="bg-gray-100">
                   <th className="p-2">Nombre</th>
                   <th className="p-2">NIT</th>
-                  <th className="p-2">Telefono</th>
                   <th className="p-2">Email</th>
+                  <th className="p-2">productos</th>
                   <th className="p-2">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {usuarios.map((usuario) => (
                   <tr key={usuario.idInformacionB} className="border-t text-center">
-                    <td className="p-2">{usuario.nombre}</td>
-                    <td className="p-2">{usuario.nit}</td>
-                    <td className="p-2">{usuario.telefono}</td>
-                    <td className="p-2">{usuario.correoFacturacion}</td>
+                    <td className="p-2">{usuario.informacionB_nombre}</td>
+                    <td className="p-2">{usuario.informacionB_nit}</td>
+                    <td className="p-2">{usuario.informacionB_correoFacturacion}</td>
+                    <td className="p-2">{usuario.productosCount}</td>
                     <td className="p-2">
                       <button
                         className="bg-lightBlue-600 text-white font-bold text-xs px-4 py-2 rounded shadow hover:shadow-md"
-                        onClick={() => handleValidar(usuario.idInformacionB)}
+                        onClick={() => handleValidar(usuario)}
                       >
                         Validar
                       </button>
@@ -185,7 +189,7 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
     ((Number(resumen.pesoTotalComercialRX) || 0) +
     (Number(resumen.pesoTotalComercialOTC) || 0) +
     ((Number(resumen.pesoTotalInstitucional) || 0) / 2) +
-    (Number(resumen.pesoTotalMuestrasMedicas) || 0))*1000
+    (Number(resumen.pesoTotalMuestrasMedicas) || 0))
   ).toFixed(2);
 
   // Obtén los años del header (ajusta según tu header real)

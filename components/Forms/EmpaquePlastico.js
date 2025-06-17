@@ -190,12 +190,12 @@ export default function FormularioAfiliado({ color }) {
                   <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Empresa Titular</th>
                   <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Nombre Producto</th>
                   <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso Unitario (g)</th>
-                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades</th>
                   <th colSpan="7" rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Líquidos</th>
                   <th colSpan="7" rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Otros Productos Plásticos</th>
                   <th colSpan="7" rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plásticos de Construcción</th>
                   <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Excepciones Ley 2232</th>
                   <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Prohibiciones Ley 2232</th>
+                  <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades Puestas en el mercado</th>
                   <th rowSpan="3" colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>
                 </tr>
                 <tr className="bg-gray-200">
@@ -237,15 +237,6 @@ export default function FormularioAfiliado({ color }) {
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoUnitario}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "unidades", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.unidades}
                       </div>
                     </td>
                     {/* Líquidos */}
@@ -328,6 +319,15 @@ export default function FormularioAfiliado({ color }) {
                         <option value="adhesivos_etiquetas">Adhesivos, etiquetas o distintivos en vegetales (2030)</option>
                         <option value="no_aplica">No Aplica</option>
                       </select>
+                    </td>
+                    <td className="min-w-[100px] p-1 border border-gray-300">
+                      <div
+                        contentEditable={estado !== "Aprobado"}
+                        onBlur={(e) => handleChange(index, "unidades", e.target.textContent || "")}
+                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                      >
+                        {producto.unidades}
+                      </div>
                     </td>
                     <td>
                       <button 

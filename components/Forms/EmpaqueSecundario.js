@@ -156,13 +156,25 @@ export default function FormularioAfiliado({ color }) {
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal No Ferrosos(g)</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón (g)</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio (g)</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">
+                    Ton Acumuladas
+                  </th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades puestas en el mercado</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {productos.map((producto, index) => (
+                {productos.map((producto, index) => {
+                const totalGramos =
+                  Number(producto.papel || 0) +
+                  Number(producto.metalFerrosos || 0) +
+                  Number(producto.metalNoFerrosos || 0) +
+                  Number(producto.carton || 0) +
+                  Number(producto.vidrio || 0);
+                const toneladas = (totalGramos / 1_000_000).toFixed(6);
+                return (
+                  
                   <tr key={producto.id} className="border-t text-center">
                     <td className="p-2">{index + 1}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
@@ -229,6 +241,9 @@ export default function FormularioAfiliado({ color }) {
                       </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
+                      {toneladas}
+                    </td>
+                    <td className="min-w-[100px] p-1 border border-gray-300">
                       <select
                         value={producto.multimaterial}
                         onChange={(e) => handleChange(index, "multimaterial", e.target.value)}
@@ -259,7 +274,7 @@ export default function FormularioAfiliado({ color }) {
                       </button>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

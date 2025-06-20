@@ -302,6 +302,36 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
 
   return (
     <div className="p-4 bg-white shadow-lg rounded">
+      {/* Modal para motivo de rechazo */}
+      {showMotivoModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+        <div className="bg-white p-6 rounded shadow-lg max-w-md w-full mx-4 p-5">
+          <h2 className="text-lg font-bold mb-4 text-center">Seleccione motivo de rechazo</h2>
+          <select
+            className="border p-2 mb-4 w-full"
+            value={motivo}
+            onChange={e => setMotivo(e.target.value)}
+          >
+            <option value="Fondo">Fondo</option>
+            <option value="Forma">Forma</option>
+          </select>
+          <div className="flex gap-2 justify-center mr-3">
+            <button
+              className="bg-orange-500 text-white px-4 py-2 rounded mr-3"
+              onClick={confirmarRechazo}
+            >
+              Confirmar rechazo
+            </button>
+            <button
+              className="bg-blueGray-600 text-white px-4 py-2 rounded"
+              onClick={() => setShowMotivoModal(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+      )}
       <h3 className="text-lg font-semibold">Validacion {productos[0].idInformacionB.nombre}</h3>
       <div className="w-full overflow-x-auto p-4">
         <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
@@ -429,37 +459,9 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
         <button className="bg-orange-500 text-white mr-3 px-4 py-2 rounded" onClick={handleRechazar}>Rechazar</button>
         <button className="bg-blueGray-600 text-white px-4 py-2 rounded" onClick={goBack}>Atrás</button>
       </div>
-      {/* Modal para motivo de rechazo */}
-      {showMotivoModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div className="bg-white p-6 rounded shadow-lg max-w-md w-full mx-4">
-          <h2 className="text-lg font-bold mb-4 text-center">Seleccione motivo de rechazo</h2>
-          <select
-            className="border p-2 mb-4 w-full"
-            value={motivo}
-            onChange={e => setMotivo(e.target.value)}
-          >
-            <option value="Fondo">Fondo</option>
-            <option value="Forma">Forma</option>
-          </select>
-          <div className="flex gap-2 justify-center">
-            <button
-              className="bg-orange-500 text-white px-4 py-2 rounded"
-              onClick={confirmarRechazo}
-            >
-              Confirmar rechazo
-            </button>
-            <button
-              className="bg-blueGray-600 text-white px-4 py-2 rounded"
-              onClick={() => setShowMotivoModal(false)}
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
+      
+    </div>
+    
   );
 }
 

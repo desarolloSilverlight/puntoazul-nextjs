@@ -431,7 +431,7 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
       </div>
       {/* Modal para motivo de rechazo */}
       {showMotivoModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-50">
         <div className="bg-white p-6 rounded shadow-lg max-w-md w-full mx-4">
           <h2 className="text-lg font-bold mb-4 text-center">Seleccione motivo de rechazo</h2>
           <select

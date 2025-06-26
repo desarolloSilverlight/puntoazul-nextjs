@@ -195,7 +195,7 @@ export default function FormularioDepartamentos({ color }) {
             </table>
           </div>
           <div className="text-red-500 text-center mt-3 font-semibold">
-            Diligenciar todos los campos para continuar.
+            Diligenciar todos los campos para continuar en caso de no tener informacion colocar N/A.
           </div>
           {/* Textareas debajo de la tabla */}
           <div className="mt-6">

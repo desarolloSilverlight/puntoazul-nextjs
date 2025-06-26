@@ -168,7 +168,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
           Todos los pesos de la tabla deben estar en Kilogramos
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
-          Todos los campos deben ser diligenciados
+          Todos los campos deben ser diligenciados en caso de no tener informacion colocar N/A
         </div>
         <form onSubmit={handleSubmit}>
         <div className="w-full overflow-x-auto p-4">

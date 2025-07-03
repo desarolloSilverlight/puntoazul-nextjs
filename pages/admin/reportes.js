@@ -1,5 +1,18 @@
 import React, { useState } from "react";
 import Admin from "layouts/Admin.js";
+import { Bar, Pie } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export default function Reportes() {
   const [literal, setLiteral] = useState("");
@@ -57,6 +70,71 @@ export default function Reportes() {
       campo2: `Reporte: ${reporte}`,
       campo3: `Cliente: ${cliente}`,
     }));
+  };
+
+  // Genera datos de ejemplo para los gráficos
+  const getChartData = () => {
+    if (!tablaDatos.length) return null;
+    switch (reporte) {
+      case 'estado':
+        // Ejemplo: cuenta por estado
+        return {
+          type: 'bar',
+          data: {
+            labels: ['Aprobado', 'Pendiente', 'Rechazado'],
+            datasets: [{
+              label: 'Cantidad',
+              data: [3, 5, 2], // Reemplaza con tus datos reales
+              backgroundColor: ['#38bdf8', '#fbbf24', '#ef4444']
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } } }
+        };
+      case 'meta':
+        // Ejemplo: avance de meta
+        return {
+          type: 'bar',
+          data: {
+            labels: ['2022', '2023', '2024'],
+            datasets: [{
+              label: 'Avance (%)',
+              data: [80, 60, 95],
+              backgroundColor: ['#22c55e', '#3b82f6', '#f59e42']
+            }]
+          },
+          options: { responsive: true }
+        };
+      case 'grupo':
+        // Ejemplo: distribución por grupo
+        return {
+          type: 'pie',
+          data: {
+            labels: ['Grupo A', 'Grupo B', 'Grupo C'],
+            datasets: [{
+              label: 'Cantidad',
+              data: [4, 3, 3],
+              backgroundColor: ['#f472b6', '#60a5fa', '#facc15']
+            }]
+          },
+          options: { responsive: true }
+        };
+      case 'material':
+        // Ejemplo: distribución por material
+        return {
+          type: 'pie',
+          data: {
+            labels: ['Plástico', 'Vidrio', 'Metal', 'Cartón'],
+            datasets: [{
+              label: 'Cantidad',
+              data: [5, 2, 1, 2],
+              backgroundColor: ['#38bdf8', '#a3e635', '#fbbf24', '#f472b6']
+            }]
+          },
+          options: { responsive: true }
+        };
+      default:
+        return null;
+    }
   };
 
   const opcionesReporte =
@@ -140,6 +218,7 @@ export default function Reportes() {
           </div>
           {/* Tabla de ejemplo */}
           {tablaDatos.length > 0 && (
+            <>
             <div className="mt-8 overflow-x-auto">
               <table className="w-full border border-gray-300">
                 <thead>
@@ -162,6 +241,58 @@ export default function Reportes() {
                 </tbody>
               </table>
             </div>
+            {/* Gráfico dinámico debajo de la tabla */}
+            {(() => {
+              const chart = getChartData();
+              if (!chart) return null;
+              if (chart.type === 'bar') {
+                return (
+                  <div className="mt-8 flex justify-center">
+                    <div style={{ maxWidth: 350, width: '100%' }}>
+                      <Bar data={chart.data} options={chart.options} height={180} />
+                    </div>
+                  </div>
+                );
+              }
+              if (chart.type === 'pie') {
+                return (
+                  <div className="mt-8 flex justify-center">
+                    <div style={{ maxWidth: 350, width: '100%' }}>
+                      <Pie data={chart.data} options={chart.options} height={180} />
+                    </div>
+                  </div>
+                );
+              }
+              // Progress bar para meta
+              if (reporte === 'meta') {
+                // Ejemplo de datos de avance
+                const metas = [
+                  { nombre: 'Meta 1', avance: 80 },
+                  { nombre: 'Meta 2', avance: 60 },
+                  { nombre: 'Meta 3', avance: 95 },
+                ];
+                return (
+                  <div className="mt-8 space-y-4">
+                    {metas.map((meta, idx) => (
+                      <div key={meta.nombre}>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium text-blueGray-700">{meta.nombre}</span>
+                          <span className="text-sm font-medium text-blueGray-700">{meta.avance}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-4">
+                          <div
+                            className="bg-blue-500 h-4 rounded-full transition-all duration-500"
+                            style={{ width: `${meta.avance}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            </>
           )}
         </div>
       </div>

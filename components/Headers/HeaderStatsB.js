@@ -28,7 +28,7 @@ export default function HeaderStats() {
   const carouselHeight = '390px'; // Puedes ajustar esto
 
   return (
-    <div className="relative h-350-px overflow-hidden w-full">
+    <div className="relative w-full min-h-[390px] overflow-hidden">
       {/* Carrusel principal */}
       <Slider {...settings} className="">
         {images.map((img, index) => (
@@ -37,9 +37,9 @@ export default function HeaderStats() {
               src={img}
               alt={`Background ${index + 1}`}
               loading="lazy"
-              width={1800}
-              height={500}
-              className="h-350-px w-full"
+              width={1920}
+              height={390}
+              className="w-full h-full object-cover object-center"
             />
           </div>
         ))}

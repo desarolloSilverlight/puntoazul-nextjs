@@ -49,19 +49,19 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
         nombreGenerico: "",
         numeroRegistros: "",
         codigoEstandarDatos: "",
-        pesoEmpaqueComercialRX: "",
-        pesoTotalComercialRX: "",
-        pesoEmpaqueComercialOTC: "",
-        pesoTotalComercialOTC: "",
-        pesoEmpaqueInstitucional: "",
-        pesoTotalInstitucional: "",
-        pesoEmpaqueIntrahospitalario: "",
-        pesoTotalIntrahospitalario: "",
-        pesoEmpaqueMuestrasMedicas: "",
-        pesoTotalMuestrasMedicas: "",
+        pesoEmpaqueComercialRX: 0,
+        pesoTotalComercialRX: 0,
+        pesoEmpaqueComercialOTC: 0,
+        pesoTotalComercialOTC: 0,
+        pesoEmpaqueInstitucional: 0,
+        pesoTotalInstitucional: 0,
+        pesoEmpaqueIntrahospitalario: 0,
+        pesoTotalIntrahospitalario: 0,
+        pesoEmpaqueMuestrasMedicas: 0,
+        pesoTotalMuestrasMedicas: 0,
         fabricacion: "",
-        totalPesoEmpaques: "",
-        totalPesoProducto: "",
+        totalPesoEmpaques: 0,
+        totalPesoProducto: 0,
       },
     ]);
   };
@@ -109,6 +109,33 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validar que todos los campos numéricos sean enteros
+    const camposNumericos = [
+      "pesoEmpaqueComercialRX",
+      "pesoTotalComercialRX",
+      "pesoEmpaqueComercialOTC",
+      "pesoTotalComercialOTC",
+      "pesoEmpaqueInstitucional",
+      "pesoTotalInstitucional",
+      "pesoEmpaqueIntrahospitalario",
+      "pesoTotalIntrahospitalario",
+      "pesoEmpaqueMuestrasMedicas",
+      "pesoTotalMuestrasMedicas",
+      "totalPesoEmpaques",
+      "totalPesoProducto"
+    ];
+    for (const producto of productos) {
+      for (const campo of camposNumericos) {
+        const valor = producto[campo];
+        if (valor && valor !== "N/A") {
+          const num = Number(valor);
+          if (!Number.isInteger(num)) {
+            alert(`El campo "${campo}" debe ser un número entero. Valor ingresado: ${valor}`);
+            return;
+          }
+        }
+      }
+    }
     // Mostrar un alert de confirmación
     const isConfirmed = window.confirm("¿Estás seguro de que los datos ingresados son correctos?");
     if (!isConfirmed) {
@@ -169,6 +196,9 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
           Todos los campos deben ser diligenciados en caso de no tener informacion colocar N/A
+        </div>
+        <div className="text-red-500 text-center mt-3 font-semibold">
+          Los campos numericos deben ser numeros enteros o aproximados.
         </div>
         <form onSubmit={handleSubmit}>
         <div className="w-full overflow-x-auto p-4">

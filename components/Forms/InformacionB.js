@@ -119,13 +119,23 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
   // Manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validar teléfono y telefonoRe de 10 dígitos
+    const telefono = formData.telefono ? formData.telefono.trim() : "";
+    const telefonoRe = formData.telefonoRe ? formData.telefonoRe.trim() : "";
+    const regexTelefono = /^\d{10}$/;
+    if (telefono && !regexTelefono.test(telefono)) {
+      alert("El campo Teléfono debe tener exactamente 10 dígitos.");
+      return;
+    }
+    if (telefonoRe && !regexTelefono.test(telefonoRe)) {
+      alert("El campo Teléfono Representante debe tener exactamente 10 dígitos.");
+      return;
+    }
     const idUsuario = localStorage.getItem("id"); // Obtener el idUsuario desde localStorage
-
     const updatedFormData = {
       ...formData,
       idUsuario,
     };
-
     // Mostrar un alert de confirmación
     const isConfirmed = window.confirm("¿Estás seguro de que los datos ingresados son correctos?");
     if (!isConfirmed) {

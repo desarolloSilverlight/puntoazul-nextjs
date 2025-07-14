@@ -200,7 +200,7 @@ export default function FormularioDepartamentos({ color }) {
           {/* Textareas debajo de la tabla */}
           <div className="mt-6">
             <label className="block font-medium">¿La empresa actualmente realiza interna o externamente actividades
-              dirigidas al aprovechamiento de materiales (reciclaje, reutilización, reprocesamiento, aprovechamiento
+              dirigidas al aprovechamiento de materiales (reciclaje, reutilización, coprocesamiento, aprovechamiento
               energético, tratamiento fisicoquímico, tratamiento térmico, etc.)? (SI/NO) Cuales? Cuenta actualmente con
                gestores formales o informales para realizar el procesamiento o manejo de estos materiales? (AV)							
             </label>

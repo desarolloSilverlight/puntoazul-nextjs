@@ -315,152 +315,206 @@ export default function FormularioAfiliado({ color }) {
         </h3>
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-4 mt-4">
-            <input
-              className="border p-2"
-              type="text"
-              name="nombre"
-              placeholder="Nombre o razón social"
-              value={formData.nombre}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="nit"
-              placeholder="NIT"
-              value={formData.nit}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="direccion"
-              placeholder="Dirección"
-              value={formData.direccion}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="ciudad"
-              placeholder="Ciudad"
-              value={formData.ciudad}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="pais"
-              placeholder="Pais Casa matriz"
-              value={formData.pais}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="correoFacturacion"
-              placeholder="Correo de Facturación"
-              value={formData.correoFacturacion}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="personaContacto"
-              placeholder="Persona de contacto"
-              value={formData.personaContacto}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="telefono"
-              placeholder="Teléfono y extensión"
-              value={formData.telefono}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="celular"
-              placeholder="Celular"
-              value={formData.celular}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="cargo"
-              placeholder="Cargo"
-              value={formData.cargo}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="correoElectronico"
-              placeholder="Correo electrónico"
-              value={formData.correoElectronico}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="date"
-              name="fechaDiligenciamiento"
-              placeholder="Fecha de diligenciamiento"
-              value={formData.fechaDiligenciamiento}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            />
-            <input
-              className="border p-2"
-              type="text"
-              name="anioReportado"
-              placeholder="Año reportado"
-              value={formData.anioReportado}
-              onChange={handleAnoReporteChange}
-              disabled={isDisabled}
-              required
-            />
-            <select
-              className="border p-2"
-              name="empresasRepresentadas"
-              value={formData.empresasRepresentadas}
-              onChange={handleChange}
-              disabled={isDisabled}
-              required
-            >
-              <option value="">Seleccione el número de empresas representadas</option>
-              {Array.from({ length: 49 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {i + 1}
-                </option>
-              ))}
-              <option value="50+">50 o más</option>
-            </select>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="nombre">Nombre o razón social</label>
+              <input
+                className="border p-2 w-full bg-gray-100"
+                type="text"
+                name="nombre"
+                id="nombre"
+                placeholder="Nombre o razón social"
+                value={formData.nombre}
+                readOnly
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="nit">NIT</label>
+              <input
+                className="border p-2 w-full bg-gray-100"
+                type="text"
+                name="nit"
+                id="nit"
+                placeholder="NIT"
+                value={formData.nit}
+                readOnly
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="direccion">Dirección</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="direccion"
+                id="direccion"
+                placeholder="Dirección"
+                value={formData.direccion}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="ciudad">Ciudad</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="ciudad"
+                id="ciudad"
+                placeholder="Ciudad"
+                value={formData.ciudad}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="pais">País Casa matriz</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="pais"
+                id="pais"
+                placeholder="País Casa matriz"
+                value={formData.pais}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="correoFacturacion">Correo de Facturación</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="correoFacturacion"
+                id="correoFacturacion"
+                placeholder="Correo de Facturación"
+                value={formData.correoFacturacion}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="personaContacto">Persona de contacto</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="personaContacto"
+                id="personaContacto"
+                placeholder="Persona de contacto"
+                value={formData.personaContacto}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="telefono">Teléfono y extensión</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="telefono"
+                id="telefono"
+                placeholder="Teléfono y extensión"
+                value={formData.telefono}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="celular">Celular</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="celular"
+                id="celular"
+                placeholder="Celular"
+                value={formData.celular}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="cargo">Cargo</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="cargo"
+                id="cargo"
+                placeholder="Cargo"
+                value={formData.cargo}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="correoElectronico">Correo electrónico</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="correoElectronico"
+                id="correoElectronico"
+                placeholder="Correo electrónico"
+                value={formData.correoElectronico}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="fechaDiligenciamiento">Fecha de diligenciamiento</label>
+              <input
+                className="border p-2 w-full"
+                type="date"
+                name="fechaDiligenciamiento"
+                id="fechaDiligenciamiento"
+                placeholder="Fecha de diligenciamiento"
+                value={formData.fechaDiligenciamiento}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="anioReportado">Año reportado</label>
+              <input
+                className="border p-2 w-full"
+                type="text"
+                name="anioReportado"
+                id="anioReportado"
+                placeholder="Año reportado"
+                value={formData.anioReportado}
+                onChange={handleAnoReporteChange}
+                disabled={isDisabled}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="empresasRepresentadas">Empresas Representadas</label>
+              <select
+                className="border p-2 w-full"
+                name="empresasRepresentadas"
+                id="empresasRepresentadas"
+                value={formData.empresasRepresentadas}
+                onChange={handleChange}
+                disabled={isDisabled}
+                required
+              >
+                <option value="">Seleccione el número de empresas representadas</option>
+                {Array.from({ length: 49 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1}
+                  </option>
+                ))}
+                <option value="50+">50 o más</option>
+              </select>
+            </div>
           </div>
           <div className="mt-4">
             <label className="mr-4">

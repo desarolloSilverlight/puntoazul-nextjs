@@ -60,6 +60,25 @@ export default function TablaRetornabilidad({ color }) {
         if (!response.ok) {
           if (response.status === 404) {
             console.log("No se encontraron envases retornables para este idInformacionF.");
+            // Si no hay datos, inicializar todos los campos en 0
+            setDatos((prev) => {
+              const paramKeys = Object.keys(prev.parametros);
+              const initField = () => Object.fromEntries(paramKeys.map(k => [k, 0]));
+              return {
+                ...prev,
+                pesoTotal: initField(),
+                papel: initField(),
+                carton: initField(),
+                plasticoRigidos: initField(),
+                plasticoFlexibles: initField(),
+                vidrio: initField(),
+                metalesFerrosos: initField(),
+                metalesNoFerrosos: initField(),
+                multimaterial1: initField(),
+                multimaterialn: initField(),
+                descripcion: Object.fromEntries(paramKeys.map(k => [k, ""]))
+              };
+            });
             return;
           }
           throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -71,19 +90,28 @@ export default function TablaRetornabilidad({ color }) {
         // Procesar los datos recibidos usando parseDoubleJSON
         if (data && data.length > 0) {
           const primerRegistro = data[0];
+          const paramKeys = Object.keys(datos.parametros);
+          // Inicializar en 0 los campos que vengan vacíos
+          function mergeWithZero(obj) {
+            const parsed = parseDoubleJSON(obj);
+            return Object.fromEntries(paramKeys.map(k => [k, parsed[k] !== undefined && parsed[k] !== "" ? parsed[k] : 0]));
+          }
           const nuevosDatos = {
             ...datos,
-            pesoTotal: parseDoubleJSON(primerRegistro.peso),
-            papel: parseDoubleJSON(primerRegistro.papel),
-            carton: parseDoubleJSON(primerRegistro.carton),
-            plasticoRigidos: parseDoubleJSON(primerRegistro.plasticoRig),
-            plasticoFlexibles: parseDoubleJSON(primerRegistro.platicoFlex),
-            vidrio: parseDoubleJSON(primerRegistro.vidrio),
-            metalesFerrosos: parseDoubleJSON(primerRegistro.metal_ferrosos),
-            metalesNoFerrosos: parseDoubleJSON(primerRegistro.metal_no_ferrososs),
-            multimaterial1: parseDoubleJSON(primerRegistro.multimaterial1),
-            multimaterialn: parseDoubleJSON(primerRegistro.multimaterialn),
-            descripcion: parseDoubleJSON(primerRegistro.descripcion)
+            pesoTotal: mergeWithZero(primerRegistro.peso),
+            papel: mergeWithZero(primerRegistro.papel),
+            carton: mergeWithZero(primerRegistro.carton),
+            plasticoRigidos: mergeWithZero(primerRegistro.plasticoRig),
+            plasticoFlexibles: mergeWithZero(primerRegistro.platicoFlex),
+            vidrio: mergeWithZero(primerRegistro.vidrio),
+            metalesFerrosos: mergeWithZero(primerRegistro.metal_ferrosos),
+            metalesNoFerrosos: mergeWithZero(primerRegistro.metal_no_ferrososs),
+            multimaterial1: mergeWithZero(primerRegistro.multimaterial1),
+            multimaterialn: mergeWithZero(primerRegistro.multimaterialn),
+            descripcion: (() => {
+              const parsed = parseDoubleJSON(primerRegistro.descripcion);
+              return Object.fromEntries(paramKeys.map(k => [k, parsed[k] !== undefined ? parsed[k] : ""]));
+            })()
           };
           setDatos(nuevosDatos);
         }
@@ -111,7 +139,27 @@ export default function TablaRetornabilidad({ color }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    // Validar que todos los campos numéricos sean enteros
+    const campos = [
+      { nombre: "pesoTotal", obj: datos.pesoTotal },
+      { nombre: "papel", obj: datos.papel },
+      { nombre: "carton", obj: datos.carton },
+      { nombre: "plasticoRigidos", obj: datos.plasticoRigidos },
+      { nombre: "plasticoFlexibles", obj: datos.plasticoFlexibles },
+      { nombre: "vidrio", obj: datos.vidrio },
+      { nombre: "metalesFerrosos", obj: datos.metalesFerrosos },
+      { nombre: "metalesNoFerrosos", obj: datos.metalesNoFerrosos },
+      { nombre: "multimaterial1", obj: datos.multimaterial1 },
+      { nombre: "multimaterialn", obj: datos.multimaterialn }
+    ];
+    for (const campo of campos) {
+      for (const [param, valor] of Object.entries(campo.obj)) {
+        if (valor !== undefined && valor !== "" && !Number.isInteger(Number(valor))) {
+          alert(`El campo '${campo.nombre}' para el parámetro '${param}' debe ser un número entero. Valor ingresado: ${valor}`);
+          return;
+        }
+      }
+    }
     try {
       const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearEnvaseRetornable", {
         method: "POST",
@@ -184,7 +232,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.pesoTotal[key] || ""}
+                        value={datos.pesoTotal[key] !== undefined && datos.pesoTotal[key] !== "" ? datos.pesoTotal[key] : 0}
                         onChange={(e) => handleChange(key, "pesoTotal", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -193,7 +241,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.papel[key] || ""}
+                        value={datos.papel[key] !== undefined && datos.papel[key] !== "" ? datos.papel[key] : 0}
                         onChange={(e) => handleChange(key, "papel", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -202,7 +250,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.carton[key] || ""}
+                        value={datos.carton[key] !== undefined && datos.carton[key] !== "" ? datos.carton[key] : 0}
                         onChange={(e) => handleChange(key, "carton", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -211,7 +259,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.plasticoRigidos[key] || ""}
+                        value={datos.plasticoRigidos[key] !== undefined && datos.plasticoRigidos[key] !== "" ? datos.plasticoRigidos[key] : 0}
                         onChange={(e) => handleChange(key, "plasticoRigidos", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -220,7 +268,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.plasticoFlexibles[key] || ""}
+                        value={datos.plasticoFlexibles[key] !== undefined && datos.plasticoFlexibles[key] !== "" ? datos.plasticoFlexibles[key] : 0}
                         onChange={(e) => handleChange(key, "plasticoFlexibles", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -229,7 +277,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.vidrio[key] || ""}
+                        value={datos.vidrio[key] !== undefined && datos.vidrio[key] !== "" ? datos.vidrio[key] : 0}
                         onChange={(e) => handleChange(key, "vidrio", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -238,7 +286,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.metalesFerrosos[key] || ""}
+                        value={datos.metalesFerrosos[key] !== undefined && datos.metalesFerrosos[key] !== "" ? datos.metalesFerrosos[key] : 0}
                         onChange={(e) => handleChange(key, "metalesFerrosos", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -247,7 +295,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.metalesNoFerrosos[key] || ""}
+                        value={datos.metalesNoFerrosos[key] !== undefined && datos.metalesNoFerrosos[key] !== "" ? datos.metalesNoFerrosos[key] : 0}
                         onChange={(e) => handleChange(key, "metalesNoFerrosos", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -256,7 +304,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.multimaterial1[key] || ""}
+                        value={datos.multimaterial1[key] !== undefined && datos.multimaterial1[key] !== "" ? datos.multimaterial1[key] : 0}
                         onChange={(e) => handleChange(key, "multimaterial1", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -265,7 +313,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.multimaterialn[key] || ""}
+                        value={datos.multimaterialn[key] !== undefined && datos.multimaterialn[key] !== "" ? datos.multimaterialn[key] : 0}
                         onChange={(e) => handleChange(key, "multimaterialn", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"
@@ -274,7 +322,7 @@ export default function TablaRetornabilidad({ color }) {
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <input
                         type="text"
-                        value={datos.descripcion[key] || ""}
+                        value={datos.descripcion[key] !== undefined && datos.descripcion[key] !== "" ? datos.descripcion[key] : ""}
                         onChange={(e) => handleChange(key, "descripcion", e.target.value)}
                         disabled={estado === "Aprobado"}
                         className="w-full p-1 border border-gray-300 rounded"

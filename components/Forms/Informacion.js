@@ -150,6 +150,17 @@ export default function FormularioAfiliado({ color }) {
       return;
     }
 
+    // Validar que telefono y celular sean de 10 dígitos
+    const regexTelefono = /^\d{10}$/;
+    if (!regexTelefono.test(formData.telefono)) {
+      alert("El campo Teléfono debe tener exactamente 10 dígitos.");
+      return;
+    }
+    if (!regexTelefono.test(formData.celular)) {
+      alert("El campo Celular debe tener exactamente 10 dígitos.");
+      return;
+    }
+
     const updatedFormData = {
       ...formData,
       idUsuario,

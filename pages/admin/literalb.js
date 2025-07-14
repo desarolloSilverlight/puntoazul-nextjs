@@ -9,9 +9,9 @@ export default function FormularioF() {
   const renderForm = () => {
     switch (activeTab) {
       case "Informacion":
-        return <InformacionB color="light"/>;
+        return <InformacionB color="light" modoLectura={true} />;
       case "Productos":
-        return <ProductosB color="light"/>;
+        return <ProductosB color="light" modoLectura={true} />;
       default:
         return null;
     }

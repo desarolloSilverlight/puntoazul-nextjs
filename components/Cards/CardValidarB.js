@@ -68,7 +68,7 @@ export default function CardTable({ color }) {
         <>
           <div className="rounded-t mb-0 px-4 py-3 border-0">
             <h3 className="text-lg font-semibold flex items-center">
-              Seleccione un vinculado&nbsp;
+              Seleccione un Asociado&nbsp;
               <i
                 className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
                 onClick={() => setIsOpen(true)}

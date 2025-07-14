@@ -33,6 +33,7 @@ export default function FormularioAfiliado({ color }) {
           empresaTitular: producto.empresa || "",
           nombreProducto: producto.nombre_producto || "",
           pesoUnitario: producto.peso || "",
+          pet: producto.pet || "",
           unidades: producto.unidades || "",
           liquidos: JSON.parse(producto.liquidos || "{}"),
           otrosProductos: JSON.parse(producto.otros || "{}"),
@@ -60,34 +61,34 @@ export default function FormularioAfiliado({ color }) {
         empresaTitular: "",
         nombreProducto: "",
         pesoUnitario: "",
-        PET: "",
+        PET: 0,
         liquidos: {
-          "PET Agua": "",
-          "PET Otros": "",
-          HDPE: "",
-          PVC: "",
-          LDPE: "",
-          PP: "",
-          PS: "",
-          Otros: ""
+          "PET Agua": 0,
+          "PET Otros": 0,
+          HDPE: 0,
+          PVC: 0,
+          LDPE: 0,
+          PP: 0,
+          PS: 0,
+          Otros: 0
         },
         otrosProductos: {
-          PET: "",
-          HDPE: "",
-          PVC: "",
-          LDPE: "",
-          PP: "",
-          PS: "",
-          Otros: ""
+          PET: 0,
+          HDPE: 0,
+          PVC: 0,
+          LDPE: 0,
+          PP: 0,
+          PS: 0,
+          Otros: 0
         },
         construccion: {
-          PET: "",
-          HDPE: "",
-          PVC: "",
-          LDPE: "",
-          PP: "",
-          PS: "",
-          Otros: ""
+          PET: 0,
+          HDPE: 0,
+          PVC: 0,
+          LDPE: 0,
+          PP: 0,
+          PS: 0,
+          Otros: 0
         },
         excepciones: "",
         prohibiciones: ""
@@ -141,6 +142,41 @@ export default function FormularioAfiliado({ color }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validar que PET y todos los campos de liquidos, otrosProductos y construccion sean enteros
+    const camposLiquidos = ["PET Agua", "PET Otros", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
+    const camposOtros = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
+    for (let i = 0; i < productos.length; i++) {
+      const producto = productos[i];
+      // PET
+      if (producto.PET !== undefined && producto.PET !== "" && !Number.isInteger(Number(producto.PET))) {
+        alert(`El campo 'PET' en la fila ${i + 1} debe ser un número entero. Valor ingresado: ${producto.PET}`);
+        return;
+      }
+      // liquidos
+      for (const campo of camposLiquidos) {
+        const valor = producto.liquidos[campo];
+        if (valor !== undefined && valor !== "" && !Number.isInteger(Number(valor))) {
+          alert(`El campo 'Líquidos.${campo}' en la fila ${i + 1} debe ser un número entero. Valor ingresado: ${valor}`);
+          return;
+        }
+      }
+      // otrosProductos
+      for (const campo of camposOtros) {
+        const valor = producto.otrosProductos[campo];
+        if (valor !== undefined && valor !== "" && !Number.isInteger(Number(valor))) {
+          alert(`El campo 'Otros Productos.${campo}' en la fila ${i + 1} debe ser un número entero. Valor ingresado: ${valor}`);
+          return;
+        }
+      }
+      // construccion
+      for (const campo of camposOtros) {
+        const valor = producto.construccion[campo];
+        if (valor !== undefined && valor !== "" && !Number.isInteger(Number(valor))) {
+          alert(`El campo 'Construcción.${campo}' en la fila ${i + 1} debe ser un número entero. Valor ingresado: ${valor}`);
+          return;
+        }
+      }
+    }
     // Serializar los campos de plásticos solo una vez antes de enviar
     const productosSerializados = productos.map((producto) => ({
       ...producto,
@@ -209,7 +245,7 @@ export default function FormularioAfiliado({ color }) {
           </button>
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
-          Todos los pesos de la tabla deben estar en gramos.
+          Todos los pesos de la tabla deben estar en gramos y ser enteros o aproximados.
         </div>
         <form onSubmit={handleSubmit}>
           <div className="w-full overflow-x-auto p-4">
@@ -249,8 +285,9 @@ export default function FormularioAfiliado({ color }) {
               <tbody>
                 {productos.map((producto, index) => {
                   // Parsear los campos que vienen como string JSON
+                  // Usar siempre el valor local (mayúsculas) si existe, si no, fallback al backend
                   const liquidos = typeof producto.liquidos === "string" ? JSON.parse(producto.liquidos || "{}") : (producto.liquidos || {});
-                  const otrosProductos = typeof producto.otros === "string" ? JSON.parse(producto.otros || "{}") : (producto.otrosProductos || {});
+                  const otrosProductos = typeof producto.otrosProductos === "string" ? JSON.parse(producto.otrosProductos || "{}") : (producto.otrosProductos || {});
                   const construccion = typeof producto.construccion === "string" ? JSON.parse(producto.construccion || "{}") : (producto.construccion || {});
 
                   return (
@@ -262,7 +299,7 @@ export default function FormularioAfiliado({ color }) {
                           onBlur={(e) => handleChange(index, "empresaTitular", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
-                          {producto.empresa || producto.empresaTitular}
+                          {producto.empresaTitular !== undefined ? producto.empresaTitular : (producto.empresa || "")}
                         </div>
                       </td>
                       <td className="min-w-[100px] p-1 border border-gray-300">
@@ -271,7 +308,7 @@ export default function FormularioAfiliado({ color }) {
                           onBlur={(e) => handleChange(index, "nombreProducto", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
-                          {producto.nombre_producto || producto.nombreProducto}
+                          {producto.nombreProducto !== undefined ? producto.nombreProducto : (producto.nombre_producto || "")}
                         </div>
                       </td>
                       <td className="min-w-[100px] p-1 border border-gray-300">
@@ -280,7 +317,7 @@ export default function FormularioAfiliado({ color }) {
                           onBlur={(e) => handleChange(index, "pesoUnitario", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
-                          {producto.peso || producto.pesoUnitario}
+                          {producto.pesoUnitario !== undefined ? producto.pesoUnitario : (producto.peso || "")}
                         </div>
                       </td>
                       <td className="min-w-[100px] p-1 border border-gray-300">
@@ -289,7 +326,7 @@ export default function FormularioAfiliado({ color }) {
                           onBlur={(e) => handleChange(index, "PET", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
-                          {producto.PET || ""}
+                          {producto.PET !== undefined ? producto.PET : (producto.pet || 0)}
                         </div>
                       </td>
                       {/* Líquidos */}
@@ -300,7 +337,7 @@ export default function FormularioAfiliado({ color }) {
                             onBlur={(e) => handleChange(index, `liquidos.${key}`, e.target.textContent || "")}
                             className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                           >
-                            {liquidos[key] || ""}
+                            {liquidos[key] !== undefined ? liquidos[key] : 0}
                           </div>
                         </td>
                       ))}
@@ -312,7 +349,7 @@ export default function FormularioAfiliado({ color }) {
                             onBlur={(e) => handleChange(index, `otrosProductos.${key}`, e.target.textContent || "")}
                             className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                           >
-                            {otrosProductos[key] || ""}
+                            {otrosProductos[key] !== undefined ? otrosProductos[key] : 0}
                           </div>
                         </td>
                       ))}
@@ -324,7 +361,7 @@ export default function FormularioAfiliado({ color }) {
                             onBlur={(e) => handleChange(index, `construccion.${key}`, e.target.textContent || "")}
                             className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                           >
-                            {construccion[key] || ""}
+                            {construccion[key] !== undefined ? construccion[key] : 0}
                           </div>
                         </td>
                       ))}

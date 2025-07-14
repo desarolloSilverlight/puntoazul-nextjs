@@ -69,11 +69,11 @@ export default function FormularioAfiliado({ color }) {
         idInformacionF,
         empresaTitular: "",
         nombreProducto: "",
-        papel: "",
-        metalFerrosos: "",
-        metalNoFerrosos: "",
-        carton: "",
-        vidrio: "",
+        papel: 0,
+        metalFerrosos: 0,
+        metalNoFerrosos: 0,
+        carton: 0,
+        vidrio: 0,
         multimaterial: "",
         unidades: "",
       },
@@ -89,7 +89,21 @@ export default function FormularioAfiliado({ color }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    // Validar que los campos numéricos sean enteros
+    const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
+    for (let i = 0; i < productos.length; i++) {
+      const producto = productos[i];
+      for (const campo of camposNumericos) {
+        const valor = producto[campo];
+        if (valor !== "" && valor !== null && valor !== undefined) {
+          const num = Number(valor);
+          if (!Number.isInteger(num)) {
+            alert(`El campo '${campo}' en la fila ${i + 1} debe ser un número entero. Valor ingresado: ${valor}`);
+            return;
+          }
+        }
+      }
+    }
     try {
       const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearEmpaqueSec", {
         method: "POST",
@@ -141,7 +155,7 @@ export default function FormularioAfiliado({ color }) {
           </button>
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
-          Todos los pesos de la tabla deben estar en gramos.
+          Todos los pesos de la tabla deben estar en gramos y ser enteros o aproximados.
         </div>
         <form onSubmit={handleSubmit}>
           <div className="w-full overflow-x-auto p-4">

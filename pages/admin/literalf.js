@@ -31,7 +31,7 @@ export default function FormularioF() {
 
   return (
     <div className="mt-10 p-4 bg-gray-100 min-h-screen">
-      <div className="relative z-10 flex border-b-2 border-gray-300">
+      <div className="relative flex border-b-2 border-gray-300">
         {["Informacion", "Empaque Primario", "Empaque Secundario", "Empaque Plastico", "Envases Retornables", "Distribucion Geografica"].map((tab) => (
           <button
             key={tab}

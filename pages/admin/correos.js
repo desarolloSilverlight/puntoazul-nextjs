@@ -1,8 +1,5 @@
 import React from "react";
 
-// components
-
-import CardLineChart from "components/Cards/CardLineChart.js";
 
 // layout for page
 

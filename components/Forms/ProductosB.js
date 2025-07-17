@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) {
-  const idUsuario = propIdUsuario || localStorage.getItem("id");
   let idInformacionB = localStorage.getItem("idInformacionB");
   let estado = localStorage.getItem("estadoInformacionB");
   const [productos, setProductos] = useState([]); // Estado para los productos
@@ -68,9 +67,6 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
 
   const handleChange = (index, field, value) => {
     const nuevosProductos = [...productos];
-
-    // Reemplazar comas por puntos en los valores ingresados
-    const sanitizedValue = value.replace(",", ".");
   
     // Actualizar el campo modificado
     nuevosProductos[index][field] = value;
@@ -427,7 +423,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
           <button
             type="submit"
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={estado == "Aprobado"} // Bloquear si el estado no es "Aprobado" o si isSaveDisabled es true
+            disabled={estado === "Aprobado"} // Bloquear si el estado no es "Aprobado" o si isSaveDisabled es true
           >
           Guardar
           </button>

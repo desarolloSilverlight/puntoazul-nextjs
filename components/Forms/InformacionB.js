@@ -24,38 +24,6 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
 
-  let timeoutId; // Variable para almacenar el temporizador
-
-  const handleAnoReporteChange = (e) => {
-    const { value } = e.target;
-
-    // Actualizar el estado del formulario inmediatamente para reflejar el input
-    setFormData((prev) => ({ ...prev, anoReporte: value }));
-
-    // Limpiar el temporizador anterior si el usuario sigue escribiendo
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-
-    // Configurar un nuevo temporizador
-    timeoutId = setTimeout(() => {
-      // Validar si el valor tiene 4 dígitos
-      if (value.length === 4) {
-        const anoReporte = parseInt(value, 10);
-        const ano = parseInt(formData.ano, 10);
-
-        if (!isNaN(anoReporte) && !isNaN(ano)) {
-          if (ano != anoReporte-1) {
-            alert("El año de reporte solo puede ser del año anterior.");
-            setIsSaveDisabled(true); // Deshabilitar el botón "Guardar"
-          } else {
-            setIsSaveDisabled(false); // Habilitar el botón "Guardar"
-          }
-        }
-      }
-    }, 1000); // Esperar 500 ms después de que el usuario deje de escribir
-  };
-
   // Obtener datos del backend al cargar el componente
   useEffect(() => {
     const fetchData = async () => {

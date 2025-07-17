@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
+import PropTypes from "prop-types";
 // Necesario para accesibilidad con react-modal
 if (typeof window !== "undefined") {
   Modal.setAppElement("#__next");
 }
-import PropTypes from "prop-types";
 
 export default function FormularioAfiliado({ color }) {
   // Estado único para todos los campos del formulario

@@ -25,7 +25,6 @@ export default function HeaderStats() {
     "/img/carrusel/img4.PNG"
   ];
 
-  const carouselHeight = '390px'; // Puedes ajustar esto
 
   return (
     <div className="relative w-full min-h-[390px] overflow-hidden">
@@ -52,10 +51,7 @@ export default function HeaderStats() {
       <div className="absolute inset-0 z-10 flex flex-col justify-between p-8 text-white">
         <div className="flex justify-between items-start">
           <div className="space-x-6">
-            <a href="#" className="hover:underline">Information</a>
-            <a href="#" className="hover:underline">Productos</a>
           </div>
-          <span className="font-medium">ADMINISTRATOR</span>
         </div>
 
         <div>{/* Aquí puedes meter tus tarjetas si las usas en el futuro */}</div>

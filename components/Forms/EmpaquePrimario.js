@@ -54,7 +54,7 @@ export default function FormularioAfiliado({ color }) {
     if (idInformacionF) {
       fetchProductos();
     }
-  }, [idInformacionF]);
+  }, [idInformacionF,productos,tipoReporte]);
   // Obtener productos y toneladas acumuladas globales desde el backend al cargar el componente
   useEffect(() => {
     const fetchProductos = async () => {

@@ -4,7 +4,6 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 
 export default function Sidebar() {
-  const [collapseShow, setCollapseShow] = useState("hidden");
   const [permisos, setPermisos] = useState([]); // Estado para almacenar los permisos del usuario
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,7 +54,7 @@ export default function Sidebar() {
     };
 
     fetchPermisos();
-  }, []);
+  }, [router]);
 
   const handleLogout = async () => {
     try {
@@ -104,12 +103,12 @@ export default function Sidebar() {
               permisos.includes(acceso.nombre) ? ( // Mostrar solo si el permiso está en la lista
                 <li key={acceso.nombre} className="items-center">
                   <Link legacyBehavior href={acceso.ruta}>
-                    <a
+                    <button
                       className="text-blueGray-700 hover:text-blueGray-500 text-xs uppercase py-3 font-bold block"
                     >
                       <i className={`${acceso.icono} text-blueGray-400 mr-2 text-sm`}></i>{" "}
                       {acceso.nombre}
-                    </a>
+                    </button>
                   </Link>
                 </li>
               ) : null

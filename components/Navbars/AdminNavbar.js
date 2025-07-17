@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-
-import UserDropdown from "components/Dropdowns/UserDropdown.js";
 
 export default function Navbar() {
-  const router = useRouter();
   const [username, setUsername] = useState("Admin"); // Valor predeterminado
   const [perfil, setPerfil] = useState("Admin"); // Valor predeterminado
 

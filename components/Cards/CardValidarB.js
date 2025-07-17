@@ -5,7 +5,6 @@ export default function CardTable({ color }) {
   const [usuarios, setUsuarios] = useState([]); // Estado para los usuarios
   const [productos, setProductos] = useState([]); // Estado para los productos
   const [showForm, setShowForm] = useState(false); // Mostrar tabla de validación
-  const [selectedAsociado, setSelectedAsociado] = useState(null); // Usuario seleccionado
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
 
   // Función para obtener usuarios desde el backend
@@ -197,8 +196,8 @@ function FormValidarB({ productos, goBack, fetchUsuarios }) {
   const year2 = new Date().getFullYear() - 3; // Ejemplo: 2022
 
   // Busca el histórico correspondiente a cada año
-  const historicoYear1 = productos[0]?.historico?.find(h => h.anoReporte == year1.toString());
-  const historicoYear2 = productos[0]?.historico?.find(h => h.anoReporte == year2.toString());
+  const historicoYear1 = productos[0]?.historico?.find(h => h.anoReporte === year1.toString());
+  const historicoYear2 = productos[0]?.historico?.find(h => h.anoReporte === year2.toString());
 
   // Fetch del parámetro y cálculo del grupo según el rango
   useEffect(() => {

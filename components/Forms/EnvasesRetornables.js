@@ -87,7 +87,7 @@ export default function TablaRetornabilidad({ color }) {
     if (idInformacionF) {
       fetchDatos();
     }
-  }, [idInformacionF]);
+  }, [idInformacionF,datos]);
 
   const handleChange = (parametro, field, value) => {
     const nuevosDatos = { ...datos };

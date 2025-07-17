@@ -1,23 +1,15 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-
+import Modal from "react-modal";
 export default function FormularioAfiliado({ color }) {
   let idInformacionF = localStorage.getItem("idInformacionF");
-  let estado = localStorage.getItem("estadoInformacion");
+  let estadoInformacionF = localStorage.getItem("estadoInformacionF");
+  let tipoReporte = localStorage.getItem("tipoReporte");
+  // Solo editable si estado es Guardado o Rechazado
+  const esEditable = estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado";
   const [productos, setProductos] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
-  const data = [
-    { id: "A", campo: "No", tipo: "Número", descripcion: "Enumeración de cada fila diligenciada" },
-    { id: "B", campo: "Empresa titular del Producto", tipo: "Texto", descripcion: "Razón social/Nombre de cada persona natural o jurídica (titular de registro) representada por la empresa vinculada a Soluciones Ambientales Sostenibles Punto Azul" },
-    { id: "C", campo: "Nombre del Producto", tipo: "Texto", descripcion: "Nombre del producto que está reportando" },
-    { id: "D", campo: "Papel (g)", tipo: "Gramos", descripcion: "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de PAPEL." },
-    { id: "E", campo: "Metal (g)", tipo: "Gramos", descripcion: "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de METAL." },
-    { id: "F", campo: "Cartón (g)", tipo: "Gramos", descripcion: "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de CARTÓN." },
-    { id: "G", campo: "Vidrio (g)", tipo: "Gramos", descripcion: "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de VIDRIO." },
-    { id: "H", campo: "Multimaterial", tipo: "Texto", descripcion: "Producto o empaque hecho de dos o más materiales diferentes combinados, como plástico y metal, en una sola estructura." },
-    { id: "I", campo: "Unidades del Producto puestas en el mercado", tipo: "Número", descripcion: "Total de empaques puestos en el mercado del Producto indicado durante el año reportado." }
-  ];
 
   useEffect(() => {
     const fetchProductos = async () => {
@@ -48,8 +40,10 @@ export default function FormularioAfiliado({ color }) {
           metalNoFerrosos: producto.metal_no_ferrososs || "",
           carton: producto.carton || "",
           vidrio: producto.vidrios || "",
-          multimaterial: producto.multimaterial || "",
-          unidades: producto.unidades || "",
+          multimaterial: typeof producto.multimaterial === 'string'
+            ? (() => { try { return JSON.parse(producto.multimaterial); } catch { return { multimaterial: "", tipo: "", otro: "" }; } })()
+            : (producto.multimaterial && typeof producto.multimaterial === 'object' ? producto.multimaterial : { multimaterial: "", tipo: "", otro: "" }),
+          unidades: tipoReporte === "totalizado" ? "1" : (producto.unidades || ""),
         }));
         setProductos(productosFormateados);
       } catch (error) {
@@ -87,7 +81,9 @@ export default function FormularioAfiliado({ color }) {
           metalNoFerrosos: producto.metal_no_ferrososs || "",
           carton: producto.carton || "",
           vidrio: producto.vidrios || "",
-          multimaterial: producto.multimaterial || "",
+          multimaterial: typeof producto.multimaterial === 'string'
+            ? (() => { try { return JSON.parse(producto.multimaterial); } catch { return { multimaterial: "", tipo: "", otro: "" }; } })()
+            : (producto.multimaterial && typeof producto.multimaterial === 'object' ? producto.multimaterial : { multimaterial: "", tipo: "", otro: "" }),
           unidades: producto.unidades || "",
         }));
         setProductos(productosFormateados);
@@ -101,7 +97,8 @@ export default function FormularioAfiliado({ color }) {
         const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getToneladasAcumuladas/${idInformacionF}`);
         if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
         const data = await response.json();
-        setToneladasAcumuladasGlobal(Number(data.toneladasAcumuladas) || 0);
+        console.log("Toneladas acumuladas globales:", data);
+        setToneladasAcumuladasGlobal(Number(data.toneladas) || 0);
       } catch {
         setToneladasAcumuladasGlobal(0);
       }
@@ -125,42 +122,66 @@ export default function FormularioAfiliado({ color }) {
         metalNoFerrosos: 0,
         carton: 0,
         vidrio: 0,
-        multimaterial: "",
-        unidades: "",
+        multimaterial: { multimaterial: "", tipo: "", otro: "" },
+        unidades: tipoReporte === "totalizado" ? "1" : "",
       },
     ]);
   };
 
   const handleChange = (index, field, value) => {
     const nuevosProductos = [...productos];
-    const sanitizedValue = value.replace(",", ".");
-    nuevosProductos[index][field] = sanitizedValue;
+    if (field.startsWith("multimaterial.")) {
+      const subField = field.split(".")[1];
+      nuevosProductos[index].multimaterial = {
+        ...nuevosProductos[index].multimaterial,
+        [subField]: value
+      };
+    } else {
+      const sanitizedValue = value.replace(",", ".");
+      nuevosProductos[index][field] = sanitizedValue;
+    }
+    // Si tipoReporte es totalizado y se intenta cambiar unidades, forzar a 1
+    if (tipoReporte === "totalizado") {
+      nuevosProductos[index].unidades = "1";
+    }
     setProductos(nuevosProductos);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Validar que los campos numéricos sean enteros
+    // Validar que los campos numéricos sean decimales con hasta 10 decimales y reemplazar comas por puntos
     const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
+    const decimalRegex = /^\d+(\.\d{1,10})?$/;
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
       for (const campo of camposNumericos) {
-        const valor = producto[campo];
+        let valor = producto[campo];
         if (valor !== "" && valor !== null && valor !== undefined) {
-          const num = Number(valor);
-          if (!Number.isInteger(num)) {
-            alert(`El campo '${campo}' en la fila ${i + 1} debe ser un número entero. Valor ingresado: ${valor}`);
+          valor = valor.toString().replace(/,/g, ".");
+          if (!decimalRegex.test(valor)) {
+            alert(`El campo '${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto[campo]}`);
             return;
           }
+          // Actualizar el valor en productos para asegurar que se envía con punto
+          productos[i][campo] = valor;
         }
       }
     }
     try {
+      // Serializar multimaterial como string para el backend
+      const productosSerializados = productos.map(p => ({
+        ...p,
+        multimaterial: JSON.stringify({
+          multimaterial: p.multimaterial.multimaterial,
+          tipo: p.multimaterial.tipo,
+          otro: p.multimaterial.otro
+        })
+      }));
       const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearEmpaquePri", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(productos),
+        body: JSON.stringify(productosSerializados),
       });
 
       if (!response.ok) {
@@ -181,16 +202,66 @@ export default function FormularioAfiliado({ color }) {
   return (
     <div
       className={
-        "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded " +
+        "flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded " +
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
-    >      
+      style={{ minHeight: '100vh' }}
+    >
+      {/* Modal usando react-modal, igual que Informacion.js */}
+      <Modal
+        isOpen={isOpen}
+        onRequestClose={() => setIsOpen(false)}
+        className="mx-auto my-32 bg-white p-5 rounded-lg shadow-lg max-w-xl z-40 max-h-460-px overflow-y-auto outline-none"
+        overlayClassName=""
+        contentLabel="Instructivo de la sección"
+        shouldCloseOnOverlayClick={true}
+      >
+        <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-300 text-sm">
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border border-gray-300 px-4 py-2">Campo</th>
+                <th className="border border-gray-300 px-4 py-2">Tipo</th>
+                <th className="border border-gray-300 px-4 py-2">Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Empresa titular del Producto", "Texto", "Razón social/Nombre de cada persona natural o jurídica (titular de registro) representada por la empresa vinculada a Soluciones Ambientales Sostenibles Punto Azul"],
+                ["Nombre del Producto", "Texto", "Nombre del producto que está reportando"],
+                ["Papel (g)", "Gramos", "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de PAPEL."],
+                ["Metal Ferrosos(g)", "Gramos", "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de METAL."],
+                ["Metal No Ferrosos(g)", "Gramos", "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de METAL NO FERROSO."],
+                ["Cartón (g)", "Gramos", "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de CARTÓN."],
+                ["Vidrio (g)", "Gramos", "Cantidad de GRAMOS referente al peso unitario del Empaque y Envase de cada unidad de producto. Aplica si el empaque y envase es de VIDRIO."],
+                ["Multimaterial", "Texto", "Producto o empaque hecho de dos o más materiales diferentes combinados, como plástico y metal, en una sola estructura."],
+                ["Unidades del Producto puestas en el mercado", "Número", "Total de empaques puestos en el mercado del Producto indicado durante el año reportado."],
+              ].map((row, index) => (
+                <tr key={index} className="hover:bg-gray-100">
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} className="border border-gray-300 px-4 py-2">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button
+          className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
+          onClick={() => setIsOpen(false)}
+        >
+          Cerrar
+        </button>
+      </Modal>
       {/* SECCIÓN II */}
-      <div className="p-4">
+      <div className="p-4 border-b">
         <h3 className="text-lg font-semibold flex items-center">
           Información General de Productos&nbsp;
-          <i 
-            className="fa-solid fa-circle-info text-blue-500 cursor-pointer" 
+          <i
+            className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
             onClick={() => setIsOpen(true)}
           ></i>
         </h3>
@@ -209,175 +280,213 @@ export default function FormularioAfiliado({ color }) {
           </button>
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
-          Todos los pesos de la tabla deben estar en gramos y ser enteros o aproximados.
+          Todos los pesos de la tabla deben estar en gramos y sin separador de miles.
         </div>
+        {/* ...existing code for the form and table... */}
         <form onSubmit={handleSubmit}>
           <div className="w-full overflow-x-auto p-4">
             <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
                 <tr className="bg-gray-200">
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">No.</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Empresa Titular</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Nombre Producto</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Papel (g)</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal Ferrosos(g)</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal No Ferrosos(g)</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón (g)</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio (g)</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades puestas en el mercado</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>
+                  <th className="border border-gray-300 px-2 py-1">No.</th>
+                  <th className="border border-gray-300 px-2 py-1">Empresa titular</th>
+                  <th className="border border-gray-300 px-2 py-1">Nombre Producto</th>
+                  <th className="border border-gray-300 px-2 py-1">Papel (g)</th>
+                  <th className="border border-gray-300 px-2 py-1">Metal Ferrosos (g)</th>
+                  <th className="border border-gray-300 px-2 py-1">Metal No Ferrosos (g)</th>
+                  <th className="border border-gray-300 px-2 py-1">Cartón (g)</th>
+                  <th className="border border-gray-300 px-2 py-1">Vidrio (g)</th>
+                  <th className="border border-gray-300 px-2 py-1">Multimaterial</th>
+                  <th className="border border-gray-300 px-2 py-1">Unidades</th>
+                  <th className="border border-gray-300 px-2 py-1">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {productos.map((producto, index) => {
-                return (
-                  <tr key={producto.id} className="border-t text-center">
-                    <td className="p-2">{index + 1}</td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "empresaTitular", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.empresaTitular}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "nombreProducto", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.nombreProducto}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "papel", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.papel}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "metalFerrosos", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.metalFerrosos}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "metalNoFerrosos", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.metalNoFerrosos}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "carton", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.carton}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "vidrio", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.vidrio}
-                      </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <select
-                        value={producto.multimaterial}
-                        onChange={(e) => handleChange(index, "multimaterial", e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={estado === "Aprobado"}
-                      >
-                        <option value="">Seleccione...</option>
-                        <option value="Sí">Sí</option>
-                        <option value="No">No</option>
-                      </select>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={estado !== "Aprobado"}
-                        onBlur={(e) => handleChange(index, "unidades", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.unidades}
-                      </div>
-                    </td>
-                    <td>
-                      <button 
-                        className="bg-red-500 text-white px-4 py-1 rounded" 
-                        onClick={() => setProductos(productos.filter((_, i) => i !== index))}
-                        disabled={estado === "Aprobado"}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
+                {productos.length === 0 ? (
+                  <tr>
+                    <td colSpan={11} className="text-center py-2">No hay productos guardados.</td>
                   </tr>
-                )})}
+                ) : (
+                  productos.map((producto, idx) => (
+                    <tr key={producto.id || idx} className="hover:bg-gray-100 text-center">
+                      <td className="border border-gray-300 px-2 py-1">{idx + 1}</td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "empresaTitular", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.empresaTitular}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.empresaTitular}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "nombreProducto", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.nombreProducto}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.nombreProducto}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "papel", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.papel}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.papel}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "metalFerrosos", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.metalFerrosos}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.metalFerrosos}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "metalNoFerrosos", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.metalNoFerrosos}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.metalNoFerrosos}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "carton", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.carton}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.carton}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "vidrio", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.vidrio}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.vidrio}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {esEditable ? (
+                          <>
+                            <select
+                              value={producto.multimaterial.multimaterial}
+                              onChange={e => handleChange(idx, "multimaterial.multimaterial", e.target.value)}
+                              className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              disabled={!esEditable}
+                            >
+                              <option value="">Seleccione...</option>
+                              <option value="Sí">Sí</option>
+                              <option value="No">No</option>
+                            </select>
+                            {producto.multimaterial.multimaterial === "Sí" && (
+                              <select
+                                value={producto.multimaterial.tipo}
+                                onChange={e => handleChange(idx, "multimaterial.tipo", e.target.value)}
+                                className="w-full mt-1 p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                disabled={!esEditable}
+                              >
+                                <option value="">Seleccione tipo...</option>
+                                <option value="Papel multimaterial o laminado">Papel multimaterial o laminado</option>
+                                <option value="Polyboard - papel para bebidas">Polyboard - papel para bebidas</option>
+                                <option value="Carton multimaterial o laminado">Cartón multimaterial o laminado</option>
+                                <option value="Carton para bebidas">Cartón para bebidas</option>
+                                <option value="Otro">Otro</option>
+                              </select>
+                            )}
+                            {producto.multimaterial.multimaterial === "Sí" && producto.multimaterial.tipo === "Otro" && (
+                              <input
+                                type="text"
+                                className="w-full mt-1 p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Especifique otro tipo"
+                                value={producto.multimaterial.otro}
+                                onChange={e => handleChange(idx, "multimaterial.otro", e.target.value)}
+                                disabled={!esEditable}
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div className="p-1">
+                            {producto.multimaterial && typeof producto.multimaterial === 'object'
+                              ? `${producto.multimaterial.multimaterial || ''} ${producto.multimaterial.tipo || ''} ${producto.multimaterial.otro || ''}`
+                              : ''}
+                          </div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        {tipoReporte === "totalizado" ? (
+                          <div className="w-fit max-w-full p-1 border border-gray-300 bg-gray-100 text-center">1</div>
+                        ) : esEditable ? (
+                          <div
+                            contentEditable
+                            onBlur={e => handleChange(idx, "unidades", e.target.textContent || "")}
+                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                          >
+                            {producto.unidades}
+                          </div>
+                        ) : (
+                          <div className="p-1">{producto.unidades}</div>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-1">
+                        <button
+                          className="bg-red-500 text-white px-4 py-1 rounded"
+                          onClick={e => { e.preventDefault(); setProductos(productos.filter((_, i) => i !== idx)); }}
+                          disabled={!esEditable}
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
           <button
             type="submit"
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={estado === "Aprobado"}
+            disabled={!esEditable}
           >
             Guardar
           </button>
         </form>
       </div>
-      {/* Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 ">
-          <div className="bg-white p-5 rounded-lg shadow-lg max-h-260-px overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
-            {/* Tabla */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border border-gray-200">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border px-4 py-2">Código</th>
-                    <th className="border px-4 py-2">Campo</th>
-                    <th className="border px-4 py-2">Tipo</th>
-                    <th className="border px-4 py-2">Descripción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((item) => (
-                    <tr key={item.id} className="border-b">
-                      <td className="border px-4 py-2">{item.id}</td>
-                      <td className="border px-4 py-2">{item.campo}</td>
-                      <td className="border px-4 py-2">{item.tipo}</td>
-                      <td className="border px-4 py-2">{item.descripcion}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>  
-            </div>
-            <button 
-              className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
-              onClick={() => setIsOpen(false)}
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

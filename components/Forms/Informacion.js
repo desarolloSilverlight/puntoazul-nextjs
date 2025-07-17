@@ -41,10 +41,17 @@ export default function FormularioAfiliado({ color }) {
   // Función para manejar los cambios en los campos del formulario
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
+    setFormData((prevData) => {
+      const newData = {
+        ...prevData,
+        [name]: value,
+      };
+      // Guardar tipoReporte en localStorage si cambia
+      if (name === "reporte") {
+        localStorage.setItem("tipoReporte", value);
+      }
+      return newData;
+    });
   };
 
   // Función para validar el año de reporte
@@ -126,6 +133,8 @@ export default function FormularioAfiliado({ color }) {
         console.log("Datos obtenidos:", data);
         localStorage.setItem("idInformacionF", data.idInformacionF);
         localStorage.setItem("estadoInformacionF", data.estado);
+        // Guardar tipoReporte en localStorage si existe
+        localStorage.setItem("tipoReporte", data.tipo_reporte || "unitario");
 
         setFormData({
           nombre: data.nombre || "",
@@ -146,11 +155,14 @@ export default function FormularioAfiliado({ color }) {
         });
 
         setEstado(data.estado);
-        if (data.estado === "Pendiente") {
+        // Usar estadoInformacionF para controlar edición
+        if (data.estado === "Guardado" || data.estado === "Rechazado") {
+          setIsDisabled(false);
+        } else {
           setIsDisabled(true);
-        } else if (data.estado === "Aprobado") {
+        }
+        if (data.estado === "Aprobado") {
           alert("Felicidades, tu formulario ha sido aprobado.");
-          setIsDisabled(true);
         } else if (data.estado === "Rechazado") {
           alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
         }
@@ -217,8 +229,9 @@ export default function FormularioAfiliado({ color }) {
       });
 
       if (checkResponse.ok) {
+        const idInformacionF = localStorage.getItem("idInformacionF");
         // Si ya existen datos, actualizarlos
-        const response = await fetch("https://nestbackend.fidare.com/informacion-f/actualizarInformacion", {
+        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/actualizarInformacion/${idInformacionF}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedFormData),
@@ -247,6 +260,8 @@ export default function FormularioAfiliado({ color }) {
         console.log("Formulario creado:", result);
         alert("Formulario creado correctamente.");
         localStorage.setItem("idInformacionF", result.data.idInformacionF);
+        // Guardar tipoReporte en localStorage al crear nuevo registro
+        localStorage.setItem("tipoReporte", updatedFormData.reporte || "unitario");
       } else {
         throw new Error(`Error ${checkResponse.status}: ${checkResponse.statusText}`);
       }
@@ -431,7 +446,7 @@ export default function FormularioAfiliado({ color }) {
                 type="text"
                 name="pais"
                 id="pais"
-                placeholder="País Casa matriz"
+                placeholder="País casa matriz"
                 value={formData.pais}
                 onChange={handleChange}
                 disabled={isDisabled}
@@ -445,7 +460,7 @@ export default function FormularioAfiliado({ color }) {
                 type="email"
                 name="correoFacturacion"
                 id="correoFacturacion"
-                placeholder="Correo de Facturación"
+                placeholder="Correo de facturación"
                 value={formData.correoFacturacion}
                 onChange={handleChange}
                 disabled={isDisabled}

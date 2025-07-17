@@ -17,11 +17,32 @@ export default function FormularioF() {
   // Estados y handlers para los botones y modal
   const [showModal, setShowModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  // Estado para controlar botones según estadoInformacionF
+  const estadoInformacionF = typeof window !== "undefined" ? (localStorage.getItem("estadoInformacionF") || "").trim() : "";
+  console.log("Estado del formulario:", estadoInformacionF);
 
-  // Simulación de función para actualizar estado en backend
+  // Actualiza el estado en el backend usando idInformacionF del localStorage
   const actualizaEstado = async () => {
-    // Aquí iría la lógica real de actualización en el backend
-    alert("Formulario enviado para revisión por Punto Azul.");
+    const idInformacionF = localStorage.getItem("idInformacionF");
+    try {
+      const response = await fetch(`https://nestbackend.fidare.com/informacion-f/updateEstado/${idInformacionF}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estado: "Pendiente",
+          tendencia: "",
+          motivo: "OK"
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+      alert("Formulario enviado para revisión por Punto Azul.");
+      window.location.reload(); // Recargar la página para actualizar el estado
+    } catch (error) {
+      alert(`Error al actualizar estado: ${error.message}`);
+    }
   };
 
   const handleSendForm = () => {
@@ -32,6 +53,30 @@ export default function FormularioF() {
 
   const handleFileChange = (e) => {
     setSelectedFile(e.target.files[0]);
+  };
+
+  // Subir documento al backend
+  const handleUploadCarta = async () => {
+    if (!selectedFile) return;
+    const idInformacionF = localStorage.getItem("idInformacionF");
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("ruta", "/public/img/literalF");
+    try {
+      const response = await fetch(`https://nestbackend.fidare.com/informacion-f/cargaCarta/${idInformacionF}`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+      alert("Carta subida correctamente.");
+      setShowModal(false);
+      setSelectedFile(null);
+    } catch (error) {
+      alert(`Error al subir la carta: ${error.message}`);
+    }
   };
 
   const renderForm = () => {
@@ -55,17 +100,26 @@ export default function FormularioF() {
 
   return (
     <div className="mt-10 p-4 bg-gray-100 min-h-screen">
+      {/* Estado actual del formulario */}
+      {/* <div className="mb-2 text-blue-700 font-semibold">Estado actual del formulario: {estadoInformacionF}</div> */}
       {/* Botones encima de los tabs */}
       <div className="flex justify-between mb-4 items-center">
         <button
           className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
           onClick={handleSendForm}
+          disabled={!(estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado")}
         >
           Enviar formulario
         </button>
         <button
           className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            if (estadoInformacionF === "Aprobado") {
+              setShowModal(true);
+            } else {
+              alert("Tu formulario necesita estar Aprobado para poder cargar la carta de aprobación.");
+            }
+          }}
         >
           Cargar carta
         </button>
@@ -87,7 +141,7 @@ export default function FormularioF() {
         )}
         <button
           className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
-          onClick={() => { setShowModal(false); setSelectedFile(null); }}
+          onClick={handleUploadCarta}
           disabled={!selectedFile}
         >
           Subir

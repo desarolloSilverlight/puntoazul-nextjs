@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-
+import Modal from "react-modal";
 const departamentos = [
   "Amazonas", "Antioquia", "Arauca", "Atlántico", "Bogotá D.C.", "Bolívar", "Boyacá", "Caldas", 
   "Caquetá", "Casanare", "Cauca", "Cesar", "Chocó", "Córdoba", "Cundinamarca", "Guajira", 
@@ -11,7 +11,9 @@ const departamentos = [
 
 export default function FormularioDepartamentos({ color }) {
   let idInformacionF = localStorage.getItem("idInformacionF");
-  let estado = localStorage.getItem("estadoInformacion");
+  let estadoInformacionF = localStorage.getItem("estadoInformacionF");
+  // Solo editable si estado es Guardado o Rechazado
+  const esEditable = estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado";
   const [filas, setFilas] = useState([]);
   const [pregunta1, setPregunta1] = useState("");
   const [pregunta2, setPregunta2] = useState("");
@@ -97,6 +99,24 @@ export default function FormularioDepartamentos({ color }) {
       return;
     }
 
+    // Validar que ningún porcentaje individual sea mayor a 100
+    for (const fila of filas) {
+      const porcentajeNum = parseFloat(fila.porcentaje);
+      if (porcentajeNum > 100) {
+        alert(`El porcentaje del departamento '${fila.departamento}' no puede ser mayor a 100.`);
+        return;
+      }
+    }
+
+    // Validar que la suma total de porcentajes no supere 100 si hay dos o más departamentos
+    if (filas.length > 1) {
+      const sumaTotal = filas.reduce((acc, fila) => acc + parseFloat(fila.porcentaje || 0), 0);
+      if (sumaTotal > 100) {
+        alert("La sumatoria de los porcentajes de todos los departamentos no puede ser mayor a 100.");
+        return;
+      }
+    }
+
     // Convertir el array de filas a un objeto de departamentos
     const departamentosObj = {};
     filas.forEach(fila => {
@@ -150,7 +170,7 @@ export default function FormularioDepartamentos({ color }) {
             type="button"
             onClick={agregarFila} 
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={estado === "Aprobado"}
+            disabled={!esEditable}
           >
             Agregar Departamento
           </button>
@@ -171,8 +191,8 @@ export default function FormularioDepartamentos({ color }) {
                       <select 
                         className="border p-1 w-full"
                         value={fila.departamento}
-                        onChange={(e) => actualizarFila(index, "departamento", e.target.value)}
-                        disabled={estado === "Aprobado"}
+                        onChange={e => actualizarFila(index, "departamento", e.target.value)}
+                        disabled={!esEditable}
                       >
                         <option value="">Seleccione un departamento</option>
                         {departamentos.map((dep, i) => (
@@ -185,8 +205,8 @@ export default function FormularioDepartamentos({ color }) {
                         type="number" 
                         className="border p-1 w-full"
                         value={fila.porcentaje}
-                        onChange={(e) => actualizarFila(index, "porcentaje", e.target.value)}
-                        disabled={estado === "Aprobado"}
+                        onChange={e => actualizarFila(index, "porcentaje", e.target.value)}
+                        disabled={!esEditable}
                       />
                     </td>
                   </tr>
@@ -208,8 +228,8 @@ export default function FormularioDepartamentos({ color }) {
               className="border p-2 w-full" 
               rows="3"
               value={pregunta1}
-              onChange={(e) => setPregunta1(e.target.value)}
-              disabled={estado === "Aprobado"}
+              onChange={e => setPregunta1(e.target.value)}
+              disabled={!esEditable}
             ></textarea>
 
             <label className="block mt-4 font-medium">¿La empresa actualmente realiza actividades dirigidas a la investigación 
@@ -219,8 +239,8 @@ export default function FormularioDepartamentos({ color }) {
               className="border p-2 w-full" 
               rows="3"
               value={pregunta2}
-              onChange={(e) => setPregunta2(e.target.value)}
-              disabled={estado === "Aprobado"}
+              onChange={e => setPregunta2(e.target.value)}
+              disabled={!esEditable}
             ></textarea>
 
             <label className="block mt-4 font-medium">¿La empresa realiza actividades dirigidas a la sensibilización o 
@@ -230,8 +250,8 @@ export default function FormularioDepartamentos({ color }) {
               className="border p-2 w-full" 
               rows="3"
               value={pregunta3}
-              onChange={(e) => setPregunta3(e.target.value)}
-              disabled={estado === "Aprobado"}
+              onChange={e => setPregunta3(e.target.value)}
+              disabled={!esEditable}
             ></textarea>
             
             <label className="block mt-4 font-medium">4. ¿Observaciones?</label>
@@ -239,70 +259,64 @@ export default function FormularioDepartamentos({ color }) {
               className="border p-2 w-full" 
               rows="3"
               value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              disabled={estado === "Aprobado"}
+              onChange={e => setObservaciones(e.target.value)}
+              disabled={!esEditable}
             ></textarea>
           </div>
 
           <button
             type="submit"
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={estado === "Aprobado"}
+            disabled={!esEditable}
           >
             Guardar
           </button>
         </form>
       </div>
       {/* Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 ">
-          <div className="bg-white p-5 rounded-lg shadow-lg max-h-260-px overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
-            {/* Tabla */}
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300 text-sm">
-                <thead>
-                  <tr className="bg-gray-200">
-                    <th className="border border-gray-300 px-4 py-2">#</th>
-                    <th className="border border-gray-300 px-4 py-2">Campo</th>
-                    <th className="border border-gray-300 px-4 py-2">Tipo</th>
-                    <th className="border border-gray-300 px-4 py-2">Descripción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ["1", "Nombre o Razón Social", "Texto", "Razón social o nombre de la persona natural o jurídica participante."],
-                    ["2", "NIT", "Número", "Número de Identificación Tributaria."],
-                    ["3", "Dirección", "Texto", "Dirección de recepción de notificaciones."],
-                    ["4", "Ciudad", "Texto", "Ciudad correspondiente a la Dirección de Notificación."],
-                    ["5", "Casa matriz", "Texto", "Nacional de la empresa inscrita al Plan."],
-                    ["6", "Correo de Facturación", "Texto", "Correo electrónico de la persona que recibe facturas."],
-                    ["7", "Persona de Contacto", "Texto", "Nombre de la persona encargada de los trámites."],
-                    ["8", "Teléfono", "Número", "Teléfono de contacto con el Representante Legal."],
-                    ["9", "Cargo", "Texto", "Cargo de la persona de contacto."],
-                    ["10", "Correo Electrónico", "Texto", "Correo de la persona de contacto de la empresa."],
-                    ["11", "Fecha de diligenciamiento", "Número", "Fecha de presentación del formulario."],
-                    ["12", "Año reportado", "Número", "Año para el cual se reporta la información."],
-                    ["13", "Empresas Representadas", "Número", "Cantidad de empresas representadas en el plan."]
-                  ].map((row, index) => (
-                    <tr key={index} className="hover:bg-gray-100">
-                      {row.map((cell, cellIndex) => (
-                        <td key={cellIndex} className="border border-gray-300 px-4 py-2">{cell}</td>
-                      ))}
-                    </tr>
+      <Modal
+        isOpen={isOpen}
+        onRequestClose={() => setIsOpen(false)}
+        className="mx-auto my-32 bg-white p-5 rounded-lg shadow-lg max-w-xl z-40 max-h-460-px overflow-y-auto outline-none"
+        overlayClassName=""
+        contentLabel="Instructivo de la sección"
+        shouldCloseOnOverlayClick={true}
+      >
+        <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-300 text-sm">
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border border-gray-300 px-4 py-2">Código</th>
+                <th className="border border-gray-300 px-4 py-2">Campo</th>
+                <th className="border border-gray-300 px-4 py-2">Tipo</th>
+                <th className="border border-gray-300 px-4 py-2">Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["AU", "Porcentaje aproximado de unidades distribuidas por departamento", "Porcentaje", "Indicar el porcentaje aproximado de unidades puestos en el mercado de los productos registrados en la Sección II, de acuerdo a los departamentos donde se realice la distribución en su último punto, o donde el consumidor final recibe los productos."],
+                ["AV", "¿La empresa actualmente realiza interna o externamente actividades dirigidas al aprovechamiento de materiales (reciclaje, reutilización, reprocesamiento, aprovechamiento energético, tratamiento fisicoquímico, tratamiento térmico, etc.)? (SI/NO) ¿Cuales? ¿Cuenta actualmente con gestores formales o informales para realizar el procesamiento o manejo de estos materiales?", "Texto", "Pregunta abierta. En caso de que la respuesta sea afirmativa, se debe dar respuesta a las preguntas formuladas"],
+                ["AW", "¿La empresa actualmente realiza actividades dirigidas a la investigación y desarrollo para la innovación de empaques y envases o mecanismos de ecodiseño? Cuales?", "Texto", "Pregunta abierta. En caso de que la respuesta sea afirmativa, se debe indicar las actividades que se están realizando."],
+                ["AX", "¿La empresa realiza actividades dirigidas a la sensibilización o capacitaciones de la gestión ambiental de residuos, al interior o exterior de la empresa? Cuáles?", "Texto", "Pregunta abierta. En caso de que la respuesta sea afirmativa, se debe indicar las actividades que se están realizando."],
+                ["AY", "Observaciones", "Texto", "Diligencie aquí cualquier observación que tenga y considere puede ser relevante para la ejecución del Plan."]
+              ].map((row, index) => (
+                <tr key={index} className="hover:bg-gray-100">
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} className="border border-gray-300 px-4 py-2">{cell}</td>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            <button 
-              className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
-              onClick={() => setIsOpen(false)}
-            >
-              Cerrar
-            </button>
-          </div>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+        <button
+          className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
+          onClick={() => setIsOpen(false)}
+        >
+          Cerrar
+        </button>
+      </Modal>
     </div>
   );
 }

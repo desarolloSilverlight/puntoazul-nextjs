@@ -167,15 +167,25 @@ export default function FormularioAfiliado({ color }) {
     e.preventDefault();
     const idUsuario = localStorage.getItem("id");
 
-    // Validar que ningún campo esté vacío
+    // Si la fecha está vacía, usar la fecha actual
+    let fechaFinal = formData.fechaDiligenciamiento;
+    if (!fechaFinal) {
+      fechaFinal = new Date().toISOString().split('T')[0];
+    }
+    // Validar que ningún campo esté vacío (excepto fecha, que ya se corrige)
     const camposRequeridos = [
       'nombre', 'nit', 'direccion', 'ciudad', 'pais', 
       'correoFacturacion', 'personaContacto', 'telefono', 
       'celular', 'cargo', 'correoElectronico', 
-      'fechaDiligenciamiento', 'anioReportado', 'empresasRepresentadas'
+      'anioReportado', 'empresasRepresentadas'
     ];
-
-    const camposVacios = camposRequeridos.filter(campo => !formData[campo]);
+    // Creamos un nuevo objeto para validar y enviar
+    const formDataFinal = {
+      ...formData,
+      fechaDiligenciamiento: fechaFinal
+    };
+    console.log("Estado actual de formData:", formDataFinal);
+    const camposVacios = camposRequeridos.filter(campo => !formDataFinal[campo]);
 
     if (camposVacios.length > 0) {
       alert("Por favor completa todos los campos del formulario.");
@@ -184,17 +194,17 @@ export default function FormularioAfiliado({ color }) {
 
     // Validar que telefono y celular sean de 10 dígitos
     const regexTelefono = /^\d{10}$/;
-    if (!regexTelefono.test(formData.telefono)) {
+    if (!regexTelefono.test(formDataFinal.telefono)) {
       alert("El campo Teléfono debe tener exactamente 10 dígitos.");
       return;
     }
-    if (!regexTelefono.test(formData.celular)) {
+    if (!regexTelefono.test(formDataFinal.celular)) {
       alert("El campo Celular debe tener exactamente 10 dígitos.");
       return;
     }
 
     const updatedFormData = {
-      ...formData,
+      ...formDataFinal,
       idUsuario,
     };
     console.log("Datos del formulario a enviar:", updatedFormData);

@@ -6,6 +6,7 @@ export default function FormularioAfiliado({ color }) {
   let estado = localStorage.getItem("estadoInformacion");
   const [productos, setProductos] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const data = [
     ["AA", "Empresa titular del Producto", "Texto", "Razón social/Nombre de cada persona natural o jurídica (titular de registro) representada por la empresa vinculada a Soluciones Ambientales Sostenibles Punto Azul"],
     ["AB", "Nombre del Producto", "Texto", "Nombre del producto que esta reportando"],
@@ -17,7 +18,6 @@ export default function FormularioAfiliado({ color }) {
     ["AH", "Unidades del Producto puestas en el mercado durante el año reportado", "Número", "Total de empaques puestos en el mercado del Producto indicado en la fila correspondiente, durante el año reportado. En la cuantificación se debe tener en cuenta la relación con el producto (Ej.: una unidad de empaque contiene 24 unidades de producto, el reporte que se debe hacer es la unidad de empaque que se puso en el mercado."],
   ];
 
-  // Obtener productos desde el backend al cargar el componente
   useEffect(() => {
     const fetchProductos = async () => {
       try {
@@ -58,6 +58,56 @@ export default function FormularioAfiliado({ color }) {
 
     if (idInformacionF) {
       fetchProductos();
+    }
+  }, [idInformacionF]);
+  // Obtener productos y toneladas acumuladas globales desde el backend al cargar el componente
+  useEffect(() => {
+    const fetchProductos = async () => {
+      try {
+        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getEmpaquesSecundarios/${idInformacionF}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log("No se encontraron empaques secundarios para este idInformacionF.");
+            return;
+          }
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const productosFormateados = data.map(producto => ({
+          id: producto.idEmpaque,
+          idInformacionF: producto.idInformacionF,
+          empresaTitular: producto.empresa || "",
+          nombreProducto: producto.nombre_producto || "",
+          papel: producto.papel || "",
+          metalFerrosos: producto.metal_ferrosos || "",
+          metalNoFerrosos: producto.metal_no_ferrososs || "",
+          carton: producto.carton || "",
+          vidrio: producto.vidrios || "",
+          multimaterial: producto.multimaterial || "",
+          unidades: producto.unidades || "",
+        }));
+        setProductos(productosFormateados);
+      } catch (error) {
+        console.error("Error al obtener los empaques secundarios:", error);
+      }
+    };
+    // Obtener toneladas acumuladas globales (plástico + primario + secundario)
+    const fetchToneladasAcumuladas = async () => {
+      try {
+        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getToneladasAcumuladas/${idInformacionF}`);
+        if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
+        const data = await response.json();
+        setToneladasAcumuladasGlobal(Number(data.toneladasAcumuladas) || 0);
+      } catch {
+        setToneladasAcumuladasGlobal(0);
+      }
+    };
+    if (idInformacionF) {
+      fetchProductos();
+      fetchToneladasAcumuladas();
     }
   }, [idInformacionF]);
 
@@ -143,6 +193,9 @@ export default function FormularioAfiliado({ color }) {
             onClick={() => setIsOpen(true)}
           ></i>
         </h3>
+        <div className="mt-2 mb-2 text-blue-700 font-bold text-lg">
+          Toneladas acumuladas (global): {toneladasAcumuladasGlobal}
+        </div>
         <div className="flex justify-between mt-3">
           <button className="bg-lightBlue-600 text-white px-4 py-2 rounded" onClick={agregarProducto}>
             Agregar Producto
@@ -170,9 +223,6 @@ export default function FormularioAfiliado({ color }) {
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal No Ferrosos(g)</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón (g)</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio (g)</th>
-                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">
-                    Ton Acumuladas
-                  </th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades puestas en el mercado</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>
@@ -180,15 +230,7 @@ export default function FormularioAfiliado({ color }) {
               </thead>
               <tbody>
                 {productos.map((producto, index) => {
-                const totalGramos =
-                  Number(producto.papel || 0) +
-                  Number(producto.metalFerrosos || 0) +
-                  Number(producto.metalNoFerrosos || 0) +
-                  Number(producto.carton || 0) +
-                  Number(producto.vidrio || 0);
-                const toneladas = (totalGramos / 1_000_000).toFixed(6);
                 return (
-                  
                   <tr key={producto.id} className="border-t text-center">
                     <td className="p-2">{index + 1}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
@@ -253,9 +295,6 @@ export default function FormularioAfiliado({ color }) {
                       >
                         {producto.vidrio}
                       </div>
-                    </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      {toneladas}
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <select

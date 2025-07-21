@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+// Configuración de la URL base del backend
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 import { useRouter } from "next/router";
 import Image from "next/image";
 // layout for page
@@ -16,16 +18,16 @@ export default function Login() {
   
     try {
       // Realizar la solicitud de inicio de sesión
-      const loginResponse = await fetch("https://nestbackend.fidare.com/auth/login", {
+      const loginResponse = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // 🔥 Permitir cookies en la petición
         body: JSON.stringify({ username, password }),
       });
-  
+
       const loginData = await loginResponse.json();
       console.log(loginData);
-  
+
       if (!loginResponse.ok) {
         throw new Error(loginData.message || "Error al iniciar sesión");
       }

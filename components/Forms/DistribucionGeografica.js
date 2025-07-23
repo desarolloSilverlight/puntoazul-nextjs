@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import Backdrop from "@mui/material/Backdrop";
+import { Oval } from "react-loader-spinner";
+import { API_BASE_URL } from "../../utils/config";
 import PropTypes from "prop-types";
 import Modal from "react-modal";
 const departamentos = [
@@ -20,12 +23,19 @@ export default function FormularioDepartamentos({ color }) {
   const [pregunta3, setPregunta3] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pregunta4, setPregunta4] = useState("");
+  const [pregunta5, setPregunta5] = useState("");
+  const eliminarFila = (index) => {
+    const nuevasFilas = filas.filter((_, i) => i !== index);
+    setFilas(nuevasFilas);
+  };
 
   // Obtener datos desde el backend al cargar el componente
   useEffect(() => {
     const fetchDatos = async () => {
       try {
-        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getDistribucionGeografica/${idInformacionF}`, {
+        const response = await fetch(`${API_BASE_URL}/informacion-f/getDistribucionGeografica/${idInformacionF}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
@@ -66,6 +76,8 @@ export default function FormularioDepartamentos({ color }) {
           setPregunta1(primerRegistro.pregunta1 || "");
           setPregunta2(primerRegistro.pregunta2 || "");
           setPregunta3(primerRegistro.pregunta3 || "");
+          setPregunta4(primerRegistro.pregunta4 || "");
+          setPregunta5(primerRegistro.pregunta5 || "");
           setObservaciones(primerRegistro.observaciones || "");
         }
       } catch (error) {
@@ -125,8 +137,9 @@ export default function FormularioDepartamentos({ color }) {
       }
     });
 
+    setLoading(true);
     try {
-      const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearDistribucion", {
+      const response = await fetch(`${API_BASE_URL}/informacion-f/crearDistribucion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -136,6 +149,8 @@ export default function FormularioDepartamentos({ color }) {
           pregunta1,
           pregunta2,
           pregunta3,
+          pregunta4,
+          pregunta5,
           observaciones
         }),
       });
@@ -151,6 +166,8 @@ export default function FormularioDepartamentos({ color }) {
     } catch (error) {
       console.error("Error al enviar los datos de distribución geográfica:", error);
       alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -182,6 +199,7 @@ export default function FormularioDepartamentos({ color }) {
                 <tr className="bg-gray-200">
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Departamento</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">AU (%)</th>
+                  <th rowSpan={1} colSpan={1} className="min-w-[80px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Eliminar</th>
                 </tr>
               </thead>
               <tbody>
@@ -195,9 +213,14 @@ export default function FormularioDepartamentos({ color }) {
                         disabled={!esEditable}
                       >
                         <option value="">Seleccione un departamento</option>
-                        {departamentos.map((dep, i) => (
-                          <option key={i} value={dep}>{dep}</option>
-                        ))}
+                        {departamentos
+                          .filter(dep =>
+                            dep === fila.departamento ||
+                            !filas.some((f, idx) => f.departamento === dep && idx !== index)
+                          )
+                          .map((dep, i) => (
+                            <option key={i} value={dep}>{dep}</option>
+                          ))}
                       </select>
                     </td>
                     <td>
@@ -208,6 +231,16 @@ export default function FormularioDepartamentos({ color }) {
                         onChange={e => actualizarFila(index, "porcentaje", e.target.value)}
                         disabled={!esEditable}
                       />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="bg-red-500 text-white px-2 py-1 rounded"
+                        onClick={() => eliminarFila(index)}
+                        disabled={!esEditable}
+                      >
+                        Eliminar
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -221,42 +254,59 @@ export default function FormularioDepartamentos({ color }) {
           <div className="mt-6">
             <label className="block font-medium">¿La empresa actualmente realiza interna o externamente actividades
               dirigidas al aprovechamiento de materiales (reciclaje, reutilización, coprocesamiento, aprovechamiento
-              energético, tratamiento fisicoquímico, tratamiento térmico, etc.)? (SI/NO) Cuales? Cuenta actualmente con
-               gestores formales o informales para realizar el procesamiento o manejo de estos materiales? (AV)							
+              energético, tratamiento fisicoquímico, tratamiento térmico, etc.)? (SI/NO) Cuales? 
             </label>
-            <textarea 
-              className="border p-2 w-full" 
+            <textarea
+              className="border p-2 w-full"
               rows="3"
               value={pregunta1}
               onChange={e => setPregunta1(e.target.value)}
               disabled={!esEditable}
             ></textarea>
 
-            <label className="block mt-4 font-medium">¿La empresa actualmente realiza actividades dirigidas a la investigación 
-              y desarrollo para la innovación de empaques y envases o mecanismos de ecodiseño? Cuales?  (AW)									
+            <label className="block mt-4 font-medium">¿La empresa actualmente realiza actividades dirigidas a la investigación
+              y desarrollo para la innovación de empaques y envases o mecanismos de ecodiseño? Cuales?  (AW)
             </label>
-            <textarea 
-              className="border p-2 w-full" 
+            <textarea
+              className="border p-2 w-full"
               rows="3"
               value={pregunta2}
               onChange={e => setPregunta2(e.target.value)}
               disabled={!esEditable}
             ></textarea>
 
-            <label className="block mt-4 font-medium">¿La empresa realiza actividades dirigidas a la sensibilización o 
-              capacitaciones de la gestión ambiental de residuos, al interior o exterior de la empresa? Cuáles? (AX)									
+            <label className="block mt-4 font-medium">¿La empresa realiza actividades dirigidas a la sensibilización o
+              capacitaciones de la gestión ambiental de residuos, al interior o exterior de la empresa? Cuáles? (AX)
             </label>
-            <textarea 
-              className="border p-2 w-full" 
+            <textarea
+              className="border p-2 w-full"
               rows="3"
               value={pregunta3}
               onChange={e => setPregunta3(e.target.value)}
               disabled={!esEditable}
             ></textarea>
-            
-            <label className="block mt-4 font-medium">4. ¿Observaciones?</label>
-            <textarea 
-              className="border p-2 w-full" 
+
+            <label className="block mt-4 font-medium">Cuenta actualmente con gestores Y/o recicladores de oficio Y/o transformadores para realizar la gestión adecuada de residuos de envases y empaques en su empresa (SI/NO) Cuales? Menciónelos. (AY)</label>
+            <textarea
+              className="border p-2 w-full"
+              rows="3"
+              value={pregunta4}
+              onChange={e => setPregunta4(e.target.value)}
+              disabled={!esEditable}
+            ></textarea>
+
+            <label className="block mt-4 font-medium">Actualmente cuenta con un punto autogestionado? (SI/NO). Entendiendo que punto autogestionado es: Lugar o espacio acondicionado por el vinculado al Plan para almacenar y/o clasificar los residuos aprovechables de envases y empaques previo a la entrega al gestor de residuos y/o empresa transformadora que seleccione para su aprovechamiento. (AZ)</label>
+            <textarea
+              className="border p-2 w-full"
+              rows="3"
+              value={pregunta5}
+              onChange={e => setPregunta5(e.target.value)}
+              disabled={!esEditable}
+            ></textarea>
+
+            <label className="block mt-4 font-medium">¿Observaciones?</label>
+            <textarea
+              className="border p-2 w-full"
               rows="3"
               value={observaciones}
               onChange={e => setObservaciones(e.target.value)}
@@ -317,6 +367,21 @@ export default function FormularioDepartamentos({ color }) {
           Cerrar
         </button>
       </Modal>
+      {/* Loader Overlay */}
+      <Backdrop
+        sx={{ color: '#fff', zIndex: 1301 }}
+        open={loading}
+      >
+        <Oval
+          height={60}
+          width={60}
+          color="#2563eb"
+          secondaryColor="#e0e7ef"
+          strokeWidth={5}
+          ariaLabel="oval-loading"
+          visible={true}
+        />
+      </Backdrop>
     </div>
   );
 }

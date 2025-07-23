@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { Oval } from 'react-loader-spinner';
 import Modal from "react-modal";
+import Backdrop from '@mui/material/Backdrop';
 import PropTypes from "prop-types";
 // Necesario para accesibilidad con react-modal
 if (typeof window !== "undefined") {
@@ -30,6 +32,7 @@ export default function FormularioAfiliado({ color }) {
   const [isDisabled, setIsDisabled] = useState(false); // Controlar si los campos están bloqueados
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   useEffect(() => {
     console.log('Modal isOpen state:', isOpen);
   }, [isOpen]);
@@ -66,11 +69,11 @@ export default function FormularioAfiliado({ color }) {
     timeoutId = setTimeout(() => {
       if (value.length === 4) {
         const anoReporte = parseInt(value, 10);
-        const ano = new Date().getFullYear(); // Obtiene el año actual
-
+        const ano = new Date().getFullYear(); // Año actual
+        // Solo se permiten los años actuales menos 2 o menos 3
         if (!isNaN(anoReporte) && !isNaN(ano)) {
-          if (anoReporte !== ano - 3) {
-            alert("El año de reporte solo puede ser de hace 3 años.");
+          if (anoReporte !== ano - 2 && anoReporte !== ano - 3) {
+            alert(`El año de reporte solo puede ser ${ano - 2} o ${ano - 3}.`);
             setIsSaveDisabled(true);
           } else {
             setIsSaveDisabled(false);
@@ -177,6 +180,7 @@ export default function FormularioAfiliado({ color }) {
   // Función para manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     const idUsuario = localStorage.getItem("id");
 
     // Si la fecha está vacía, usar la fecha actual
@@ -201,6 +205,7 @@ export default function FormularioAfiliado({ color }) {
 
     if (camposVacios.length > 0) {
       alert("Por favor completa todos los campos del formulario.");
+      setIsLoading(false);
       return;
     }
 
@@ -208,10 +213,12 @@ export default function FormularioAfiliado({ color }) {
     const regexTelefono = /^\d{10}$/;
     if (!regexTelefono.test(formDataFinal.telefono)) {
       alert("El campo Teléfono debe tener exactamente 10 dígitos.");
+      setIsLoading(false);
       return;
     }
     if (!regexTelefono.test(formDataFinal.celular)) {
       alert("El campo Celular debe tener exactamente 10 dígitos.");
+      setIsLoading(false);
       return;
     }
 
@@ -268,17 +275,37 @@ export default function FormularioAfiliado({ color }) {
     } catch (error) {
       console.error("Error al enviar el formulario:", error);
       alert("Hubo un error al enviar el formulario.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div
       className={
-        "flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded " +
+        "flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded relative " +
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
       style={{ minHeight: '100vh' }}
     >
+      {/* Loader Backdrop Overlay */}
+      <Backdrop
+        sx={{ color: '#2563eb', zIndex: (theme) => theme.zIndex.modal + 1000 }}
+        open={isLoading}
+      >
+        <div className="flex flex-col items-center">
+          <Oval
+            height={60}
+            width={60}
+            color="#2563eb"
+            secondaryColor="#60a5fa"
+            strokeWidth={5}
+            ariaLabel="oval-loading"
+            visible={true}
+          />
+          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">Guardando información...</span>
+        </div>
+      </Backdrop>
       {/* Modal */}
       <Modal
         isOpen={isOpen}

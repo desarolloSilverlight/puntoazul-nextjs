@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../utils/config";
 import PropTypes from "prop-types";
 import Modal from "react-modal";
+import { Oval } from 'react-loader-spinner';
+import Backdrop from '@mui/material/Backdrop';
 export default function FormularioAfiliado({ color }) {
+  const [isLoading, setIsLoading] = useState(false);
   let idInformacionF = localStorage.getItem("idInformacionF");
   let estadoInformacionF = localStorage.getItem("estadoInformacionF");
   // Solo editable si estado es Guardado o Rechazado
@@ -11,10 +15,22 @@ export default function FormularioAfiliado({ color }) {
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
 
   // Obtener productos desde el backend al cargar el componente
+  // --- Toneladas acumuladas globales ---
+  // Definir la función fuera del useEffect para poder reutilizarla
+  const fetchToneladasAcumuladas = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/informacion-f/getToneladasAcumuladasPlasticos/${idInformacionF}`);
+      if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
+      const data = await response.json();
+      setToneladasAcumuladasGlobal(Number(data.toneladas) || 0);
+    } catch {
+      setToneladasAcumuladasGlobal(0);
+    }
+  };
   useEffect(() => {
     const fetchProductos = async () => {
       try {
-        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getEmpaquesPlasticos/${idInformacionF}`, {
+        const response = await fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${idInformacionF}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
@@ -47,18 +63,6 @@ export default function FormularioAfiliado({ color }) {
         setProductos(productosFormateados);
       } catch (error) {
         console.error("Error al obtener los empaques plásticos:", error);
-      }
-    };
-
-    // Obtener toneladas acumuladas globales (plástico + primario + secundario)
-    const fetchToneladasAcumuladas = async () => {
-      try {
-        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getToneladasAcumuladas/${idInformacionF}`);
-        if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
-        const data = await response.json();
-        setToneladasAcumuladasGlobal(Number(data.toneladas) || 0);
-      } catch {
-        setToneladasAcumuladasGlobal(0);
       }
     };
     if (idInformacionF) {
@@ -163,27 +167,47 @@ export default function FormularioAfiliado({ color }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     // Validar que todos los campos de liquidos, otrosProductos y construccion sean decimales con hasta 10 decimales y reemplazar comas por puntos
     const camposLiquidos = ["PET Agua", "PET Otros", "PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
     const camposOtros = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
     const decimalRegex = /^\d+(\.\d{1,10})?$/;
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
+      // Validación de empresaTitular, nombreProducto y unidades
+      if (!producto.empresaTitular || producto.empresaTitular.trim() === "") {
+        alert(`El campo 'Empresa Titular' no puede estar vacío en la fila ${i + 1}`);
+        setIsLoading(false);
+        return;
+      }
+      if (!producto.nombreProducto || producto.nombreProducto.trim() === "") {
+        alert(`El campo 'Nombre Producto' no puede estar vacío en la fila ${i + 1}`);
+        setIsLoading(false);
+        return;
+      }
+      if (!producto.unidades || producto.unidades.toString().trim() === "") {
+        alert(`El campo 'Unidades Puestas en el mercado' no puede estar vacío en la fila ${i + 1}`);
+        setIsLoading(false);
+        return;
+      }
       // Validación de excepciones y prohibiciones
       const excepcion = producto.excepciones;
       const prohibicion = producto.prohibiciones;
       // Ambos deben tener una opción válida seleccionada
       if (!excepcion || excepcion === "" || excepcion === "Seleccionar...") {
         alert(`Debe seleccionar una opción válida en el campo 'Excepciones Ley 2232' en la fila ${i + 1}`);
+        setIsLoading(false);
         return;
       }
       if (!prohibicion || prohibicion === "" || prohibicion === "Seleccionar...") {
         alert(`Debe seleccionar una opción válida en el campo 'Prohibiciones Ley 2232' en la fila ${i + 1}`);
+        setIsLoading(false);
         return;
       }
       // Uno de los dos debe ser 'no_aplica'
       if (excepcion !== "no_aplica" && prohibicion !== "no_aplica") {
         alert(`En la fila ${i + 1}, uno de los campos 'Excepciones Ley 2232' o 'Prohibiciones Ley 2232' debe ser 'No Aplica'.`);
+        setIsLoading(false);
         return;
       }
       // liquidos
@@ -193,6 +217,7 @@ export default function FormularioAfiliado({ color }) {
           valor = valor.toString().replace(/,/g, ".");
           if (!decimalRegex.test(valor)) {
             alert(`El campo 'Líquidos.${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto.liquidos[campo]}`);
+            setIsLoading(false);
             return;
           }
           // Actualizar el valor en productos para asegurar que se envía con punto
@@ -206,6 +231,7 @@ export default function FormularioAfiliado({ color }) {
           valor = valor.toString().replace(/,/g, ".");
           if (!decimalRegex.test(valor)) {
             alert(`El campo 'Otros Productos.${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto.otrosProductos[campo]}`);
+            setIsLoading(false);
             return;
           }
           productos[i].otrosProductos[campo] = valor;
@@ -218,6 +244,7 @@ export default function FormularioAfiliado({ color }) {
           valor = valor.toString().replace(/,/g, ".");
           if (!decimalRegex.test(valor)) {
             alert(`El campo 'Construcción.${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto.construccion[campo]}`);
+            setIsLoading(false);
             return;
           }
           productos[i].construccion[campo] = valor;
@@ -232,7 +259,7 @@ export default function FormularioAfiliado({ color }) {
       construccion: typeof producto.construccion === 'string' ? JSON.parse(producto.construccion) : producto.construccion
     }));
     try {
-      const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearEmpaquePlastico", {
+      const response = await fetch(`${API_BASE_URL}/informacion-f/crearEmpaquePlastico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -247,9 +274,13 @@ export default function FormularioAfiliado({ color }) {
       const result = await response.json();
       console.log("Respuesta de la API:", result);
       alert(result.message);
+      await fetchToneladasAcumuladas();
+      // No recargar la página
     } catch (error) {
       console.error("Error al enviar los empaques plásticos:", error);
       alert(`Error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -270,6 +301,24 @@ export default function FormularioAfiliado({ color }) {
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
     >
+      {/* Loader Backdrop Overlay */}
+      <Backdrop
+        sx={{ color: '#2563eb', zIndex: (theme) => theme.zIndex.modal + 1000 }}
+        open={isLoading}
+      >
+        <div className="flex flex-col items-center">
+          <Oval
+            height={60}
+            width={60}
+            color="#2563eb"
+            secondaryColor="#60a5fa"
+            strokeWidth={5}
+            ariaLabel="oval-loading"
+            visible={true}
+          />
+          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">Guardando información...</span>
+        </div>
+      </Backdrop>
       {/* SECCIÓN II */}
       <div className="p-4">
         <h3 className="text-lg font-semibold flex items-center">
@@ -280,7 +329,7 @@ export default function FormularioAfiliado({ color }) {
           ></i>
         </h3>
         <div className="mt-2 mb-2 text-blue-700 font-bold text-lg">
-          Toneladas acumuladas (global): {toneladasAcumuladasGlobal}
+          Toneladas acumuladas (Plasticos): {Number(toneladasAcumuladasGlobal).toFixed(10)}
         </div>
         <div className="flex justify-between mt-3">
           <button className="bg-lightBlue-600 text-white px-4 py-2 rounded" onClick={agregarProducto}>

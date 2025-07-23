@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-// Configuración de la URL base del backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 import { useRouter } from "next/router";
 import Image from "next/image";
+import { API_BASE_URL } from "../../utils/config";
 // layout for page
 
 import Auth from "layouts/Auth.js";

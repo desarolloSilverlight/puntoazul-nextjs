@@ -17,8 +17,22 @@ export default function FormularioF() {
   // Estados y handlers para los botones y modal
   const [showModal, setShowModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  // Estado para controlar botones según estadoInformacionF
-  const estadoInformacionF = typeof window !== "undefined" ? (localStorage.getItem("estadoInformacionF") || "").trim() : "";
+  // Modal de información
+  const [isOpen, setIsOpen] = useState(false);
+  // Loader y estado para controlar botones según estadoInformacionF
+  const [estadoInformacionF, setEstadoInformacionF] = useState(undefined);
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setEstadoInformacionF((localStorage.getItem("estadoInformacionF") || "").trim());
+    }
+  }, []);
+  if (estadoInformacionF === undefined) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-blue-600 text-lg font-semibold animate-pulse">Cargando estado del formulario...</div>
+      </div>
+    );
+  }
   console.log("Estado del formulario:", estadoInformacionF);
 
   // Actualiza el estado en el backend usando idInformacionF del localStorage
@@ -46,7 +60,7 @@ export default function FormularioF() {
   };
 
   const handleSendForm = () => {
-    if (window.confirm("¿Está seguro de que completó todo el formulario para revisión de Punto Azul?")) {
+    if (window.confirm("¿Está seguro de que completó todo el formulario para revisión de Punto Azul? Una vez enviada la informacion no se podra volver a editar.")) {
       actualizaEstado();
     }
   };
@@ -104,26 +118,58 @@ export default function FormularioF() {
       {/* <div className="mb-2 text-blue-700 font-semibold">Estado actual del formulario: {estadoInformacionF}</div> */}
       {/* Botones encima de los tabs */}
       <div className="flex justify-between mb-4 items-center">
-        <button
-          className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-          onClick={handleSendForm}
-          disabled={!(estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado")}
-        >
-          Enviar formulario
-        </button>
-        <button
-          className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-          onClick={() => {
-            if (estadoInformacionF === "Aprobado") {
-              setShowModal(true);
-            } else {
-              alert("Tu formulario necesita estar Aprobado para poder cargar la carta de aprobación.");
-            }
-          }}
-        >
-          Cargar carta
-        </button>
+        {/* Botón Cargar carta: solo visible si estado es Aprobado, pero mantiene el espacio */}
+        <div style={{ visibility: estadoInformacionF === "Aprobado" ? "visible" : "hidden" }}>
+          <button
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+            onClick={() => setShowModal(true)}
+          >
+            Cargar carta
+          </button>
+        </div>
+        {/* Estado del formulario con icono de información */}
+        <p className="flex items-center gap-2">Estado del formulario: <span className="font-semibold text-lightBlue-600">{estadoInformacionF || ""}</span>
+          <i
+            className="fa-solid fa-circle-info text-blue-500 cursor-pointer"
+            onClick={() => setIsOpen(true)}
+            title="Información sobre los estados"
+          ></i>
+        </p>
+        {/* Botón Enviar formulario: solo visible si estado es vacío o Guardado, pero mantiene el espacio */}
+        <div style={{ visibility: (!estadoInformacionF || estadoInformacionF === "Guardado") ? "visible" : "hidden" }}>
+          <button
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+            onClick={handleSendForm}
+            disabled={!(estadoInformacionF === "Guardado" || !estadoInformacionF)}
+          >
+            Enviar formulario
+          </button>
+        </div>        
       </div>
+      {/* Modal de información de estados */}
+      <Modal
+        isOpen={isOpen}
+        onRequestClose={() => setIsOpen(false)}
+        className="mx-auto my-32 bg-white p-5 rounded-lg shadow-lg max-w-xl z-40 max-h-460-px overflow-y-auto outline-none"
+        overlayClassName=""
+        contentLabel="Información de estados"
+        shouldCloseOnOverlayClick={true}
+      >
+        <h2 className="text-xl font-bold mb-4">¿Qué significa el estado del formulario?</h2>
+        <ul className="list-disc pl-6 text-gray-700 mb-4">
+          <li><span className="font-semibold">Guardado:</span> Su formulario se va guardando pero aún no lo puede ver el personal de Punto Azul.</li>
+          <li><span className="font-semibold">Pendiente:</span> Está pendiente de revisión por el personal de Punto Azul.</li>
+          <li><span className="font-semibold">Rechazado:</span> Su formulario ha sido devuelto por algún motivo que se especifica en el correo.</li>
+          <li><span className="font-semibold">Aprobado:</span> Su formulario ya está pendiente por cargar la carta firmada de aprobación.</li>
+          <li><span className="font-semibold">Finalizado:</span> Ha terminado el proceso de reporte.</li>
+        </ul>
+        <button
+          className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
+          onClick={() => setIsOpen(false)}
+        >
+          Cerrar
+        </button>
+      </Modal>
       {/* Modal para cargar carta usando react-modal, estilo ejemplo */}
       <Modal
         isOpen={showModal}

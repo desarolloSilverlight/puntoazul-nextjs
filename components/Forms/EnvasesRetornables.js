@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import Backdrop from "@mui/material/Backdrop";
+import { Oval } from "react-loader-spinner";
+import { API_BASE_URL } from "../../utils/config";
 import Modal from "react-modal";
 import PropTypes from "prop-types";
 
@@ -8,6 +11,7 @@ export default function TablaRetornabilidad({ color }) {
     Modal.setAppElement("#__next");
   }
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   let idInformacionF = localStorage.getItem("idInformacionF") || 0;
   let estadoInformacionF = localStorage.getItem("estadoInformacionF");
   // Solo editable si estado es Guardado o Rechazado
@@ -44,7 +48,7 @@ export default function TablaRetornabilidad({ color }) {
   useEffect(() => {
     const fetchDatos = async () => {
       try {
-        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getEnvasesRetornables/${idInformacionF}`, {
+        const response = await fetch(`${API_BASE_URL}/informacion-f/getEnvasesRetornables/${idInformacionF}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
@@ -63,19 +67,34 @@ export default function TablaRetornabilidad({ color }) {
         // Procesar los datos recibidos
         if (data && data.length > 0) {
           const primerRegistro = data[0];
+          // Función para parsear doble si es necesario
+          const safeParse = (value) => {
+            try {
+              let parsed = JSON.parse(value || "{}")
+              if (typeof parsed === "string") {
+                parsed = JSON.parse(parsed);
+              }
+              if (typeof parsed !== "object" || parsed === null) {
+                return {};
+              }
+              return parsed;
+            } catch {
+              return {};
+            }
+          };
           const nuevosDatos = {
             ...datos,
-            pesoTotal: JSON.parse(primerRegistro.peso || "{}"),
-            papel: JSON.parse(primerRegistro.papel || "{}"),
-            carton: JSON.parse(primerRegistro.carton || "{}"),
-            plasticoRigidos: JSON.parse(primerRegistro.plasticoRig || "{}"),
-            plasticoFlexibles: JSON.parse(primerRegistro.platicoFlex || "{}"),
-            vidrio: JSON.parse(primerRegistro.vidrio || "{}"),
-            metalesFerrosos: JSON.parse(primerRegistro.metal_ferrosos || "{}"),
-            metalesNoFerrosos: JSON.parse(primerRegistro.metal_no_ferrososs || "{}"),
-            multimaterial1: JSON.parse(primerRegistro.multimaterial1 || "{}"),
-            multimaterialn: JSON.parse(primerRegistro.multimaterialn || "{}"),
-            descripcion: JSON.parse(primerRegistro.descripcion || "{}")
+            pesoTotal: safeParse(primerRegistro.peso),
+            papel: safeParse(primerRegistro.papel),
+            carton: safeParse(primerRegistro.carton),
+            plasticoRigidos: safeParse(primerRegistro.plasticoRig),
+            plasticoFlexibles: safeParse(primerRegistro.platicoFlex),
+            vidrio: safeParse(primerRegistro.vidrio),
+            metalesFerrosos: safeParse(primerRegistro.metal_ferrosos),
+            metalesNoFerrosos: safeParse(primerRegistro.metal_no_ferrososs),
+            multimaterial1: safeParse(primerRegistro.multimaterial1),
+            multimaterialn: safeParse(primerRegistro.multimaterialn),
+            descripcion: safeParse(primerRegistro.descripcion)
           };
           setDatos(nuevosDatos);
         }
@@ -87,7 +106,7 @@ export default function TablaRetornabilidad({ color }) {
     if (idInformacionF) {
       fetchDatos();
     }
-  }, [idInformacionF,datos]);
+  }, [idInformacionF]);
 
   const handleChange = (parametro, field, value) => {
     const nuevosDatos = { ...datos };
@@ -98,9 +117,9 @@ export default function TablaRetornabilidad({ color }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setLoading(true);
     try {
-      const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearEnvaseRetornable", {
+      const response = await fetch(`${API_BASE_URL}/informacion-f/crearEnvaseRetornable`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -131,6 +150,8 @@ export default function TablaRetornabilidad({ color }) {
     } catch (error) {
       console.error("Error al enviar los envases retornables:", error);
       alert(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -141,6 +162,21 @@ export default function TablaRetornabilidad({ color }) {
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
     >
+      {/* Loader Overlay */}
+      <Backdrop
+        sx={{ color: '#fff', zIndex: 1301 }}
+        open={loading}
+      >
+        <Oval
+          height={60}
+          width={60}
+          color="#2563eb"
+          secondaryColor="#e0e7ef"
+          strokeWidth={5}
+          ariaLabel="oval-loading"
+          visible={true}
+        />
+      </Backdrop>
       <div className="p-4">
         <h3 className="text-lg font-semibold flex items-center">
           Cantidad total en peso (toneladas) de materiales de envases y empaques retornables&nbsp;

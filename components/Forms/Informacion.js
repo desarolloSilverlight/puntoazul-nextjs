@@ -8,7 +8,7 @@ if (typeof window !== "undefined") {
   Modal.setAppElement("#__next");
 }
 
-export default function FormularioAfiliado({ color }) {
+export default function FormularioAfiliado({ color, readonly, idInformacionF: propIdInformacionF, estado: propEstado }) {
   // Estado único para todos los campos del formulario
   const [formData, setFormData] = useState({
     nombre: "",
@@ -28,11 +28,24 @@ export default function FormularioAfiliado({ color }) {
     reporte: "unitario", // Valor por defecto
   });
 
-  const [estado, setEstado] = useState(""); // Estado del formulario
-  const [isDisabled, setIsDisabled] = useState(false); // Controlar si los campos están bloqueados
+  const [estado, setEstado] = useState(propEstado || ""); // Estado del formulario
+  const [isDisabled, setIsDisabled] = useState(readonly || false); // Controlar si los campos están bloqueados
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Actualizar estado cuando cambie el prop
+  useEffect(() => {
+    if (propEstado) {
+      setEstado(propEstado);
+      if (propEstado === "Guardado" || propEstado === "Rechazado") {
+        setIsDisabled(false);
+      } else {
+        setIsDisabled(true);
+      }
+    }
+  }, [propEstado]);
+  
   useEffect(() => {
     console.log('Modal isOpen state:', isOpen);
   }, [isOpen]);
@@ -643,13 +656,15 @@ export default function FormularioAfiliado({ color }) {
               ></i>
             </label>
           </div>         
-          <button
-            type="submit"
-            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={isDisabled || isSaveDisabled}
-          >
-            Guardar
-          </button>
+          {!readonly && (
+            <button
+              type="submit"
+              className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+              disabled={isDisabled || isSaveDisabled}
+            >
+              Guardar
+            </button>
+          )}
         </form>
       </div>
     </div>

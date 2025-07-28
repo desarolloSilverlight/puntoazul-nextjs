@@ -12,11 +12,11 @@ const departamentos = [
   "Valle del Cauca", "Vaupés", "Vichada"
 ];
 
-export default function FormularioDepartamentos({ color }) {
-  let idInformacionF = localStorage.getItem("idInformacionF");
+export default function FormularioDepartamentos({ color, readonly, idInformacionF: propIdInformacionF }) {
+  let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF");
   let estadoInformacionF = localStorage.getItem("estadoInformacionF");
-  // Solo editable si estado es Guardado o Rechazado
-  const esEditable = estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado";
+  // Solo editable si estado es Guardado o Rechazado y no está en modo readonly
+  const esEditable = !readonly && (estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado");
   const [filas, setFilas] = useState([]);
   const [pregunta1, setPregunta1] = useState("");
   const [pregunta2, setPregunta2] = useState("");
@@ -183,14 +183,16 @@ export default function FormularioDepartamentos({ color }) {
         </h3>
         <form onSubmit={handleSubmit}>
           {/* Botón para agregar filas */}
-          <button 
-            type="button"
-            onClick={agregarFila} 
-            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={!esEditable}
-          >
-            Agregar Departamento
-          </button>
+          {!readonly && (
+            <button 
+              type="button"
+              onClick={agregarFila} 
+              className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+              disabled={!esEditable}
+            >
+              Agregar Departamento
+            </button>
+          )}
 
           {/* Tabla Dinámica */}
           <div className="w-full overflow-x-auto p-4">
@@ -199,7 +201,9 @@ export default function FormularioDepartamentos({ color }) {
                 <tr className="bg-gray-200">
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Departamento</th>
                   <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">AU (%)</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[80px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Eliminar</th>
+                  {!readonly && (
+                    <th rowSpan={1} colSpan={1} className="min-w-[80px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Eliminar</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -232,16 +236,18 @@ export default function FormularioDepartamentos({ color }) {
                         disabled={!esEditable}
                       />
                     </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="bg-red-500 text-white px-2 py-1 rounded"
-                        onClick={() => eliminarFila(index)}
-                        disabled={!esEditable}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
+                    {!readonly && (
+                      <td>
+                        <button
+                          type="button"
+                          className="bg-red-500 text-white px-2 py-1 rounded"
+                          onClick={() => eliminarFila(index)}
+                          disabled={!esEditable}
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -314,13 +320,15 @@ export default function FormularioDepartamentos({ color }) {
             ></textarea>
           </div>
 
-          <button
-            type="submit"
-            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={!esEditable}
-          >
-            Guardar
-          </button>
+          {!readonly && (
+            <button
+              type="submit"
+              className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+              disabled={!esEditable}
+            >
+              Guardar
+            </button>
+          )}
         </form>
       </div>
       {/* Modal */}

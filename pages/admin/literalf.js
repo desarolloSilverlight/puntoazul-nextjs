@@ -7,6 +7,7 @@ import EmpaqueSecundario from "components/Forms/EmpaqueSecundario";
 import EmpaquePlastico from "components/Forms/EmpaquePlastico";
 import EnvasesRetornables from "components/Forms/EnvasesRetornables";
 import DistribucionGeografica from "components/Forms/DistribucionGeografica";
+import { API_BASE_URL } from "../../utils/config";
 
 export default function FormularioF() {
   // Necesario para accesibilidad con react-modal
@@ -39,7 +40,7 @@ export default function FormularioF() {
   const actualizaEstado = async () => {
     const idInformacionF = localStorage.getItem("idInformacionF");
     try {
-      const response = await fetch(`https://nestbackend.fidare.com/informacion-f/updateEstado/${idInformacionF}`, {
+      const response = await fetch(`${API_BASE_URL}/informacion-f/updateEstado/${idInformacionF}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -52,6 +53,11 @@ export default function FormularioF() {
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
+      
+      // Actualizar localStorage y estado local
+      localStorage.setItem("estadoInformacionF", "Pendiente");
+      setEstadoInformacionF("Pendiente");
+      
       alert("Formulario enviado para revisión por Punto Azul.");
       window.location.reload(); // Recargar la página para actualizar el estado
     } catch (error) {
@@ -77,7 +83,7 @@ export default function FormularioF() {
     formData.append("file", selectedFile);
     formData.append("ruta", "/public/img/literalF");
     try {
-      const response = await fetch(`https://nestbackend.fidare.com/informacion-f/cargaCarta/${idInformacionF}`, {
+      const response = await fetch(`${API_BASE_URL}/informacion-f/cargaCarta/${idInformacionF}`, {
         method: "POST",
         body: formData,
       });
@@ -96,17 +102,17 @@ export default function FormularioF() {
   const renderForm = () => {
     switch (activeTab) {
       case "Informacion":
-        return <Informacion color="light"/>;
+        return <Informacion color="light" estado={estadoInformacionF}/>;
       case "Empaque Primario":
-        return <EmpaquePrimario color="light"/>;
+        return <EmpaquePrimario color="light" estado={estadoInformacionF}/>;
       case "Empaque Secundario":
-        return <EmpaqueSecundario color="light"/>;
+        return <EmpaqueSecundario color="light" estado={estadoInformacionF}/>;
       case "Empaque Plastico":
-        return <EmpaquePlastico color="light"/>;
+        return <EmpaquePlastico color="light" estado={estadoInformacionF}/>;
       case "Envases Retornables":
-        return <EnvasesRetornables color="light"/>;
+        return <EnvasesRetornables color="light" estado={estadoInformacionF}/>;
       case "Distribucion Geografica":
-        return <DistribucionGeografica color="light"/>;
+        return <DistribucionGeografica color="light" estado={estadoInformacionF}/>;
       default:
         return null;
     }
@@ -135,12 +141,12 @@ export default function FormularioF() {
             title="Información sobre los estados"
           ></i>
         </p>
-        {/* Botón Enviar formulario: solo visible si estado es vacío o Guardado, pero mantiene el espacio */}
-        <div style={{ visibility: (!estadoInformacionF || estadoInformacionF === "Guardado") ? "visible" : "hidden" }}>
+        {/* Botón Enviar formulario: solo visible si estado es vacío, Guardado o Rechazado, pero mantiene el espacio */}
+        <div style={{ visibility: (!estadoInformacionF || estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado") ? "visible" : "hidden" }}>
           <button
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
             onClick={handleSendForm}
-            disabled={!(estadoInformacionF === "Guardado" || !estadoInformacionF)}
+            disabled={!(estadoInformacionF === "Guardado" || !estadoInformacionF || estadoInformacionF === "Rechazado")}
           >
             Enviar formulario
           </button>

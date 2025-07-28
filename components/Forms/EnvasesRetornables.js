@@ -5,17 +5,17 @@ import { API_BASE_URL } from "../../utils/config";
 import Modal from "react-modal";
 import PropTypes from "prop-types";
 
-export default function TablaRetornabilidad({ color }) {
+export default function TablaRetornabilidad({ color, readonly = false, idInformacionF: propIdInformacionF }) {
   // Necesario para accesibilidad con react-modal
   if (typeof window !== "undefined") {
     Modal.setAppElement("#__next");
   }
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  let idInformacionF = localStorage.getItem("idInformacionF") || 0;
+  let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF") || 0;
   let estadoInformacionF = localStorage.getItem("estadoInformacionF");
-  // Solo editable si estado es Guardado o Rechazado
-  const esEditable = estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado";
+  // Solo editable si estado es Guardado o Rechazado y no está en modo readonly
+  const esEditable = !readonly && (estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado");
   const [datos, setDatos] = useState({
     parametros: {
       "EERM": "(1) EERM",
@@ -345,13 +345,15 @@ export default function TablaRetornabilidad({ color }) {
               </tbody>
             </table>
           </div>
-          <button
-            type="submit"
-            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={!esEditable}
-          >
-            Guardar
-          </button>
+          {!readonly && (
+            <button
+              type="submit"
+              className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+              disabled={!esEditable}
+            >
+              Guardar
+            </button>
+          )}
         </form>
       </div>
     </div>

@@ -1,17 +1,29 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import Modal from "react-modal";
+import { API_BASE_URL } from '../../utils/config';
 
-export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) {
-  let idInformacionB = localStorage.getItem("idInformacionB");
-  let estado = localStorage.getItem("estadoInformacionB");
+// Necesario para accesibilidad con react-modal
+if (typeof window !== 'undefined') {
+  Modal.setAppElement("#__next");
+}
+
+export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, estado: propEstado, readonly = false, idInformacionB: propIdInformacionB }) {
+  // Usar propIdInformacionB si está disponible (modo readonly), 
+  // sino usar el localStorage (modo normal)
+  let idInformacionB = propIdInformacionB || localStorage.getItem("idInformacionB");
+  let estado = propEstado || localStorage.getItem("estadoInformacionB");
   const [productos, setProductos] = useState([]); // Estado para los productos
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
+  
+  // Determinar si los campos son editables basado en el estado y readonly
+  const isEditable = !readonly && (estado === "Iniciado" || estado === "Guardado" || estado === "Rechazado" || !estado);
 
   // Obtener productos desde el backend al cargar el componente
   useEffect(() => {
     const fetchProductos = async () => {
       try {
-        const response = await fetch(`https://nestbackend.fidare.com/informacion-b/getProdValidarB/${idInformacionB}`, {
+        const response = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${idInformacionB}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
@@ -35,7 +47,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
     if (idInformacionB) {
       fetchProductos();
     }
-  }, [idInformacionB,propIdUsuario]);
+  }, [idInformacionB, propIdUsuario, propIdInformacionB]);
 
   const agregarProducto = () => {
     setProductos([
@@ -138,7 +150,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
       return; // Si el usuario cancela, no se ejecuta la lógica de guardar
     }
     try {
-      const response = await fetch("https://nestbackend.fidare.com/informacion-b/createProductos", {
+      const response = await fetch(`${API_BASE_URL}/informacion-b/createProductos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -177,15 +189,37 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
           ></i>
         </h3>
         <div className="flex justify-between mt-3">
-          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded" onClick={agregarProducto}>
-            Agregar Producto
-          </button>
-          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
-            Cargar Informacion
-          </button>
-          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
-            Descargar Excel
-          </button>
+          {/* Botones solo visibles si no es readonly y en estados editables */}
+          {!readonly && (estado === "Iniciado" || estado === "Guardado" || estado === "Rechazado" || !estado) && (
+            <>
+              <button 
+                className={`px-4 py-2 rounded ${
+                  isEditable 
+                    ? "bg-lightBlue-600 hover:bg-lightBlue-700 text-white" 
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+                onClick={agregarProducto}
+                disabled={!isEditable}
+              >
+                Agregar Producto
+              </button>
+              
+              <button 
+                className={`px-4 py-2 rounded ${
+                  isEditable 
+                    ? "bg-lightBlue-600 hover:bg-lightBlue-700 text-white" 
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+                disabled={!isEditable}
+              >
+                Cargar Informacion
+              </button>
+              
+              <button className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded">
+                Descargar Excel
+              </button>
+            </>
+          )}
         </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
           Todos los pesos de la tabla deben estar en Kilogramos
@@ -242,7 +276,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     <td className="p-2">{index+1}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "razonSocial", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -251,7 +285,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "marca", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -260,7 +294,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "nombreGenerico", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -269,7 +303,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -278,7 +312,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "codigoEstandarDatos", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -287,7 +321,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueComercialRX", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -296,7 +330,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoTotalComercialRX", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -305,7 +339,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueComercialOTC", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -314,7 +348,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoTotalComercialOTC", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -323,7 +357,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueInstitucional", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -332,7 +366,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoTotalInstitucional", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -341,7 +375,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueIntrahospitalario", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -350,7 +384,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoTotalIntrahospitalario", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -359,7 +393,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoEmpaqueMuestrasMedicas", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -368,7 +402,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "pesoTotalMuestrasMedicas", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -376,7 +410,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                       </div>
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      {estado !== "Aprobado" ? (
+                      {isEditable ? (
                         <select
                           className="border p-1 w-full"
                           value={producto.fabricacion || ""}
@@ -394,7 +428,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "totalPesoEmpaques", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -403,7 +437,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
-                        contentEditable={estado !== "Aprobado"}
+                        contentEditable={isEditable}
                         onBlur={(e) => handleChange(index, "totalPesoProducto", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
@@ -411,29 +445,68 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
                       </div>
                     </td>
                     <td>
-                      <button className="bg-red-500 text-white px-4 py-1 rounded" onClick={() => setProductos(productos.filter((_, i) => i !== index))}>
-                        Eliminar
-                      </button>
+                      {!readonly && (
+                        <button 
+                          className={`px-4 py-1 rounded ${
+                            isEditable 
+                              ? "bg-red-500 hover:bg-red-700 text-white" 
+                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          }`}
+                          onClick={() => setProductos(productos.filter((_, i) => i !== index))}
+                          disabled={!isEditable}
+                        >
+                          Eliminar
+                        </button>
+                      )}
                     </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-          <button
-            type="submit"
-            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={estado === "Aprobado"} // Bloquear si el estado no es "Aprobado" o si isSaveDisabled es true
-          >
-          Guardar
-          </button>
+          {!readonly && (
+            <button
+              type="submit"
+              className={`px-4 py-2 rounded mt-3 ${
+                isEditable 
+                  ? "bg-lightBlue-600 hover:bg-lightBlue-700 text-white" 
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+              disabled={!isEditable}
+            >
+            Guardar
+            </button>
+          )}
         </form>
       </div>
-      {/* Modal */}
-      {isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 ">
-          <div className="bg-white p-5 rounded-lg shadow-lg max-h-260-px overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
+      {/* Modal using react-modal */}
+      <Modal
+        isOpen={isOpen}
+        onRequestClose={() => setIsOpen(false)}
+        contentLabel="Instructivo de la sección"
+        style={{
+          overlay: {
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1000,
+          },
+          content: {
+            top: '50%',
+            left: '50%',
+            right: 'auto',
+            bottom: 'auto',
+            marginRight: '-50%',
+            transform: 'translate(-50%, -50%)',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            padding: '20px',
+            border: 'none',
+            borderRadius: '8px',
+          },
+        }}
+      >
+        <div>
+          <h2 className="text-xl font-bold mb-4">Instructivo de la sección</h2>
             {/* Tabla */}
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-gray-300 text-sm">
@@ -481,12 +554,15 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario }) 
               Cerrar
             </button>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }
 
 FormularioAfiliado.propTypes = {
   color: PropTypes.string,
+  idUsuario: PropTypes.string,
+  estado: PropTypes.string,
+  readonly: PropTypes.bool,
+  idInformacionB: PropTypes.string,
 };

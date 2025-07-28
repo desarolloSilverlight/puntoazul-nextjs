@@ -4,12 +4,12 @@ import PropTypes from "prop-types";
 import Modal from "react-modal";
 import { Oval } from 'react-loader-spinner';
 import Backdrop from '@mui/material/Backdrop';
-export default function FormularioAfiliado({ color }) {
+export default function FormularioAfiliado({ color, readonly = false, idInformacionF: propIdInformacionF }) {
   const [isLoading, setIsLoading] = useState(false);
-  let idInformacionF = localStorage.getItem("idInformacionF");
+  let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF");
   let estadoInformacionF = localStorage.getItem("estadoInformacionF");
-  // Solo editable si estado es Guardado o Rechazado
-  const esEditable = estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado";
+  // Solo editable si estado es Guardado o Rechazado Y no está en modo readonly
+  const esEditable = !readonly && (estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado");
   const [productos, setProductos] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
@@ -331,17 +331,19 @@ export default function FormularioAfiliado({ color }) {
         <div className="mt-2 mb-2 text-blue-700 font-bold text-lg">
           Toneladas acumuladas (Plasticos): {Number(toneladasAcumuladasGlobal).toFixed(10)}
         </div>
-        <div className="flex justify-between mt-3">
-          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded" onClick={agregarProducto}>
-            Agregar Producto
-          </button>
-          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
-            Cargar Informacion
-          </button>
-          <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
-            Descargar Excel
-          </button>
-        </div>
+        {!readonly && (
+          <div className="flex justify-between mt-3">
+            <button className="bg-lightBlue-600 text-white px-4 py-2 rounded" onClick={agregarProducto}>
+              Agregar Producto
+            </button>
+            <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
+              Cargar Informacion
+            </button>
+            <button className="bg-lightBlue-600 text-white px-4 py-2 rounded">
+              Descargar Excel
+            </button>
+          </div>
+        )}
         <div className="text-red-500 text-center mt-3 font-semibold">
           Todos los pesos de la tabla deben estar en gramos y sin separador de miles.
         </div>
@@ -359,7 +361,7 @@ export default function FormularioAfiliado({ color }) {
                   <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Excepciones Ley 2232</th>
                   <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Prohibiciones Ley 2232</th>
                   <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades Puestas en el mercado</th>
-                  <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>
+                  {!readonly && <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>}
                 </tr>
                 <tr className="bg-gray-200">
                   <th className="min-w-[120px] px-2 py-0.5 text-xs text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de botellas PET de agua (g)</th>
@@ -524,28 +526,32 @@ export default function FormularioAfiliado({ color }) {
                           <div className="p-1">{producto.unidades}</div>
                         )}
                       </td>
-                      <td>
-                        <button 
-                          className="bg-red-500 text-white px-4 py-1 rounded" 
-                          onClick={e => { e.preventDefault(); setProductos(productos.filter((_, i) => i !== index)); }}
-                          disabled={!esEditable}
-                        >
-                          Eliminar
-                        </button>
-                      </td>
+                      {!readonly && (
+                        <td>
+                          <button 
+                            className="bg-red-500 text-white px-4 py-1 rounded" 
+                            onClick={e => { e.preventDefault(); setProductos(productos.filter((_, i) => i !== index)); }}
+                            disabled={!esEditable}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-          <button
-            type="submit"
-            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-            disabled={!esEditable}
-          >
-            Guardar
-          </button>
+          {!readonly && (
+            <button
+              type="submit"
+              className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+              disabled={!esEditable}
+            >
+              Guardar
+            </button>
+          )}
         </form>
       </div>
       {/* Modal con react-modal y estilos de Informacion.js */}

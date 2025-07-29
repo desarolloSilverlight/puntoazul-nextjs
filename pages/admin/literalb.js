@@ -11,20 +11,16 @@ export default function FormularioF() {
     Modal.setAppElement("#__next");
   }
   const [activeTab, setActiveTab] = useState("Informacion");
+  // Estados y handlers para los botones y modal
+  const [showModal, setShowModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   // Modal de información
   const [isOpen, setIsOpen] = useState(false);
   // Loader y estado para controlar botones según estadoInformacionB
   const [estadoInformacionB, setEstadoInformacionB] = useState(undefined);
   React.useEffect(() => {
     if (typeof window !== "undefined") {
-      const estadoGuardado = localStorage.getItem("estadoInformacionB");
-      if (!estadoGuardado || estadoGuardado.trim() === "") {
-        // Si no hay estado guardado, establecer como "Iniciado"
-        localStorage.setItem("estadoInformacionB", "Iniciado");
-        setEstadoInformacionB("Iniciado");
-      } else {
-        setEstadoInformacionB(estadoGuardado.trim());
-      }
+      setEstadoInformacionB((localStorage.getItem("estadoInformacionB") || "").trim());
     }
   }, []);
   if (estadoInformacionB === undefined) {
@@ -72,6 +68,34 @@ export default function FormularioF() {
     }
   };
 
+  const handleFileChange = (e) => {
+    setSelectedFile(e.target.files[0]);
+  };
+
+  // Subir documento al backend
+  const handleUploadCarta = async () => {
+    if (!selectedFile) return;
+    const idInformacionB = localStorage.getItem("idInformacionB");
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("ruta", "/public/img/literalB");
+    try {
+      const response = await fetch(`${API_BASE_URL}/informacion-b/cargaCarta/${idInformacionB}`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+      alert("Formulario subido correctamente.");
+      setShowModal(false);
+      setSelectedFile(null);
+    } catch (error) {
+      alert(`Error al subir el formulario: ${error.message}`);
+    }
+  };
+
   const renderForm = () => {
     switch (activeTab) {
       case "Informacion":
@@ -87,8 +111,15 @@ export default function FormularioF() {
     <div className="mt-10 p-4 bg-gray-100 min-h-screen">
       {/* Botones encima de los tabs */}
       <div className="flex justify-between mb-4 items-center">
-        {/* Espacio izquierdo para mantener el centro */}
-        <div></div>
+        {/* Botón Cargar Formulario: solo visible si estado es Aprobado, pero mantiene el espacio */}
+        <div style={{ visibility: estadoInformacionB === "Aprobado" ? "visible" : "hidden" }}>
+          <button
+            className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
+            onClick={() => setShowModal(true)}
+          >
+            Cargar Formulario
+          </button>
+        </div>
         {/* Estado del formulario con icono de información */}
         <p className="flex items-center gap-2">Estado del formulario: <span className="font-semibold text-lightBlue-600">{estadoInformacionB || ""}</span>
           <i
@@ -97,12 +128,12 @@ export default function FormularioF() {
             title="Información sobre los estados"
           ></i>
         </p>
-        {/* Botón Enviar formulario: solo visible si estado es Iniciado, Guardado o Rechazado */}
-        <div style={{ visibility: (estadoInformacionB === "Iniciado" || estadoInformacionB === "Guardado" || estadoInformacionB === "Rechazado") ? "visible" : "hidden" }}>
+        {/* Botón Enviar formulario: solo visible si estado es vacío, Iniciado, Guardado o Rechazado */}
+        <div style={{ visibility: (!estadoInformacionB || estadoInformacionB === "Iniciado" || estadoInformacionB === "Guardado" || estadoInformacionB === "Rechazado") ? "visible" : "hidden" }}>
           <button
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
             onClick={handleSendForm}
-            disabled={!(estadoInformacionB === "Guardado" || estadoInformacionB === "Iniciado" || estadoInformacionB === "Rechazado")}
+            disabled={!(estadoInformacionB === "Guardado" || estadoInformacionB === "Iniciado" || estadoInformacionB === "Rechazado" || !estadoInformacionB)}
           >
             Enviar formulario
           </button>
@@ -131,6 +162,35 @@ export default function FormularioF() {
           onClick={() => setIsOpen(false)}
         >
           Cerrar
+        </button>
+      </Modal>
+      {/* Modal para cargar formulario usando react-modal */}
+      <Modal
+        isOpen={showModal}
+        onRequestClose={() => setShowModal(false)}
+        className="mx-auto my-32 bg-white p-5 rounded-lg shadow-lg max-w-xl z-40 max-h-460-px overflow-y-auto outline-none"
+        overlayClassName=""
+        contentLabel="Cargar formulario"
+        shouldCloseOnOverlayClick={true}
+      >
+        <h2 className="text-xl font-bold mb-4">Cargar Formulario</h2>
+        <p className="mb-4">Sube aquí el documento del formulario firmado en formato PDF, Word o imagen.</p>
+        <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileChange} className="mb-4" />
+        {selectedFile && (
+          <div className="mb-2 text-sm text-gray-700">Archivo seleccionado: {selectedFile.name}</div>
+        )}
+        <button
+          className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
+          onClick={handleUploadCarta}
+          disabled={!selectedFile}
+        >
+          Subir
+        </button>
+        <button
+          className="bg-gray-300 text-black px-4 py-2 rounded mt-3 ml-2"
+          onClick={() => setShowModal(false)}
+        >
+          Cancelar
         </button>
       </Modal>
       {/* Tabs */}

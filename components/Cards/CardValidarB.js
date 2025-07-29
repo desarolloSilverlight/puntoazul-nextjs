@@ -492,7 +492,7 @@ Equipo Punto Azul`);
     
     // Determinar estado y motivo basado en el asunto del email
     if (emailSubject.includes("APROBADO")) {
-      nuevoEstado = "Finalizado";
+      nuevoEstado = "Aprobado";
       motivo = "Aprobado";
     } else if (emailSubject.includes("Errores de Fondo")) {
       nuevoEstado = "Rechazado";

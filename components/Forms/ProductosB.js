@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Modal from "react-modal";
+import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../../utils/config';
 
 // Necesario para accesibilidad con react-modal
@@ -117,6 +118,26 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validar campos obligatorios
+    for (let i = 0; i < productos.length; i++) {
+      const producto = productos[i];
+      const numeroProducto = i + 1;
+      
+      if (!producto.razonSocial || producto.razonSocial.trim() === "") {
+        alert(`Producto ${numeroProducto}: El campo "Razón Social" es obligatorio.`);
+        return;
+      }
+      if (!producto.marca || producto.marca.trim() === "") {
+        alert(`Producto ${numeroProducto}: El campo "Marca" es obligatorio.`);
+        return;
+      }
+      if (!producto.nombreGenerico || producto.nombreGenerico.trim() === "") {
+        alert(`Producto ${numeroProducto}: El campo "Nombre Genérico" es obligatorio.`);
+        return;
+      }
+    }
+    
     // Validar que todos los campos numéricos sean enteros
     const camposNumericos = [
       "pesoEmpaqueComercialRX",
@@ -137,8 +158,8 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         const valor = producto[campo];
         if (valor && valor !== "N/A") {
           const num = Number(valor);
-          if (!Number.isInteger(num)) {
-            alert(`El campo "${campo}" debe ser un número entero. Valor ingresado: ${valor}`);
+          if (!Number.isInteger(num) || num < 0) {
+            alert(`El campo "${campo}" debe ser un número entero mayor o igual a 0. Valor ingresado: ${valor}`);
             return;
           }
         }
@@ -170,6 +191,288 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       console.error("Error al enviar los productos:", error);
       alert(`Error: ${error.message}`); // Mostrar error en una alerta
     }
+  };
+
+  // Función para descargar plantilla Excel
+  const descargarPlantilla = () => {
+    // Crear múltiples filas de ejemplo para mostrar cómo se maneja múltiples productos
+    const plantillaData = [
+      {
+        "Razón Social": "Ejemplo Empresa S.A.S",
+        "Marca": "Marca Ejemplo 1",
+        "Nombre Genérico": "Acetaminofén",
+        "Número de Registros": "INVIMA-123456",
+        "Código Estándar de Datos": "7891234567890",
+        "Peso Empaque Comercial RX (kg)": 1,
+        "Peso Total Comercial RX (kg)": 25,
+        "Peso Empaque Comercial OTC (kg)": 1,
+        "Peso Total Comercial OTC (kg)": 15,
+        "Peso Empaque Institucional (kg)": 1,
+        "Peso Total Institucional (kg)": 40,
+        "Peso Empaque Intrahospitalario (kg)": 1,
+        "Peso Total Intrahospitalario (kg)": 10,
+        "Peso Empaque Muestras Médicas (kg)": 1,
+        "Peso Total Muestras Médicas (kg)": 5,
+        "Fabricación": "Local"
+      },
+      {
+        "Razón Social": "Ejemplo Empresa S.A.S",
+        "Marca": "Marca Ejemplo 2",
+        "Nombre Genérico": "Ibuprofeno",
+        "Número de Registros": "INVIMA-789123",
+        "Código Estándar de Datos": "7891234567891",
+        "Peso Empaque Comercial RX (kg)": 1,
+        "Peso Total Comercial RX (kg)": 20,
+        "Peso Empaque Comercial OTC (kg)": 1,
+        "Peso Total Comercial OTC (kg)": 12,
+        "Peso Empaque Institucional (kg)": 1,
+        "Peso Total Institucional (kg)": 30,
+        "Peso Empaque Intrahospitalario (kg)": 1,
+        "Peso Total Intrahospitalario (kg)": 8,
+        "Peso Empaque Muestras Médicas (kg)": 1,
+        "Peso Total Muestras Médicas (kg)": 3,
+        "Fabricación": "Importado"
+      },
+      {
+        "Razón Social": "Ejemplo Empresa S.A.S",
+        "Marca": "Marca Ejemplo 3",
+        "Nombre Genérico": "Aspirina",
+        "Número de Registros": "INVIMA-456789",
+        "Código Estándar de Datos": "7891234567892",
+        "Peso Empaque Comercial RX (kg)": 1,
+        "Peso Total Comercial RX (kg)": 15,
+        "Peso Empaque Comercial OTC (kg)": 1,
+        "Peso Total Comercial OTC (kg)": 18,
+        "Peso Empaque Institucional (kg)": 1,
+        "Peso Total Institucional (kg)": 25,
+        "Peso Empaque Intrahospitalario (kg)": 1,
+        "Peso Total Intrahospitalario (kg)": 6,
+        "Peso Empaque Muestras Médicas (kg)": 1,
+        "Peso Total Muestras Médicas (kg)": 4,
+        "Fabricación": "Local"
+      }
+    ];
+
+    // Crear workbook y worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(plantillaData);
+
+    // Agregar fórmulas para las columnas de totales después de crear la hoja
+    plantillaData.forEach((_, index) => {
+      const rowNumber = index + 2; // Las filas en Excel empiezan en 2 (después del header)
+      
+      // Fórmula para Total Peso Empaques (suma de columnas F, H, J, L, N)
+      ws[`Q${rowNumber}`] = { f: `F${rowNumber}+H${rowNumber}+J${rowNumber}+L${rowNumber}+N${rowNumber}` };
+      
+      // Fórmula para Total Peso Producto (suma de columnas G, I, K, M, O)
+      ws[`R${rowNumber}`] = { f: `G${rowNumber}+I${rowNumber}+K${rowNumber}+M${rowNumber}+O${rowNumber}` };
+    });
+
+    // Agregar headers para las columnas de totales
+    ws['Q1'] = { v: 'Total Peso Empaques (kg)', t: 's' };
+    ws['R1'] = { v: 'Total Peso Producto (kg)', t: 's' };
+
+    // Actualizar el rango de la hoja para incluir las nuevas columnas
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    range.e.c = 17; // Extender hasta la columna R (17)
+    ws['!ref'] = XLSX.utils.encode_range(range);
+
+    // Configurar ancho de columnas
+    ws['!cols'] = [
+      { width: 25 }, // Razón Social
+      { width: 20 }, // Marca
+      { width: 25 }, // Nombre Genérico
+      { width: 20 }, // Número de Registros
+      { width: 20 }, // Código Estándar
+      { width: 20 }, // Peso Empaque Comercial RX
+      { width: 20 }, // Peso Total Comercial RX
+      { width: 20 }, // Peso Empaque Comercial OTC
+      { width: 20 }, // Peso Total Comercial OTC
+      { width: 20 }, // Peso Empaque Institucional
+      { width: 20 }, // Peso Total Institucional
+      { width: 20 }, // Peso Empaque Intrahospitalario
+      { width: 20 }, // Peso Total Intrahospitalario
+      { width: 20 }, // Peso Empaque Muestras Médicas
+      { width: 20 }, // Peso Total Muestras Médicas
+      { width: 15 }, // Fabricación
+      { width: 20 }, // Total Peso Empaques
+      { width: 20 }  // Total Peso Producto
+    ];
+
+    // Agregar worksheet al workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Productos");
+
+    // Descargar archivo
+    XLSX.writeFile(wb, "Plantilla_ProductosB.xlsx");
+  };
+
+  // Función para cargar datos desde Excel
+  const cargarDesdeExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        // Validar y procesar datos
+        const productosValidados = [];
+        const errores = [];
+
+        jsonData.forEach((row, index) => {
+          const rowNumber = index + 2; // +2 porque empezamos en fila 2 (después del header)
+          const erroresFila = [];
+
+          // Mapear nombres de columnas (flexible para diferentes formatos)
+          const razonSocial = row["Razón Social"] || row["razonSocial"] || "";
+          const marca = row["Marca"] || row["marca"] || "";
+          const nombreGenerico = row["Nombre Genérico"] || row["nombreGenerico"] || "";
+          const numeroRegistros = row["Número de Registros"] || row["numeroRegistros"] || "";
+          const codigoEstandar = row["Código Estándar de Datos"] || row["codigoEstandarDatos"] || "";
+          const fabricacion = row["Fabricación"] || row["fabricacion"] || "";
+
+          // Campos numéricos
+          const pesoEmpaqueComercialRX = row["Peso Empaque Comercial RX (kg)"] || row["pesoEmpaqueComercialRX"] || 0;
+          const pesoTotalComercialRX = row["Peso Total Comercial RX (kg)"] || row["pesoTotalComercialRX"] || 0;
+          const pesoEmpaqueComercialOTC = row["Peso Empaque Comercial OTC (kg)"] || row["pesoEmpaqueComercialOTC"] || 0;
+          const pesoTotalComercialOTC = row["Peso Total Comercial OTC (kg)"] || row["pesoTotalComercialOTC"] || 0;
+          const pesoEmpaqueInstitucional = row["Peso Empaque Institucional (kg)"] || row["pesoEmpaqueInstitucional"] || 0;
+          const pesoTotalInstitucional = row["Peso Total Institucional (kg)"] || row["pesoTotalInstitucional"] || 0;
+          const pesoEmpaqueIntrahospitalario = row["Peso Empaque Intrahospitalario (kg)"] || row["pesoEmpaqueIntrahospitalario"] || 0;
+          const pesoTotalIntrahospitalario = row["Peso Total Intrahospitalario (kg)"] || row["pesoTotalIntrahospitalario"] || 0;
+          const pesoEmpaqueMuestrasMedicas = row["Peso Empaque Muestras Médicas (kg)"] || row["pesoEmpaqueMuestrasMedicas"] || 0;
+          const pesoTotalMuestrasMedicas = row["Peso Total Muestras Médicas (kg)"] || row["pesoTotalMuestrasMedicas"] || 0;
+
+          // Campos calculados (opcionales, se calcularán automáticamente si no están presentes)
+          const totalPesoEmpaquesExcel = row["Total Peso Empaques (kg)"] || row["totalPesoEmpaques"] || null;
+          const totalPesoProductoExcel = row["Total Peso Producto (kg)"] || row["totalPesoProducto"] || null;
+
+          // Validaciones de campos obligatorios
+          if (!razonSocial || razonSocial.trim() === "") {
+            erroresFila.push("Razón Social es requerida");
+          }
+          if (!marca || marca.trim() === "") {
+            erroresFila.push("Marca es requerida");
+          }
+          if (!nombreGenerico || nombreGenerico.trim() === "") {
+            erroresFila.push("Nombre Genérico es requerido");
+          }
+
+          // Validaciones de campos numéricos
+          const camposNumericos = [
+            { valor: pesoEmpaqueComercialRX, nombre: "Peso Empaque Comercial RX" },
+            { valor: pesoTotalComercialRX, nombre: "Peso Total Comercial RX" },
+            { valor: pesoEmpaqueComercialOTC, nombre: "Peso Empaque Comercial OTC" },
+            { valor: pesoTotalComercialOTC, nombre: "Peso Total Comercial OTC" },
+            { valor: pesoEmpaqueInstitucional, nombre: "Peso Empaque Institucional" },
+            { valor: pesoTotalInstitucional, nombre: "Peso Total Institucional" },
+            { valor: pesoEmpaqueIntrahospitalario, nombre: "Peso Empaque Intrahospitalario" },
+            { valor: pesoTotalIntrahospitalario, nombre: "Peso Total Intrahospitalario" },
+            { valor: pesoEmpaqueMuestrasMedicas, nombre: "Peso Empaque Muestras Médicas" },
+            { valor: pesoTotalMuestrasMedicas, nombre: "Peso Total Muestras Médicas" }
+          ];
+
+          // Agregar validación para totales si están presentes
+          if (totalPesoEmpaquesExcel !== null) {
+            camposNumericos.push({ valor: totalPesoEmpaquesExcel, nombre: "Total Peso Empaques" });
+          }
+          if (totalPesoProductoExcel !== null) {
+            camposNumericos.push({ valor: totalPesoProductoExcel, nombre: "Total Peso Producto" });
+          }
+
+          camposNumericos.forEach(campo => {
+            const num = parseFloat(campo.valor);
+            if (isNaN(num) || num < 0) {
+              erroresFila.push(`${campo.nombre} debe ser un número mayor o igual a 0`);
+            } else if (!Number.isInteger(num)) {
+              erroresFila.push(`${campo.nombre} debe ser un número entero. Valor ingresado: ${campo.valor}`);
+            }
+          });
+
+          // Verificar fabricación (dropdown)
+          const fabricacionValida = ["Local", "Importado"];
+          if (fabricacion && !fabricacionValida.includes(fabricacion)) {
+            erroresFila.push(`Fabricación debe ser "Local" o "Importado"`);
+          }
+
+          if (erroresFila.length > 0) {
+            errores.push(`Fila ${rowNumber}: ${erroresFila.join(", ")}`);
+          } else {
+            // Calcular totales automáticamente (usar valores del Excel si están presentes)
+            const totalPesoEmpaques = totalPesoEmpaquesExcel !== null 
+              ? parseFloat(totalPesoEmpaquesExcel) 
+              : parseFloat(pesoEmpaqueComercialRX) + parseFloat(pesoEmpaqueComercialOTC) + 
+                parseFloat(pesoEmpaqueInstitucional) + parseFloat(pesoEmpaqueIntrahospitalario) + 
+                parseFloat(pesoEmpaqueMuestrasMedicas);
+            
+            const totalPesoProducto = totalPesoProductoExcel !== null 
+              ? parseFloat(totalPesoProductoExcel)
+              : parseFloat(pesoTotalComercialRX) + parseFloat(pesoTotalComercialOTC) + 
+                parseFloat(pesoTotalInstitucional) + parseFloat(pesoTotalIntrahospitalario) + 
+                parseFloat(pesoTotalMuestrasMedicas);
+
+            productosValidados.push({
+              id: productos.length + productosValidados.length + 1,
+              idInformacionB,
+              razonSocial: razonSocial.trim(),
+              marca: marca.trim(),
+              nombreGenerico: nombreGenerico.trim(),
+              numeroRegistros: numeroRegistros.trim(),
+              codigoEstandarDatos: codigoEstandar.trim(),
+              pesoEmpaqueComercialRX: parseFloat(pesoEmpaqueComercialRX),
+              pesoTotalComercialRX: parseFloat(pesoTotalComercialRX),
+              pesoEmpaqueComercialOTC: parseFloat(pesoEmpaqueComercialOTC),
+              pesoTotalComercialOTC: parseFloat(pesoTotalComercialOTC),
+              pesoEmpaqueInstitucional: parseFloat(pesoEmpaqueInstitucional),
+              pesoTotalInstitucional: parseFloat(pesoTotalInstitucional),
+              pesoEmpaqueIntrahospitalario: parseFloat(pesoEmpaqueIntrahospitalario),
+              pesoTotalIntrahospitalario: parseFloat(pesoTotalIntrahospitalario),
+              pesoEmpaqueMuestrasMedicas: parseFloat(pesoEmpaqueMuestrasMedicas),
+              pesoTotalMuestrasMedicas: parseFloat(pesoTotalMuestrasMedicas),
+              fabricacion: fabricacion || "Local",
+              totalPesoEmpaques: totalPesoEmpaques,
+              totalPesoProducto: totalPesoProducto
+            });
+          }
+        });
+
+        // Mostrar errores si los hay
+        if (errores.length > 0) {
+          alert(`Se encontraron los siguientes errores:\n\n${errores.join("\n")}\n\nPor favor corrija los errores y vuelva a intentar.`);
+          return;
+        }
+
+        if (productosValidados.length === 0) {
+          alert("No se encontraron productos válidos en el archivo Excel.");
+          return;
+        }
+
+        // Preguntar si quiere agregar o reemplazar
+        const mensaje = `Se encontraron ${productosValidados.length} productos válidos.\n\n¿Desea agregarlos a la tabla actual?\n\n- Aceptar: Agregar productos\n- Cancelar: No cargar`;
+        const proceder = window.confirm(mensaje);
+
+        if (proceder) {
+          // Agregar productos a la tabla existente
+          const productosActualizados = [...productos, ...productosValidados];
+          setProductos(productosActualizados);
+
+          alert(`Se cargaron exitosamente ${productosValidados.length} productos.\n\nRecuerde guardar los cambios usando el botón "Guardar".`);
+        }
+
+      } catch (error) {
+        alert(`Error al procesar el archivo Excel: ${error.message}\n\nAsegúrese de que el archivo tenga el formato correcto.`);
+      }
+
+      // Limpiar el input
+      e.target.value = "";
+    };
+
+    reader.readAsArrayBuffer(file);
   };
 
   return (
@@ -204,19 +507,30 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 Agregar Producto
               </button>
               
-              <button 
-                className={`px-4 py-2 rounded ${
+              <input 
+                type="file" 
+                id="excel-upload" 
+                accept=".xlsx,.xls" 
+                onChange={cargarDesdeExcel}
+                style={{ display: 'none' }}
+                disabled={!isEditable}
+              />
+              <label 
+                htmlFor="excel-upload"
+                className={`px-4 py-2 rounded cursor-pointer inline-block ${
                   isEditable 
                     ? "bg-lightBlue-600 hover:bg-lightBlue-700 text-white" 
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
-                disabled={!isEditable}
               >
-                Cargar Informacion
-              </button>
+                Cargar desde Excel
+              </label>
               
-              <button className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded">
-                Descargar Excel
+              <button 
+                className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded"
+                onClick={descargarPlantilla}
+              >
+                Descargar Plantilla Excel
               </button>
             </>
           )}

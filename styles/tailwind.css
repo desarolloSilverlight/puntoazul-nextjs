@@ -4182,3 +4182,64 @@ select {
 
 @media (min-width: 1536px) {
 }
+
+/*ESTILOS PERSONALIZADOS*/
+
+.p-2 {
+    padding: 0.5rem;
+    border-radius: 5px;
+    width: calc(100% - 15px);
+    margin: 5px 0px 20px;
+}
+
+.p-3 {
+    padding: 1rem;
+    line-height: initial;
+    font-size: 16px;
+}
+
+.relative.flex.flex-col.min-w-0.break-words.w-full.mb-6.shadow-lg.rounded.bg-white {
+    padding: 15px;
+    border-radius: 15px;
+}
+
+.w-full.max-w-2xl.bg-white.rounded.shadow-lg.p-6 {
+        padding: 15px;
+    border-radius: 15px;
+}
+
+button.bg-blueGray-600.text-white.font-bold.uppercase.text-xs.px-4.py-2.rounded.shadow.hover\:shadow-md.outline-none.focus\:outline-none.mr-1.ease-linear.transition-all.duration-150 {
+    height: 50px;
+    margin-top: 20px;
+}
+
+nav.absolute.top-0.left-0.w-full.z-10.bg-transparent.md\:flex-row.md\:flex-nowrap.md\:justify-start.flex.items-center.p-4 {
+    background-color: #059de4;
+}
+
+.slick-slider.slick-initialized {
+    max-width: 900px;
+    margin: 70px auto 20px;
+}
+
+.px-4.md\:px-10.mx-auto.w-full-m-24 {
+    max-width: 1200px;
+}
+
+nav.md\:left-0.md\:block.md\:fixed.md\:top-0.md\:bottom-0.md\:overflow-y-auto.md\:flex-row.md\:flex-nowrap.md\:overflow-hidden.shadow-xl.bg-white.flex.flex-wrap.items-center.justify-between.relative.md\:w-64.z-10.py-4.px-6 {
+    background-color: #fafafa;
+}
+
+ul.md\:flex-col.md\:min-w-full.flex.flex-col.list-none {
+    background-color: #fff;
+    border-radius: 10px;
+    border: 1px solid #e5e1e1;
+    padding-left: 10px;
+}
+
+@media (max-width: 768px){
+  .slick-slider.slick-initialized {
+    max-width: 900px;
+    margin: 30px auto 20px;
+}
+}

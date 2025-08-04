@@ -3,6 +3,7 @@ import { Oval } from 'react-loader-spinner';
 import Modal from "react-modal";
 import Backdrop from '@mui/material/Backdrop';
 import PropTypes from "prop-types";
+import { API_BASE_URL } from "../../utils/config";
 // Necesario para accesibilidad con react-modal
 if (typeof window !== "undefined") {
   Modal.setAppElement("#__next");
@@ -102,13 +103,16 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
     const date = new Date(dateString);
     return date.toISOString().split('T')[0];
   };
-// useEffect para traer nombre y nit del usuario al cargar el componente
+// useEffect para traer nombre y nit del usuario al cargar el componente (solo en modo normal)
   useEffect(() => {
+    // Solo ejecutar en modo normal, no en readonly
+    if (readonly) return;
+    
     const fetchUsuario = async () => {
       const idUsuario = localStorage.getItem("id");
       if (!idUsuario) return;
       try {
-        const response = await fetch(`https://nestbackend.fidare.com/users/getUsuario?id=${idUsuario}`, {
+        const response = await fetch(`${API_BASE_URL}/users/getUsuario?id=${idUsuario}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -126,20 +130,33 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
       }
     };
     fetchUsuario();
-  }, []);
+  }, [readonly]);
   // Obtener datos del backend al cargar el componente
   useEffect(() => {
     const fetchData = async () => {
-      const idUsuario = localStorage.getItem("id");
       try {
-        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/getByIdUsuario/${idUsuario}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
+        let response;
+        
+        // Si está en modo readonly y tiene propIdInformacionF, usar datos del cliente específico
+        if (readonly && propIdInformacionF) {
+          console.log("Modo validación: cargando datos del cliente con idInformacionF:", propIdInformacionF);
+          response = await fetch(`${API_BASE_URL}/informacion-f/getInformacion/${propIdInformacionF}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+        } else {
+          // Modo normal: usar datos del usuario logueado
+          const idUsuario = localStorage.getItem("id");
+          console.log("Modo normal: cargando datos del usuario con idUsuario:", idUsuario);
+          response = await fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${idUsuario}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+        }
 
         if (!response.ok) {
           if (response.status === 404) {
-            console.log("No se encontraron datos para este usuario.");
+            console.log("No se encontraron datos para este registro.");
             return;
           }
           throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -147,10 +164,14 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
 
         const data = await response.json();
         console.log("Datos obtenidos:", data);
-        localStorage.setItem("idInformacionF", data.idInformacionF);
-        localStorage.setItem("estadoInformacionF", data.estado);
-        // Guardar tipoReporte en localStorage si existe
-        localStorage.setItem("tipoReporte", data.tipo_reporte || "unitario");
+        
+        // Solo actualizar localStorage en modo normal (no readonly)
+        if (!readonly) {
+          localStorage.setItem("idInformacionF", data.idInformacionF);
+          localStorage.setItem("estadoInformacionF", data.estado);
+          // Guardar tipoReporte en localStorage si existe
+          localStorage.setItem("tipoReporte", data.tipo_reporte || "unitario");
+        }
 
         setFormData({
           nombre: data.nombre || "",
@@ -171,16 +192,20 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         });
 
         setEstado(data.estado);
-        // Usar estadoInformacionF para controlar edición
-        if (data.estado === "Guardado" || data.estado === "Rechazado") {
-          setIsDisabled(false);
-        } else {
-          setIsDisabled(true);
-        }
-        if (data.estado === "Aprobado") {
-          alert("Felicidades, tu formulario ha sido aprobado.");
-        } else if (data.estado === "Rechazado") {
-          alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
+        
+        // Solo controlar edición en modo normal
+        if (!readonly) {
+          // Usar estadoInformacionF para controlar edición
+          if (data.estado === "Guardado" || data.estado === "Rechazado") {
+            setIsDisabled(false);
+          } else {
+            setIsDisabled(true);
+          }
+          if (data.estado === "Aprobado") {
+            alert("Felicidades, tu formulario ha sido aprobado.");
+          } else if (data.estado === "Rechazado") {
+            alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
+          }
         }
       } catch (error) {
         console.error("Error al obtener los datos:", error);
@@ -188,7 +213,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
     };
 
     fetchData();
-  }, []);
+  }, [readonly, propIdInformacionF]); // Agregar dependencias
 
   // Función para manejar el envío del formulario
   const handleSubmit = async (e) => {
@@ -243,7 +268,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
 
     try {
       // Verificar si el usuario ya tiene datos guardados
-      const checkResponse = await fetch(`https://nestbackend.fidare.com/informacion-f/getByIdUsuario/${idUsuario}`, {
+      const checkResponse = await fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${idUsuario}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -251,7 +276,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
       if (checkResponse.ok) {
         const idInformacionF = localStorage.getItem("idInformacionF");
         // Si ya existen datos, actualizarlos
-        const response = await fetch(`https://nestbackend.fidare.com/informacion-f/actualizarInformacion/${idInformacionF}`, {
+        const response = await fetch(`${API_BASE_URL}/informacion-f/actualizarInformacion/${idInformacionF}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedFormData),
@@ -266,7 +291,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         alert("Formulario actualizado correctamente.");
       } else if (checkResponse.status === 500) {
         // Si no existen datos, crearlos
-        const response = await fetch("https://nestbackend.fidare.com/informacion-f/crearInformacion", {
+        const response = await fetch("${API_BASE_URL}/informacion-f/crearInformacion", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedFormData),

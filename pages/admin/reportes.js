@@ -126,6 +126,9 @@ export default function Reportes() {
       if (response.ok) {
         const data = await response.json();
         
+        // 🔍 DEBUG SIMPLIFICADO: Solo verificar si llegan valores decimales
+        console.log("=== DEBUG: Verificando valores decimales del backend ===");
+        
         // Verificar si los datos vienen en una propiedad específica
         let datosParaTabla = data;
         if (data && data.data && Array.isArray(data.data)) {
@@ -134,6 +137,24 @@ export default function Reportes() {
           datosParaTabla = data.empresas;
         } else if (data && data.result && Array.isArray(data.result)) {
           datosParaTabla = data.result;
+        }
+        
+        // 🔍 DEBUG: Buscar valores decimales en los datos
+        if (datosParaTabla && datosParaTabla.length > 0) {
+          console.log(`Total empresas recibidas: ${datosParaTabla.length}`);
+          
+          // Revisar las primeras 3 empresas para ver si hay decimales
+          datosParaTabla.slice(0, 3).forEach((empresa, index) => {
+            console.log(`--- Empresa ${index + 1}: ${empresa.nombre} ---`);
+            if (empresa.anos) {
+              Object.keys(empresa.anos).forEach(year => {
+                const toneladas = empresa.anos[year]?.toneladas_reportadas;
+                if (toneladas && toneladas !== "0" && toneladas !== 0) {
+                  console.log(`  Año ${year}: toneladas_reportadas = "${toneladas}" (tipo: ${typeof toneladas})`);
+                }
+              });
+            }
+          });
         }
         
         setDatosReporte(datosParaTabla);
@@ -186,9 +207,17 @@ export default function Reportes() {
           // Convertir string con coma a punto decimal y luego a float
           let valor = empresa.anos[yearStr].toneladas_reportadas;
           if (typeof valor === 'string') {
-            valor = valor.replace(',', '.');
+            valor = valor.replace(',', '.').trim();
           }
-          datosEmpresa.toneladas[yearStr] = parseFloat(valor) || 0;
+          
+          const numeroConvertido = parseFloat(valor);
+          // Usar isNaN para verificar si la conversión fue exitosa, en lugar de usar ||
+          datosEmpresa.toneladas[yearStr] = isNaN(numeroConvertido) ? 0 : numeroConvertido;
+          
+          // Debug temporal para verificar la conversión - SOLO SI HAY PROBLEMA
+          if (empresa.anos[yearStr].toneladas_reportadas !== "0" && empresa.anos[yearStr].toneladas_reportadas !== 0) {
+            console.log(`🔍 ${empresa.nombre} - Año ${yearStr}: "${empresa.anos[yearStr].toneladas_reportadas}" -> ${datosEmpresa.toneladas[yearStr]}`);
+          }
         } else {
           datosEmpresa.toneladas[yearStr] = 0;
         }
@@ -530,14 +559,14 @@ export default function Reportes() {
                               cambio = calcularCambioPorcentual(valorAnterior, valorActual);
                               
                               if (cambio > 0) {
-                                colorCambio = 'bg-green-100 text-green-800';
-                                iconoCambio = '↗';
+                                colorCambio = 'bg-emerald-50 text-emerald-500 border border-emerald-200';
+                                iconoCambio = 'fas fa-caret-up'; // Flecha simple arriba
                               } else if (cambio < 0) {
-                                colorCambio = 'bg-red-100 text-red-800';
-                                iconoCambio = '↘';
+                                colorCambio = 'bg-red-50 text-red-500 border border-red-200';
+                                iconoCambio = 'fas fa-caret-down'; // Flecha simple abajo
                               } else {
-                                colorCambio = 'bg-yellow-100 text-yellow-800';
-                                iconoCambio = '→';
+                                colorCambio = 'bg-amber-50 text-amber-500 border border-amber-200';
+                                iconoCambio = 'fas fa-minus'; // Sin cambio
                               }
                             }
                             
@@ -555,9 +584,15 @@ export default function Reportes() {
                                 ))}
                                 {cambio !== null && (
                                   <td className="px-4 py-2 border">
-                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorCambio}`}>
-                                      {iconoCambio} {Math.abs(cambio).toFixed(1)}%
-                                    </span>
+                                    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold shadow-sm ${colorCambio}`}>
+                                      <i 
+                                        className={`${iconoCambio} text-base`}
+                                        title={cambio > 0 ? 'Aumentó' : cambio < 0 ? 'Disminuyó' : 'Se mantuvo igual'}
+                                      ></i>
+                                      <span className="font-mono">
+                                        {cambio > 0 ? '+' : ''}{cambio.toFixed(1)}%
+                                      </span>
+                                    </div>
                                   </td>
                                 )}
                               </tr>

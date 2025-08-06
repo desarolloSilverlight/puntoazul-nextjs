@@ -247,7 +247,7 @@ export default function Parametro({ idParametro, onBack }) {
             <label className="block text-blueGray-600 text-sm font-bold mb-2">Nombre del Parámetro</label>
             <input
               name="nombre"
-              className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
+              className="border p-2 w-full"
               type="text"
               placeholder="Ej: Lista de Precios, Catálogo de Productos, etc."
               value={parametro.nombre}
@@ -266,7 +266,7 @@ export default function Parametro({ idParametro, onBack }) {
                 <select
                   value={numColumns}
                   onChange={handleNumColumnsChange}
-                  className="border-0 px-3 py-3 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring ease-linear transition-all duration-150"
+                  className="border p-2 w-full"
                 >
                   {[1,2,3,4,5,6,7,8,9,10].map(num => (
                     <option key={num} value={num}>{num} columna{num > 1 ? 's' : ''}</option>
@@ -284,7 +284,7 @@ export default function Parametro({ idParametro, onBack }) {
                       placeholder={`Columna ${index + 1}`}
                       value={columnNames[index] || ''}
                       onChange={(e) => handleColumnNameChange(index, e.target.value)}
-                      className="border-0 px-3 py-2 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring ease-linear transition-all duration-150"
+                      className="border p-2 w-full"
                     />
                   ))}
                 </div>
@@ -293,7 +293,7 @@ export default function Parametro({ idParametro, onBack }) {
               <button
                 type="button"
                 onClick={handleCreateTable}
-                className="bg-blue-600 text-white font-bold uppercase text-sm px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none ease-linear transition-all duration-150"
+                className="bg-lightBlue-600 text-white font-bold uppercase text-sm px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none ease-linear transition-all duration-150"
               >
                 ✓ Crear Tabla
               </button>
@@ -309,14 +309,14 @@ export default function Parametro({ idParametro, onBack }) {
                   <button
                     type="button"
                     onClick={handleAddRow}
-                    className="bg-green-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150"
+                    className="bg-lightBlue-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150"
                   >
                     + Agregar Fila
                   </button>
                   <button
                     type="button"
                     onClick={handleReconfigureTable}
-                    className="bg-yellow-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150"
+                    className="bg-orange-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150"
                   >
                     ⚙️ Reconfigurar
                   </button>
@@ -350,7 +350,7 @@ export default function Parametro({ idParametro, onBack }) {
                           {columns.map((col) => (
                             <td className="px-6 py-4 whitespace-nowrap" key={col.name}>
                               <input
-                                className="border-0 px-3 py-2 placeholder-blueGray-300 text-blueGray-600 bg-gray-50 rounded text-sm shadow-sm focus:outline-none focus:ring focus:border-blue-300 w-full ease-linear transition-all duration-150"
+                                className="border p-2 w-full"
                                 value={item[col.name] || ""}
                                 onChange={(e) => handleCellChange(idx, col.name, e.target.value)}
                                 placeholder={`Ingresa ${col.name.toLowerCase()}`}

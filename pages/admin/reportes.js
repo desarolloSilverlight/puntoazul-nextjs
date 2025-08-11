@@ -1,19 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Admin from "layouts/Admin.js";
 import { API_BASE_URL } from "../../utils/config";
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar, Pie, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  LineElement,
+  PointElement,
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
 } from 'chart.js';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement, Filler);
 
 export default function Reportes() {
   const [literal, setLiteral] = useState("");
@@ -29,6 +32,26 @@ export default function Reportes() {
   const [paginaActual, setPaginaActual] = useState(1);
   const [filasPorPagina, setFilasPorPagina] = useState(10);
   const [busquedaTabla, setBusquedaTabla] = useState("");
+  
+  // Estados para el reporte de rangos
+  const [datosRangos, setDatosRangos] = useState(null);
+  const [cargandoRangos, setCargandoRangos] = useState(false);
+
+  // useEffect para cargar datos de rangos cuando sea necesario
+  useEffect(() => {
+    const cargarDatosRangos = async () => {
+      if (datosReporte && literal === "linea_base" && reporte === "rangos" && ano) {
+        setCargandoRangos(true);
+        const datos = await procesarDatosRangosToneladas();
+        setDatosRangos(datos);
+        setCargandoRangos(false);
+      } else {
+        setDatosRangos(null);
+      }
+    };
+
+    cargarDatosRangos();
+  }, [datosReporte, literal, reporte, ano]);
 
   // Maneja el cambio del selector de Literal y carga los clientes
   const handleLiteralChange = async (e) => {
@@ -53,6 +76,7 @@ export default function Reportes() {
       );
       if (response.ok) {
         const data = await response.json();
+        console.log("Clientes recibidos:", data);
         setClientes(data);
       } else {
         setClientes([]);
@@ -70,8 +94,8 @@ export default function Reportes() {
     setTablaDatos([]); // Limpiar tabla
     setDatosReporte(null); // Limpiar datos de reporte
 
-    // Si es Línea Base y se selecciona "toneladas", cargar años disponibles
-    if (literal === "linea_base" && value === "toneladas") {
+    // Si es Línea Base y se selecciona "toneladas" o "rangos", cargar años disponibles
+    if (literal === "linea_base" && (value === "toneladas" || value === "rangos")) {
       try {
         const response = await fetch(
           `${API_BASE_URL}/informacion-f/getAnosReporte`
@@ -95,22 +119,30 @@ export default function Reportes() {
 
   // Evento del botón Buscar
   const handleBuscar = async () => {
-    // Validar que se haya seleccionado literal, reporte y año (año es obligatorio)
-    if (!literal || !reporte || !ano) {
-      alert("Por favor selecciona Literal, Reporte y Año");
+    // Validar campos requeridos según el tipo de reporte
+    if (!literal || !reporte) {
+      alert("Por favor selecciona Literal y Reporte");
+      return;
+    }
+    
+    // Solo validar año para toneladas y rangos
+    if (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && !ano) {
+      alert("Por favor selecciona el Año para este reporte");
       return;
     }
 
     try {
-      // Preparar datos para enviar
-      const datosEnvio = {
-        literal,
-        reporte,
-        cliente: cliente || null, // Si está vacío, enviar null (todos los clientes)
-        ano: parseInt(ano)
-      };
+        // Preparar datos para enviar
+        const datosEnvio = {
+          literal,
+          reporte: reporte === "rangos" ? "toneladas" : reporte, // Si es rangos, enviar toneladas al backend
+          cliente: cliente || null, // Si está vacío, enviar null (todos los clientes)
+        };
 
-      console.log("Datos enviados al backend:", datosEnvio);
+        // Solo agregar año si es requerido (toneladas o rangos)
+        if (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) {
+          datosEnvio.ano = parseInt(ano);
+        }      console.log("Datos enviados al backend:", datosEnvio);
 
       const response = await fetch(
         `${API_BASE_URL}/informacion-f/reportes`,
@@ -259,16 +291,269 @@ export default function Reportes() {
     };
   };
 
+  // Filtrar y paginar datos de estado (incluye correo en la búsqueda)
+  const filtrarYPaginarDatosEstado = (empresas) => {
+    // Filtrar por búsqueda
+    const datosFiltrados = empresas.filter(empresa =>
+      empresa.nombre?.toLowerCase().includes(busquedaTabla.toLowerCase()) ||
+      empresa.nit?.includes(busquedaTabla) ||
+      (empresa.correo_facturacion || empresa.correoFacturacion || '')?.toLowerCase().includes(busquedaTabla.toLowerCase()) ||
+      empresa.estado?.toLowerCase().includes(busquedaTabla.toLowerCase())
+    );
+
+    // Calcular paginación
+    const totalPaginas = Math.ceil(datosFiltrados.length / filasPorPagina);
+    const indiceInicio = (paginaActual - 1) * filasPorPagina;
+    const indiceFin = indiceInicio + filasPorPagina;
+    const datosPaginados = datosFiltrados.slice(indiceInicio, indiceFin);
+
+    return {
+      datos: datosPaginados,
+      totalResultados: datosFiltrados.length,
+      totalPaginas: totalPaginas
+    };
+  };
+
   // Resetear paginación cuando cambia la búsqueda
   const handleBusquedaChange = (e) => {
     setBusquedaTabla(e.target.value);
     setPaginaActual(1);
   };
 
+  // Función para obtener el parámetro de rangos desde el backend
+  const obtenerParametroRangos = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/parametros`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      
+      if (response.ok) {
+        const parametros = await response.json();
+        const parametroRangos = parametros.find(p => p.nombre === "Rango Toneladas Linea Base");
+        
+        if (parametroRangos) {
+          try {
+            const datosRangos = JSON.parse(parametroRangos.valor);
+            console.log("Parámetro de rangos obtenido:", datosRangos);
+            return datosRangos.data || []; // Retorna el array de datos
+          } catch (error) {
+            console.error("Error al parsear parámetro de rangos:", error);
+            return [];
+          }
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error("Error al obtener parámetro de rangos:", error);
+      return [];
+    }
+  };
+
+  // Función para procesar datos de rangos de toneladas
+  const procesarDatosRangosToneladas = async () => {
+    if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) {
+      return null;
+    }
+
+    console.log("=== PROCESANDO RANGOS DE TONELADAS ===");
+    console.log("Año seleccionado para clasificación:", ano);
+    
+    // Obtener configuración de rangos desde parámetros
+    const rangosConfig = await obtenerParametroRangos();
+    if (!rangosConfig || rangosConfig.length === 0) {
+      console.error("No se encontró configuración de rangos");
+      alert("No se encontró la configuración de 'Rango Toneladas Linea Base' en parámetros");
+      return null;
+    }
+
+    console.log("Configuración de rangos:", rangosConfig);
+
+    // Extraer toneladas del año seleccionado para cada empresa
+    const empresasConToneladas = [];
+    let empresasSinDatos = 0;
+
+    datosReporte.forEach((empresa, index) => {
+      const anoStr = ano.toString();
+      
+      if (empresa.anos && empresa.anos[anoStr]) {
+        let toneladas = empresa.anos[anoStr].toneladas_reportadas;
+        
+        // Manejar valores null, undefined o string con comas
+        if (toneladas === null || toneladas === undefined) {
+          toneladas = 0;
+        } else if (typeof toneladas === 'string') {
+          toneladas = toneladas.replace(',', '.');
+          toneladas = parseFloat(toneladas) || 0;
+        } else {
+          toneladas = parseFloat(toneladas) || 0;
+        }
+
+        empresasConToneladas.push({
+          nombre: empresa.nombre,
+          nit: empresa.nit,
+          ciudad: empresa.ciudad,
+          toneladas: toneladas
+        });
+
+        if (index < 5) { // Log de las primeras 5 empresas
+          console.log(`Empresa ${index + 1}: ${empresa.nombre} - ${toneladas} toneladas`);
+        }
+      } else {
+        empresasSinDatos++;
+      }
+    });
+
+    console.log(`Total empresas procesadas: ${empresasConToneladas.length}`);
+    console.log(`Empresas sin datos para el año ${ano}: ${empresasSinDatos}`);
+
+    // Clasificar empresas en rangos
+    const clasificacionRangos = rangosConfig.map(rango => {
+      // Estructura específica: RangoIni y RangoFin
+      const rangoMin = parseFloat(rango.RangoIni);
+      const rangoMax = parseFloat(rango.RangoFin);
+      const etiquetaRango = `${rango.RangoIni} - ${rango.RangoFin}`;
+
+      // Contar empresas en este rango
+      const empresasEnRango = empresasConToneladas.filter(empresa => {
+        return empresa.toneladas >= rangoMin && empresa.toneladas <= rangoMax;
+      });
+
+      console.log(`Rango ${etiquetaRango}: ${empresasEnRango.length} empresas`);
+
+      return {
+        rango: etiquetaRango,
+        min: rangoMin,
+        max: rangoMax,
+        numeroEmpresas: empresasEnRango.length,
+        empresas: empresasEnRango // Para debugging
+      };
+    });
+
+    // Calcular porcentajes
+    const totalEmpresas = empresasConToneladas.length;
+    const resultado = clasificacionRangos.map(item => ({
+      ...item,
+      porcentaje: totalEmpresas > 0 ? ((item.numeroEmpresas / totalEmpresas) * 100).toFixed(1) : 0
+    }));
+
+    // Agregar fila de total
+    resultado.push({
+      rango: "TOTAL",
+      numeroEmpresas: totalEmpresas,
+      porcentaje: "100.0",
+      isTotal: true
+    });
+
+    console.log("Clasificación final:", resultado);
+    return resultado;
+  };
+
   // Genera datos de ejemplo para los gráficos
   const getChartData = () => {
     if (!datosReporte || !datosReporte.length) return null;
     switch (reporte) {
+      case 'rangos':
+        // Gráficos específicos para rangos de toneladas
+        if (!datosRangos || datosRangos.length === 0) return null;
+        
+        // Filtrar la fila TOTAL para los gráficos
+        const datosSinTotal = datosRangos.filter(item => !item.isTotal);
+        
+        return {
+          type: 'dual',
+          charts: [
+            {
+              type: 'bar',
+              title: 'Número de Empresas por Rango',
+              data: {
+                labels: datosSinTotal.map(item => item.rango),
+                datasets: [{
+                  label: 'N° Empresas',
+                  data: datosSinTotal.map(item => item.numeroEmpresas),
+                  backgroundColor: '#3b82f6',
+                  borderColor: '#1d4ed8',
+                  borderWidth: 1
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  title: {
+                    display: true,
+                    text: 'Distribución de Empresas por Rango de Toneladas'
+                  },
+                  legend: {
+                    display: false
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1
+                    }
+                  },
+                  x: {
+                    ticks: {
+                      maxRotation: 45,
+                      minRotation: 45
+                    }
+                  }
+                }
+              }
+            },
+            {
+              type: 'line',
+              title: 'Porcentaje por Rango',
+              data: {
+                labels: datosSinTotal.map(item => item.rango),
+                datasets: [{
+                  label: 'Porcentaje (%)',
+                  data: datosSinTotal.map(item => parseFloat(item.porcentaje)),
+                  borderColor: '#ef4444',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  pointBackgroundColor: '#ef4444',
+                  pointBorderColor: '#dc2626',
+                  pointRadius: 6,
+                  pointHoverRadius: 8,
+                  fill: true,
+                  tension: 0.4
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  title: {
+                    display: true,
+                    text: 'Porcentaje de Empresas por Rango de Toneladas'
+                  },
+                  legend: {
+                    display: false
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    max: Math.max(...datosSinTotal.map(item => parseFloat(item.porcentaje))) * 1.2,
+                    ticks: {
+                      callback: function(value) {
+                        return value + '%';
+                      }
+                    }
+                  },
+                  x: {
+                    ticks: {
+                      maxRotation: 45,
+                      minRotation: 45
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        };
       case 'toneladas':
         const datosProcesados = procesarDatosToneladas();
         if (!datosProcesados) return null;
@@ -316,60 +601,54 @@ export default function Reportes() {
           }
         };
       case 'estado':
-        // Ejemplo: cuenta por estado
-        return {
-          type: 'bar',
-          data: {
-            labels: ['Aprobado', 'Pendiente', 'Rechazado'],
-            datasets: [{
-              label: 'Cantidad',
-              data: [3, 5, 2], // Reemplaza con tus datos reales
-              backgroundColor: ['#38bdf8', '#fbbf24', '#ef4444']
-            }]
-          },
-          options: { responsive: true, plugins: { legend: { display: false } } }
-        };
-      case 'meta':
-        // Ejemplo: avance de meta
-        return {
-          type: 'bar',
-          data: {
-            labels: ['2022', '2023', '2024'],
-            datasets: [{
-              label: 'Avance (%)',
-              data: [80, 60, 95],
-              backgroundColor: ['#22c55e', '#3b82f6', '#f59e42']
-            }]
-          },
-          options: { responsive: true }
-        };
-      case 'grupo':
-        // Ejemplo: distribución por grupo
+        // Gráfico de estados basado en datos reales
+        if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) return null;
+        
+        // Contar estados
+        const conteoEstados = {};
+        datosReporte.forEach(empresa => {
+          const estado = empresa.estado || 'Sin estado';
+          conteoEstados[estado] = (conteoEstados[estado] || 0) + 1;
+        });
+
+        const estados = Object.keys(conteoEstados);
+        const cantidades = Object.values(conteoEstados);
+        
+        // Colores para diferentes estados
+        const coloresEstados = estados.map(estado => {
+          const estadoLower = estado.toLowerCase();
+          if (estadoLower.includes('finalizado')) return '#22c55e'; // Verde
+          if (estadoLower.includes('guardado')) return '#3b82f6'; // Azul
+          if (estadoLower.includes('pendiente')) return '#f59e0b'; // Amarillo
+          if (estadoLower.includes('aprobado')) return '#10b981'; // Verde claro
+          if (estadoLower.includes('rechazado')) return '#ef4444'; // Rojo
+          return '#6b7280'; // Gris para otros
+        });
+
         return {
           type: 'pie',
           data: {
-            labels: ['Grupo A', 'Grupo B', 'Grupo C'],
+            labels: estados,
             datasets: [{
-              label: 'Cantidad',
-              data: [4, 3, 3],
-              backgroundColor: ['#f472b6', '#60a5fa', '#facc15']
+              label: 'Empresas',
+              data: cantidades,
+              backgroundColor: coloresEstados,
+              borderWidth: 2,
+              borderColor: '#ffffff'
             }]
           },
-          options: { responsive: true }
-        };
-      case 'material':
-        // Ejemplo: distribución por material
-        return {
-          type: 'pie',
-          data: {
-            labels: ['Plástico', 'Vidrio', 'Metal', 'Cartón'],
-            datasets: [{
-              label: 'Cantidad',
-              data: [5, 2, 1, 2],
-              backgroundColor: ['#38bdf8', '#a3e635', '#fbbf24', '#f472b6']
-            }]
-          },
-          options: { responsive: true }
+          options: { 
+            responsive: true,
+            plugins: { 
+              title: {
+                display: true,
+                text: 'Distribución de Estados de Línea Base'
+              },
+              legend: {
+                position: 'bottom'
+              }
+            }
+          }
         };
       default:
         return null;
@@ -385,8 +664,8 @@ export default function Reportes() {
         ]
       : literal === "linea_base"
       ? [
-          { value: "toneladas", label: "Toneladas" }, // Cambiado de "material" a "toneladas"
-          { value: "meta", label: "Meta" },
+          { value: "toneladas", label: "Toneladas" }, 
+          { value: "rangos", label: "Rango Toneladas" },
           { value: "estado", label: "Estado" },
         ]
       : [];
@@ -438,14 +717,14 @@ export default function Reportes() {
               >
                 <option value="">Todos los clientes</option>
                 {clientes.map((c) => (
-                  <option key={c.idUsuario || c.usuario_idUsuario} value={c.idUsuario || c.usuario_idUsuario}>
+                  <option key={c.idUsuario || c.usuario_idUsuario} value={c.identificacion || c.usuario_nit}>
                     {c.nombre || c.usuario_nombre}
                   </option>
                 ))}
               </select>
             </div>
-            {/* Selector Año (solo para Línea Base - Toneladas) */}
-            {literal === "linea_base" && reporte === "toneladas" && (
+            {/* Selector Año (solo para Línea Base - Toneladas o Rangos) */}
+            {literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Año</label>
                 <select
@@ -468,7 +747,7 @@ export default function Reportes() {
               <button
                 className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
                 onClick={handleBuscar}
-                disabled={!literal || !reporte || (literal === "linea_base" && reporte === "toneladas" && !ano)}
+                disabled={!literal || !reporte || (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && !ano)}
               >
                 Buscar
               </button>
@@ -661,6 +940,227 @@ export default function Reportes() {
                   </div>
                 );
               })()
+            ) : reporte === 'rangos' && literal === 'linea_base' ? (
+              // Tabla especializada para rangos de toneladas
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4 text-center">
+                  📊 Clasificación por Rangos de Toneladas - Año {ano}
+                </h3>
+                
+                {cargandoRangos ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p className="mt-2">Procesando clasificación de rangos...</p>
+                  </div>
+                ) : !datosRangos ? (
+                  <div className="text-center py-8 text-red-600">
+                    <p>Error al procesar los datos de rangos</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-gray-300">
+                      <thead>
+                        <tr className="bg-blue-100">
+                          <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Rango (Toneladas)</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">N° Empresas</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Porcentaje</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {datosRangos.map((item, index) => (
+                          <tr 
+                            key={index} 
+                            className={`${item.isTotal ? 'bg-yellow-100 font-bold' : 'hover:bg-gray-50'}`}
+                          >
+                            <td className="border border-gray-300 px-4 py-3">
+                              {item.rango}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">
+                              {item.numeroEmpresas}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">
+                              {item.porcentaje}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : reporte === 'estado' && literal === 'linea_base' ? (
+              // Tabla especializada para estado de línea base
+              (() => {
+                const { datos, totalResultados, totalPaginas } = filtrarYPaginarDatosEstado(datosReporte);
+                
+                // Calcular porcentaje de empresas finalizadas
+                const empresasFinalizadas = datosReporte.filter(empresa => 
+                  empresa.estado?.toLowerCase().includes('finalizado')
+                ).length;
+                const totalEmpresas = datosReporte.length;
+                const porcentajeFinalizado = totalEmpresas > 0 ? ((empresasFinalizadas / totalEmpresas) * 100).toFixed(1) : 0;
+                
+                return (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-6 text-center">
+                      📋 Estado de Línea Base
+                    </h3>
+                    
+                    {/* Progress Bar de Empresas Finalizadas */}
+                    <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Progreso de Finalización
+                        </span>
+                        <span className="text-sm font-bold text-green-600">
+                          {empresasFinalizadas} de {totalEmpresas} empresas ({porcentajeFinalizado}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                          style={{ width: `${porcentajeFinalizado}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Controles de la tabla */}
+                    <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Mostrar:</label>
+                        <select
+                          value={filasPorPagina}
+                          onChange={(e) => {setFilasPorPagina(Number(e.target.value)); setPaginaActual(1);}}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                        <span className="text-sm">resultados</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Buscar:</label>
+                        <input
+                          type="text"
+                          value={busquedaTabla}
+                          onChange={handleBusquedaChange}
+                          className="border border-gray-300 rounded px-3 py-1 text-sm"
+                          placeholder="Empresa, NIT, Correo o Estado..."
+                        />
+                      </div>
+                    </div>
+                
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-blue-100">
+                            <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Empresa</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Correo Facturación</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datos.map((empresa, index) => {
+                            // Función para obtener el color del estado
+                            const getEstadoColor = (estado) => {
+                              if (!estado) return 'bg-gray-100 text-gray-600';
+                              const estadoLower = estado.toLowerCase();
+                              if (estadoLower.includes('finalizado')) return 'bg-green-100 text-green-800';
+                              if (estadoLower.includes('firmado')) return 'bg-green-100 text-green-800';
+                              if (estadoLower.includes('guardado')) return 'bg-blue-100 text-blue-800';
+                              if (estadoLower.includes('pendiente')) return 'bg-yellow-100 text-yellow-800';
+                              if (estadoLower.includes('aprobado')) return 'bg-emerald-100 text-emerald-800';
+                              if (estadoLower.includes('rechazado')) return 'bg-red-100 text-red-800';
+                              return 'bg-gray-100 text-gray-600';
+                            };
+
+                            return (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="border border-gray-300 px-4 py-3 font-medium">
+                                  {empresa.nombre || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {empresa.nit || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {empresa.correo_facturacion || empresa.correoFacturacion || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(empresa.estado)}`}>
+                                    {empresa.estado || 'Sin estado'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Información de paginación y controles */}
+                    <div className="mt-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Mostrando {datos.length === 0 ? 0 : ((paginaActual - 1) * filasPorPagina) + 1} a{' '}
+                        {Math.min(paginaActual * filasPorPagina, totalResultados)} de {totalResultados} resultados
+                        {busquedaTabla && ` (filtrado de ${totalEmpresas} total)`}
+                      </div>
+                      
+                      {/* Controles de paginación */}
+                      {totalPaginas > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
+                            disabled={paginaActual === 1}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Anterior
+                          </button>
+                          
+                          <div className="flex gap-1">
+                            {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                              let pageNum;
+                              if (totalPaginas <= 5) {
+                                pageNum = i + 1;
+                              } else {
+                                const start = Math.max(1, paginaActual - 2);
+                                const end = Math.min(totalPaginas, start + 4);
+                                pageNum = start + i;
+                                if (pageNum > end) return null;
+                              }
+                              
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setPaginaActual(pageNum)}
+                                  className={`px-3 py-1 border text-sm rounded ${
+                                    paginaActual === pageNum
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          <button
+                            onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
+                            disabled={paginaActual === totalPaginas}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
             ) : (
               // Tabla genérica para otros reportes
               <div className="mt-8 overflow-x-auto">
@@ -690,6 +1190,29 @@ export default function Reportes() {
             {(() => {
               const chart = getChartData();
               if (!chart) return null;
+              
+              // Gráficos duales para rangos
+              if (chart.type === 'dual' && chart.charts) {
+                return (
+                  <div className="mt-8 space-y-8">
+                    {chart.charts.map((chartConfig, index) => (
+                      <div key={index} className="flex justify-center">
+                        <div style={{ maxWidth: 600, width: '100%' }}>
+                          <h4 className="text-center font-semibold mb-4 text-gray-700">
+                            {chartConfig.title}
+                          </h4>
+                          {chartConfig.type === 'bar' ? (
+                            <Bar data={chartConfig.data} options={chartConfig.options} height={120} />
+                          ) : chartConfig.type === 'line' ? (
+                            <Line data={chartConfig.data} options={chartConfig.options} height={120} />
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              
               if (chart.type === 'bar') {
                 return (
                   <div className="mt-8 flex justify-center">

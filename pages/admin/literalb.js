@@ -194,7 +194,7 @@ export default function FormularioF() {
         </button>
       </Modal>
       {/* Tabs */}
-      <div className="relative z-10 flex border-b-2 border-gray-300">
+      <div className="relative  flex border-b-2 border-gray-300">
         {["Informacion", "Productos"].map((tab) => (
           <button
             key={tab}

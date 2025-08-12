@@ -43,20 +43,52 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     }
   }, [propEstado]);
 
+  // useEffect para traer nombre y nit del usuario al cargar el componente (solo en modo normal)
+  useEffect(() => {
+    // Solo ejecutar en modo normal, no en readonly
+    if (readonly) return;
+    
+    const fetchUsuario = async () => {
+      const idUsuario = localStorage.getItem("id");
+      if (!idUsuario) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/users/getUsuario?id=${idUsuario}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setFormData(prev => ({
+            ...prev,
+            nombre: data.nombre || "",
+            nit: data.identificacion || "",
+          }));
+        }
+      } catch (error) {
+        console.error("Error al obtener usuario:", error);
+      }
+    };
+    fetchUsuario();
+  }, [readonly]);
+
   // Obtener datos del backend al cargar el componente
   useEffect(() => {
     const fetchData = async () => {
-      // Si tenemos propIdInformacionB (modo readonly), usarlo directamente
-      // Si no, usar el idUsuario para buscar por usuario
-      let url;
-      if (propIdInformacionB) {
-        url = `${API_BASE_URL}/informacion-b/getById/${propIdInformacionB}`;
-      } else {
-        const idUsuario = propIdUsuario || localStorage.getItem("id");
-        url = `${API_BASE_URL}/informacion-b/getByIdUsuario/${idUsuario}`;
-      }
-      
       try {
+        let url;
+        
+        // Si está en modo readonly y tiene propIdInformacionB, usar datos del cliente específico
+        if (readonly && propIdInformacionB) {
+          console.log("Modo validación: cargando datos del cliente con idInformacionB:", propIdInformacionB);
+          url = `${API_BASE_URL}/informacion-b/getById/${propIdInformacionB}`;
+        } else {
+          // Modo normal: usar datos del usuario logueado
+          const idUsuario = propIdUsuario || localStorage.getItem("id");
+          console.log("Modo normal: cargando datos del usuario con idUsuario:", idUsuario);
+          url = `${API_BASE_URL}/informacion-b/getByIdUsuario/${idUsuario}`;
+        }
+        
         const response = await fetch(url, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -76,7 +108,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         // Solo guardar en localStorage si no es modo readonly
         if (!readonly) {
           localStorage.setItem("idInformacionB", data.idInformacionB); // Guardar id en localStorage
-          localStorage.setItem("estadoInformacionB", data.estado); // Guardar id en localStorage
+          localStorage.setItem("estadoInformacionB", data.estado); // Guardar estado en localStorage
         }
         
         // Llenar los campos del formulario con los datos obtenidos
@@ -98,21 +130,22 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           correoFacturacion: data.correoFacturacion || "",
         });
 
-
         // Manejar el estado del formulario según el valor de "estado"
         setEstado(data.estado);
-        // Usar estadoInformacionB para controlar edición solo si no es readonly
+        
+        // Solo controlar edición en modo normal
         if (!readonly) {
+          // Usar estadoInformacionB para controlar edición
           if (data.estado === "Iniciado" || data.estado === "Guardado" || data.estado === "Rechazado") {
             setIsDisabled(false);
           } else {
             setIsDisabled(true);
           }
-        }
-        if (data.estado === "Aprobado") {
-          alert("Felicidades, tu formulario ha sido aprobado.");
-        } else if (data.estado === "Rechazado") {
-          alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
+          if (data.estado === "Aprobado") {
+            alert("Felicidades, tu formulario ha sido aprobado.");
+          } else if (data.estado === "Rechazado") {
+            alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
+          }
         }
       } catch (error) {
         console.error("Error al obtener los datos:", error);
@@ -120,7 +153,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     };
 
     fetchData();
-  }, [propIdUsuario, propIdInformacionB, readonly]);
+  }, [propIdUsuario, propIdInformacionB, readonly]); // Agregar dependencias
 
   // Manejar el envío del formulario
   const handleSubmit = async (e) => {
@@ -229,12 +262,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
               <input
                 name="nombre"
                 id="nombre"
-                className="border p-2 w-full"
+                className="border p-2 w-full bg-gray-100"
                 type="text"
                 placeholder="Nombre o razón social"
                 value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                disabled={isDisabled}
+                readOnly
                 required
               />
             </div>
@@ -243,12 +275,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
               <input
                 name="nit"
                 id="nit"
-                className="border p-2 w-full"
+                className="border p-2 w-full bg-gray-100"
                 type="text"
                 placeholder="NIT"
                 value={formData.nit}
-                onChange={(e) => setFormData({ ...formData, nit: e.target.value })}
-                disabled={isDisabled}
+                readOnly
                 required
               />
             </div>

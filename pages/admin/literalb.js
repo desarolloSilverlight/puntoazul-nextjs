@@ -18,11 +18,58 @@ export default function FormularioF() {
   const [isOpen, setIsOpen] = useState(false);
   // Loader y estado para controlar botones según estadoInformacionB
   const [estadoInformacionB, setEstadoInformacionB] = useState(undefined);
+  // Estado para controlar la validación de pestañas
+  const [idInformacionB, setIdInformacionB] = useState(null);
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       setEstadoInformacionB((localStorage.getItem("estadoInformacionB") || "").trim());
+      setIdInformacionB(localStorage.getItem("idInformacionB"));
     }
   }, []);
+
+  // useEffect para monitorear cambios en localStorage
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      setIdInformacionB(localStorage.getItem("idInformacionB"));
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    
+    // También verificar cambios periódicamente
+    const interval = setInterval(() => {
+      const currentIdInformacionB = localStorage.getItem("idInformacionB");
+      if (currentIdInformacionB !== idInformacionB) {
+        setIdInformacionB(currentIdInformacionB);
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [idInformacionB]);
+
+  // Función para validar si existe idInformacionB
+  const validarIdInformacionB = () => {
+    const id = localStorage.getItem("idInformacionB");
+    return id && id.trim() !== "";
+  };
+
+  // Función para verificar si una pestaña está disponible
+  const isTabAvailable = (tab) => {
+    if (tab === "Informacion") return true; // Información siempre está disponible
+    if (tab === "Productos") return validarIdInformacionB(); // Productos requiere idInformacionB
+    return false;
+  };
+
+  // Función para manejar el cambio de pestañas
+  const handleTabChange = (tab) => {
+    if (!isTabAvailable(tab)) {
+      alert("Debe completar y guardar la información básica antes de continuar con la siguiente pestaña.");
+      return;
+    }
+    setActiveTab(tab);
+  };
   if (estadoInformacionB === undefined) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -195,19 +242,28 @@ export default function FormularioF() {
       </Modal>
       {/* Tabs */}
       <div className="relative  flex border-b-2 border-gray-300">
-        {["Informacion", "Productos"].map((tab) => (
-          <button
-            key={tab}
-            className={`p-3 px-6 text-lg font-semibold transition-all duration-300 rounded-t-lg ${
-              activeTab === tab
-                ? "bg-white border-b-4 border-blue-500 text-blue-600 shadow-md"
-                : "bg-gray-200 text-gray-600 hover:bg-white hover:text-blue-500"
-            }`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
+        {["Informacion", "Productos"].map((tab) => {
+          const isAvailable = isTabAvailable(tab);
+          return (
+            <button
+              key={tab}
+              className={`p-3 px-6 text-lg font-semibold transition-all duration-300 rounded-t-lg relative ${
+                activeTab === tab
+                  ? "bg-white border-b-4 border-blue-500 text-blue-600 shadow-md"
+                  : isAvailable
+                  ? "bg-gray-200 text-gray-600 hover:bg-white hover:text-blue-500"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}
+              onClick={() => handleTabChange(tab)}
+              disabled={!isAvailable}
+            >
+              {tab}
+              {!isAvailable && (
+                <i className="fas fa-lock absolute top-2 right-2 text-red-500 text-sm"></i>
+              )}
+            </button>
+          );
+        })}
       </div>
       <div className="p-4 bg-white shadow-md rounded-lg">{renderForm()}</div>
     </div>

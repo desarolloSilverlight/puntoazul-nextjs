@@ -22,10 +22,36 @@ export default function FormularioF() {
   const [isOpen, setIsOpen] = useState(false);
   // Loader y estado para controlar botones según estadoInformacionF
   const [estadoInformacionF, setEstadoInformacionF] = useState(undefined);
+  const [idInformacionFExists, setIdInformacionFExists] = useState(false);
+  
   React.useEffect(() => {
     if (typeof window !== "undefined") {
-      setEstadoInformacionF((localStorage.getItem("estadoInformacionF") || "").trim());
+      const estadoGuardado = localStorage.getItem("estadoInformacionF");
+      setEstadoInformacionF(estadoGuardado && estadoGuardado.trim() !== "" ? estadoGuardado.trim() : "Guardado");
+      // También verificar si existe idInformacionF
+      setIdInformacionFExists(!!localStorage.getItem("idInformacionF"));
     }
+  }, []);
+
+  // Escuchar cambios en localStorage para actualizar el estado de las pestañas
+  React.useEffect(() => {
+    const handleStorageChange = () => {
+      setIdInformacionFExists(!!localStorage.getItem("idInformacionF"));
+      // También actualizar el estado del formulario
+      const estadoGuardado = localStorage.getItem("estadoInformacionF");
+      setEstadoInformacionF(estadoGuardado && estadoGuardado.trim() !== "" ? estadoGuardado.trim() : "Guardado");
+    };
+    
+    // Listener para cambios en localStorage
+    window.addEventListener('storage', handleStorageChange);
+    
+    // También verificar periódicamente (para cambios en la misma ventana)
+    const interval = setInterval(handleStorageChange, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
   if (estadoInformacionF === undefined) {
     return (
@@ -35,6 +61,39 @@ export default function FormularioF() {
     );
   }
   console.log("Estado del formulario:", estadoInformacionF);
+
+  // Función para verificar si una pestaña está disponible
+  const isTabAvailable = (tab) => {
+    if (tab === "Informacion") return true;
+    return idInformacionFExists;
+  };
+
+  // Función para validar que existe idInformacionF antes de cambiar de pestaña
+  const validarIdInformacionF = (targetTab) => {
+    // Si la pestaña objetivo es "Informacion", siempre permitir el acceso
+    if (targetTab === "Informacion") {
+      return true;
+    }
+    
+    // Para cualquier otra pestaña, verificar que existe idInformacionF
+    const idInformacionF = localStorage.getItem("idInformacionF");
+    if (!idInformacionF) {
+      alert("⚠️ Debe completar y guardar la información básica antes de acceder a otras secciones del formulario.");
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Función para manejar el cambio de pestañas con validación
+  const handleTabChange = (tab) => {
+    if (validarIdInformacionF(tab)) {
+      setActiveTab(tab);
+    } else {
+      // Si la validación falla, redirigir a "Informacion"
+      setActiveTab("Informacion");
+    }
+  };
 
   // Actualiza el estado en el backend usando idInformacionF del localStorage
   const actualizaEstado = async () => {
@@ -270,20 +329,49 @@ export default function FormularioF() {
       </Modal>
       {/* Tabs */}
       <div className="relative flex border-b-2 border-gray-300">
-        {["Informacion", "Empaque Primario", "Empaque Secundario", "Empaque Plastico", "Envases Retornables", "Distribucion Geografica"].map((tab) => (
-          <button
-            key={tab}
-            className={`p-3 px-6 text-lg font-semibold transition-all duration-300 rounded-t-lg ${
-              activeTab === tab
-                ? "bg-white border-b-4 border-blue-500 text-blue-600 shadow-md"
-                : "bg-gray-200 text-gray-600 hover:bg-white hover:text-blue-500"
-            }`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
+        {["Informacion", "Empaque Primario", "Empaque Secundario", "Empaque Plastico", "Envases Retornables", "Distribucion Geografica"].map((tab) => {
+          const isAvailable = isTabAvailable(tab);
+          const isActive = activeTab === tab;
+          
+          return (
+            <button
+              key={tab}
+              className={`p-3 px-6 text-lg font-semibold transition-all duration-300 rounded-t-lg relative ${
+                isActive
+                  ? "bg-white border-b-4 border-blue-500 text-blue-600 shadow-md"
+                  : isAvailable
+                  ? "bg-gray-200 text-gray-600 hover:bg-white hover:text-blue-500"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}
+              onClick={() => handleTabChange(tab)}
+              disabled={!isAvailable}
+              title={!isAvailable ? "Complete la información básica primero" : ""}
+            >
+              {tab}
+              {!isAvailable && (
+                <i className="fas fa-lock ml-2 text-gray-400 text-sm"></i>
+              )}
+            </button>
+          );
+        })}
       </div>
+      
+      {/* Mensaje informativo cuando las pestañas están bloqueadas */}
+      {!idInformacionFExists && activeTab === "Informacion" && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <i className="fas fa-info-circle text-yellow-400"></i>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                <strong>Información importante:</strong> Debe completar y guardar la información básica en esta sección 
+                antes de poder acceder a las demás pestañas del formulario.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="p-4 bg-white shadow-md rounded-lg">{renderForm()}</div>
     </div>
   );

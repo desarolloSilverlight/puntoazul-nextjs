@@ -94,6 +94,11 @@ export default function Reportes() {
     setTablaDatos([]); // Limpiar tabla
     setDatosReporte(null); // Limpiar datos de reporte
 
+    // Si es toneladas o rangos, limpiar cliente ya que no se usa
+    if (literal === "linea_base" && (value === "toneladas" || value === "rangos")) {
+      setCliente(""); // Limpiar cliente para toneladas y rangos
+    }
+
     // Si es Línea Base y se selecciona "toneladas" o "rangos", cargar años disponibles
     if (literal === "linea_base" && (value === "toneladas" || value === "rangos")) {
       try {
@@ -136,13 +141,18 @@ export default function Reportes() {
         const datosEnvio = {
           literal,
           reporte: reporte === "rangos" ? "toneladas" : reporte, // Si es rangos, enviar toneladas al backend
-          cliente: cliente || null, // Si está vacío, enviar null (todos los clientes)
         };
 
-        // Solo agregar año si es requerido (toneladas o rangos)
+        // Para toneladas y rangos, no enviar cliente (todos los clientes)
         if (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) {
+          datosEnvio.cliente = null; // Explícitamente null para todos los clientes
           datosEnvio.ano = parseInt(ano);
-        }      console.log("Datos enviados al backend:", datosEnvio);
+        } else {
+          // Para otros reportes, usar el cliente seleccionado
+          datosEnvio.cliente = cliente || null;
+        }
+
+        console.log("Datos enviados al backend:", datosEnvio);
 
       const response = await fetch(
         `${API_BASE_URL}/informacion-f/reportes`,
@@ -675,7 +685,11 @@ export default function Reportes() {
       <div className="flex flex-wrap justify-center mt-8">
         <div className="w-full max-w-2xl bg-white rounded shadow-lg p-6">
           <h2 className="text-blueGray-700 text-xl font-semibold mb-6">Reportes</h2>
-          <div className="grid grid-cols-5 md:grid-cols-4 gap-4 p-2">
+          <div className={`grid gap-4 p-2 ${
+            literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")
+              ? "grid-cols-4" // Sin cliente: Literal, Reporte, Año, Botón
+              : "grid-cols-5" // Con cliente: Literal, Reporte, Cliente, Año (opcional), Botón
+          }`}>
             {/* Selector Literal */}
             <div className="p-2">
               <label className="block text-xs font-semibold mb-1">Seleccione Literal</label>
@@ -706,23 +720,25 @@ export default function Reportes() {
                 ))}
               </select>
             </div>
-            {/* Selector Cliente */}
-            <div className="p-2">
-              <label className="block text-xs font-semibold mb-1">Seleccione Cliente</label>
-              <select
-                className="w-full border border-gray-300 rounded p-2"
-                value={cliente}
-                onChange={e => setCliente(e.target.value)}
-                disabled={!clientes.length}
-              >
-                <option value="">Todos los clientes</option>
-                {clientes.map((c) => (
-                  <option key={c.idUsuario || c.usuario_idUsuario} value={c.identificacion || c.usuario_nit}>
-                    {c.nombre || c.usuario_nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Selector Cliente - Solo visible si NO es toneladas o rangos */}
+            {!(literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) && (
+              <div className="p-2">
+                <label className="block text-xs font-semibold mb-1">Seleccione Cliente</label>
+                <select
+                  className="w-full border border-gray-300 rounded p-2"
+                  value={cliente}
+                  onChange={e => setCliente(e.target.value)}
+                  disabled={!clientes.length}
+                >
+                  <option value="">Todos los clientes</option>
+                  {clientes.map((c) => (
+                    <option key={c.idUsuario || c.usuario_idUsuario} value={c.identificacion || c.usuario_nit}>
+                      {c.nombre || c.usuario_nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {/* Selector Año (solo para Línea Base - Toneladas o Rangos) */}
             {literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && (
               <div className="p-2">
@@ -748,6 +764,11 @@ export default function Reportes() {
                 className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
                 onClick={handleBuscar}
                 disabled={!literal || !reporte || (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && !ano)}
+                title={
+                  literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")
+                    ? "Para reportes de toneladas/rangos solo se requiere año"
+                    : "Complete todos los campos requeridos"
+                }
               >
                 Buscar
               </button>
@@ -944,7 +965,7 @@ export default function Reportes() {
               // Tabla especializada para rangos de toneladas
               <div className="mt-8">
                 <h3 className="text-lg font-semibold mb-4 text-center">
-                  📊 Clasificación por Rangos de Toneladas - Año {ano}
+                  Clasificación por Rangos de Toneladas - Año {ano}
                 </h3>
                 
                 {cargandoRangos ? (
@@ -1003,7 +1024,7 @@ export default function Reportes() {
                 return (
                   <div className="mt-8">
                     <h3 className="text-lg font-semibold mb-6 text-center">
-                      📋 Estado de Línea Base
+                      Estado de Línea Base
                     </h3>
                     
                     {/* Progress Bar de Empresas Finalizadas */}

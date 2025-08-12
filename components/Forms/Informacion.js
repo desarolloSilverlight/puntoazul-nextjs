@@ -29,7 +29,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
     reporte: "unitario", // Valor por defecto
   });
 
-  const [estado, setEstado] = useState(propEstado || ""); // Estado del formulario
+  const [estado, setEstado] = useState(propEstado || "Guardado"); // Estado del formulario con "Guardado" por defecto
   const [isDisabled, setIsDisabled] = useState(readonly || false); // Controlar si los campos están bloqueados
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false);
@@ -44,6 +44,10 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
       } else {
         setIsDisabled(true);
       }
+    } else {
+      // Si no hay propEstado, usar "Guardado" por defecto
+      setEstado("Guardado");
+      setIsDisabled(false);
     }
   }, [propEstado]);
   
@@ -168,7 +172,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         // Solo actualizar localStorage en modo normal (no readonly)
         if (!readonly) {
           localStorage.setItem("idInformacionF", data.idInformacionF);
-          localStorage.setItem("estadoInformacionF", data.estado);
+          localStorage.setItem("estadoInformacionF", data.estado || "Guardado");
           // Guardar tipoReporte en localStorage si existe
           localStorage.setItem("tipoReporte", data.tipo_reporte || "unitario");
         }
@@ -191,19 +195,20 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
           reporte: data.tipo_reporte || "unitario",
         });
 
-        setEstado(data.estado);
+        setEstado(data.estado || "Guardado"); // Usar "Guardado" como valor por defecto
         
         // Solo controlar edición en modo normal
         if (!readonly) {
           // Usar estadoInformacionF para controlar edición
-          if (data.estado === "Guardado" || data.estado === "Rechazado") {
+          const estadoActual = data.estado || "Guardado";
+          if (estadoActual === "Guardado" || estadoActual === "Rechazado") {
             setIsDisabled(false);
           } else {
             setIsDisabled(true);
           }
-          if (data.estado === "Aprobado") {
+          if (estadoActual === "Aprobado") {
             alert("Felicidades, tu formulario ha sido aprobado.");
-          } else if (data.estado === "Rechazado") {
+          } else if (estadoActual === "Rechazado") {
             alert("Por favor verifica tu información, tu formulario ha sido rechazado.");
           }
         }
@@ -289,9 +294,13 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         const result = await response.json();
         console.log("Formulario actualizado:", result);
         alert("Formulario actualizado correctamente.");
+        
+        // Actualizar localStorage con el estado actual
+        localStorage.setItem("estadoInformacionF", "Guardado");
+        setEstado("Guardado");
       } else if (checkResponse.status === 500) {
         // Si no existen datos, crearlos
-        const response = await fetch("${API_BASE_URL}/informacion-f/crearInformacion", {
+        const response = await fetch(`${API_BASE_URL}/informacion-f/crearInformacion`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedFormData),
@@ -307,6 +316,9 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         localStorage.setItem("idInformacionF", result.data.idInformacionF);
         // Guardar tipoReporte en localStorage al crear nuevo registro
         localStorage.setItem("tipoReporte", updatedFormData.reporte || "unitario");
+        // Guardar estado como "Guardado"
+        localStorage.setItem("estadoInformacionF", "Guardado");
+        setEstado("Guardado");
       } else {
         throw new Error(`Error ${checkResponse.status}: ${checkResponse.statusText}`);
       }

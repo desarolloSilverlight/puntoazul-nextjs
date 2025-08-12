@@ -1254,7 +1254,7 @@ select {
   background-color: rgba(99, 102, 241, var(--tw-bg-opacity));
 }
 .bg-lightBlue-100{
-  background-color: #5e7288;
+  background: linear-gradient(345deg,rgba(28, 159, 212, 1) 0%, rgba(242, 241, 228, 1) 100%);
 }
 .bg-lightBlue-200 {
   --tw-bg-opacity: 1;
@@ -4216,7 +4216,7 @@ button.bg-blueGray-600.text-white.font-bold.uppercase.text-xs.px-4.py-2.rounded.
 }
 
 nav.absolute.top-0.left-0.w-full.z-10.bg-transparent.md\:flex-row.md\:flex-nowrap.md\:justify-start.flex.items-center.p-4 {
-    background-color: #059de4;
+    background: linear-gradient(270deg,rgba(28, 159, 212, 1) 0%, rgba(242, 241, 228, 1) 100%);
 }
 
 .slick-slider.slick-initialized {

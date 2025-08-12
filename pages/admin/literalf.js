@@ -75,26 +75,84 @@ export default function FormularioF() {
     setSelectedFile(e.target.files[0]);
   };
 
-  // Subir documento al backend
-  const handleUploadCarta = async () => {
-    if (!selectedFile) return;
+  // Finaliza el formulario cambiando el estado a "Finalizado"
+  const FinalizaFormulario = async () => {
     const idInformacionF = localStorage.getItem("idInformacionF");
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-    formData.append("ruta", "/public/img/literalF");
     try {
-      const response = await fetch(`${API_BASE_URL}/informacion-f/cargaCarta/${idInformacionF}`, {
-        method: "POST",
-        body: formData,
+      const response = await fetch(`${API_BASE_URL}/informacion-f/updateEstado/${idInformacionF}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estado: "Finalizado",
+          tendencia: "",
+          motivo: "Proceso completado con carta cargada"
+        }),
       });
+      
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
+      
+      // Actualizar localStorage y estado local
+      localStorage.setItem("estadoInformacionF", "Finalizado");
+      setEstadoInformacionF("Finalizado");
+      
+      alert("Proceso finalizado correctamente. El reporte está completo.");
+      window.location.reload(); // Recargar la página para actualizar el estado
+    } catch (error) {
+      alert(`Error al finalizar formulario: ${error.message}`);
+      throw error; // Re-lanzar error para manejo en la función que llama
+    }
+  };
+
+  // Subir documento al backend
+  const handleUploadCarta = async () => {
+    if (!selectedFile) return;
+    
+    // Confirmación antes de subir y finalizar
+    const confirmacion = window.confirm(
+      "¿Está seguro de subir esta carta? Al hacerlo, el proceso se finalizará automáticamente y no podrá hacer más cambios."
+    );
+    
+    if (!confirmacion) return;
+    
+    const idInformacionF = localStorage.getItem("idInformacionF");
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("ruta", "/public/img/literalF");
+    
+    console.log("=== SUBIENDO CARTA Y FINALIZANDO FORMULARIO ===");
+    console.log("ID Información F:", idInformacionF);
+    console.log("Archivo seleccionado:", selectedFile.name);
+    
+    try {
+      // 1. Subir el documento
+      console.log("Paso 1: Subiendo documento...");
+      const response = await fetch(`${API_BASE_URL}/informacion-f/cargaCarta/${idInformacionF}`, {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+      
+      console.log("Documento subido exitosamente");
       alert("Carta subida correctamente.");
+      
+      // 2. Finalizar el formulario automáticamente
+      console.log("Paso 2: Finalizando formulario...");
+      await FinalizaFormulario();
+      
+      // 3. Limpiar y cerrar modal
       setShowModal(false);
       setSelectedFile(null);
+      console.log("Proceso completado exitosamente");
+      
     } catch (error) {
+      console.error("Error en el proceso:", error);
       alert(`Error al subir la carta: ${error.message}`);
     }
   };
@@ -124,11 +182,12 @@ export default function FormularioF() {
       {/* <div className="mb-2 text-blue-700 font-semibold">Estado actual del formulario: {estadoInformacionF}</div> */}
       {/* Botones encima de los tabs */}
       <div className="flex justify-between mb-4 items-center">
-        {/* Botón Cargar carta: solo visible si estado es Aprobado, pero mantiene el espacio */}
+        {/* Botón Cargar carta: solo visible si estado es Aprobado */}
         <div style={{ visibility: estadoInformacionF === "Aprobado" ? "visible" : "hidden" }}>
           <button
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
             onClick={() => setShowModal(true)}
+            disabled={estadoInformacionF !== "Aprobado"}
           >
             Cargar carta
           </button>
@@ -186,7 +245,11 @@ export default function FormularioF() {
         shouldCloseOnOverlayClick={true}
       >
         <h2 className="text-xl font-bold mb-4">Cargar carta</h2>
-        <p className="mb-4">Sube aquí el documento de la carta en formato PDF, Word o imagen.</p>
+        <p className="mb-4">
+          Sube aquí el documento de la carta firmada en formato PDF, Word o imagen.
+          <br />
+          <strong>Nota:</strong> Al subir la carta, el proceso se finalizará automáticamente.
+        </p>
         <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileChange} className="mb-4" />
         {selectedFile && (
           <div className="mb-2 text-sm text-gray-700">Archivo seleccionado: {selectedFile.name}</div>

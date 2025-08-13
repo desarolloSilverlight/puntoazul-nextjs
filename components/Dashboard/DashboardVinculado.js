@@ -242,11 +242,11 @@ export default function DashboardVinculado() {
             <div className="space-y-3">
               <div className="flex items-center text-gray-600">
                 <i className="fas fa-envelope mr-3 text-gray-400"></i>
-                <span>soporte@puntoazul.com.co</span>
+                <span>a.efectobumeran@puntoazul.com.co</span>
               </div>
               <div className="flex items-center text-gray-600">
                 <i className="fas fa-phone mr-3 text-gray-400"></i>
-                <span>+57 123456</span>
+                <span>+57 3164815868</span>
               </div>
               <div className="flex items-center text-gray-600">
                 <i className="fas fa-clock mr-3 text-gray-400"></i>

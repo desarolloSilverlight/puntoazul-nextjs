@@ -2,6 +2,10 @@ import React, { useState, useEffect } from "react";
 import Admin from "layouts/Admin.js";
 import { API_BASE_URL } from "../../utils/config";
 import { Bar, Pie, Line } from 'react-chartjs-2';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import html2canvas from 'html2canvas';
+import ExcelJS from 'exceljs';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -94,21 +98,29 @@ export default function Reportes() {
     setTablaDatos([]); // Limpiar tabla
     setDatosReporte(null); // Limpiar datos de reporte
 
-    // Si es toneladas o rangos, limpiar cliente ya que no se usa
+    // Si es toneladas o rangos de línea base, limpiar cliente ya que no se usa
     if (literal === "linea_base" && (value === "toneladas" || value === "rangos")) {
       setCliente(""); // Limpiar cliente para toneladas y rangos
     }
 
-    // Si es Línea Base y se selecciona "toneladas" o "rangos", cargar años disponibles
-    if (literal === "linea_base" && (value === "toneladas" || value === "rangos")) {
+    // Si es grupo o peso de literal B, limpiar cliente ya que no se usa
+    if (literal === "literal_b" && (value === "grupo" || value === "peso")) {
+      setCliente(""); // Limpiar cliente para grupo y peso
+    }
+
+    // Cargar años disponibles para reportes que los requieren
+    if ((literal === "linea_base" && (value === "toneladas" || value === "rangos")) ||
+        (literal === "literal_b" && (value === "grupo" || value === "peso"))) {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/informacion-f/getAnosReporte`
-        );
+        const endpoint = literal === "linea_base" 
+          ? `${API_BASE_URL}/informacion-f/getAnosReporte`
+          : `${API_BASE_URL}/informacion-b/getAnosReporte`;
+          
+        const response = await fetch(endpoint);
         if (response.ok) {
           const data = await response.json();
           console.log("Años disponibles recibidos:", data);
-          setAnosDisponibles(data.data);
+          setAnosDisponibles(data.data || data);
         } else {
           console.error("Error al obtener años:", response.statusText);
           setAnosDisponibles([]);
@@ -130,8 +142,9 @@ export default function Reportes() {
       return;
     }
     
-    // Solo validar año para toneladas y rangos
-    if (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && !ano) {
+    // Validar año para reportes que lo requieren
+    if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
+         (literal === "literal_b" && (reporte === "grupo" || reporte === "peso"))) && !ano) {
       alert("Por favor selecciona el Año para este reporte");
       return;
     }
@@ -143,33 +156,46 @@ export default function Reportes() {
           reporte: reporte === "rangos" ? "toneladas" : reporte, // Si es rangos, enviar toneladas al backend
         };
 
-        // Para toneladas y rangos, no enviar cliente (todos los clientes)
-        if (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) {
-          datosEnvio.cliente = null; // Explícitamente null para todos los clientes
-          datosEnvio.ano = parseInt(ano);
-        } else {
-          // Para otros reportes, usar el cliente seleccionado
-          datosEnvio.cliente = cliente || null;
+        // Determinar endpoint según el literal
+        let endpoint;
+        if (literal === "linea_base") {
+          endpoint = `${API_BASE_URL}/informacion-f/reportes`;
+          
+          // Para toneladas y rangos, no enviar cliente (todos los clientes)
+          if (reporte === "toneladas" || reporte === "rangos") {
+            datosEnvio.cliente = null; // Explícitamente null para todos los clientes
+            datosEnvio.ano = parseInt(ano);
+          } else {
+            // Para otros reportes, usar el cliente seleccionado
+            datosEnvio.cliente = cliente || null;
+          }
+        } else if (literal === "literal_b") {
+          // Para grupo y peso, usar endpoint específico
+          if (reporte === "grupo" || reporte === "peso") {
+            endpoint = `${API_BASE_URL}/informacion-b/reporteGrupoPeso`;
+            datosEnvio.cliente = null; // Todos los clientes
+            datosEnvio.ano = parseInt(ano);
+          } else if (reporte === "estado") {
+            endpoint = `${API_BASE_URL}/informacion-b/reporteEstado`;
+            datosEnvio.cliente = cliente || null;
+          }
         }
 
         console.log("Datos enviados al backend:", datosEnvio);
+        console.log("Endpoint utilizado:", endpoint);
 
-      const response = await fetch(
-        `${API_BASE_URL}/informacion-f/reportes`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(datosEnvio),
-        }
-      );
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(datosEnvio),
+      });
 
       if (response.ok) {
         const data = await response.json();
         
-        // 🔍 DEBUG SIMPLIFICADO: Solo verificar si llegan valores decimales
-        console.log("=== DEBUG: Verificando valores decimales del backend ===");
+        console.log("=== Datos recibidos del backend ===", data);
         
         // Verificar si los datos vienen en una propiedad específica
         let datosParaTabla = data;
@@ -181,26 +207,19 @@ export default function Reportes() {
           datosParaTabla = data.result;
         }
         
-        // 🔍 DEBUG: Buscar valores decimales en los datos
-        if (datosParaTabla && datosParaTabla.length > 0) {
-          console.log(`Total empresas recibidas: ${datosParaTabla.length}`);
-          
-          // Revisar las primeras 3 empresas para ver si hay decimales
-          datosParaTabla.slice(0, 3).forEach((empresa, index) => {
-            console.log(`--- Empresa ${index + 1}: ${empresa.nombre} ---`);
-            if (empresa.anos) {
-              Object.keys(empresa.anos).forEach(year => {
-                const toneladas = empresa.anos[year]?.toneladas_reportadas;
-                if (toneladas && toneladas !== "0" && toneladas !== 0) {
-                  console.log(`  Año ${year}: toneladas_reportadas = "${toneladas}" (tipo: ${typeof toneladas})`);
-                }
-              });
-            }
-          });
-        }
-        
         setDatosReporte(datosParaTabla);
         setTablaDatos(datosParaTabla);
+        
+        // Debug temporal: mostrar valores únicos de grupo para reportes de grupo
+        if (literal === "literal_b" && reporte === "grupo" && Array.isArray(datosParaTabla)) {
+          const gruposUnicos = [...new Set(datosParaTabla.map(empresa => {
+            const grupo = empresa.grupo;
+            console.log(`Empresa: ${empresa.nombre} - Grupo: "${grupo}" (tipo: ${typeof grupo})`);
+            return grupo;
+          }))];
+          console.log("=== VALORES ÚNICOS DE GRUPO ENCONTRADOS ===", gruposUnicos);
+        }
+        
         // Reset pagination when new data arrives
         setPaginaActual(1);
         setBusquedaTabla("");
@@ -285,7 +304,7 @@ export default function Reportes() {
     const datosFiltrados = empresasComparacion.filter(empresa =>
       empresa.nombre.toLowerCase().includes(busquedaTabla.toLowerCase()) ||
       empresa.nit.includes(busquedaTabla) ||
-      empresa.ciudad.toLowerCase().includes(busquedaTabla.toLowerCase())
+      (empresa.grupo && empresa.grupo.toLowerCase().includes(busquedaTabla.toLowerCase()))
     );
 
     // Calcular paginación
@@ -322,6 +341,629 @@ export default function Reportes() {
       totalResultados: datosFiltrados.length,
       totalPaginas: totalPaginas
     };
+  };
+
+  // Función para exportar reporte a Excel
+  const exportarAExcel = async () => {
+    if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) {
+      alert("No hay datos para exportar");
+      return;
+    }
+
+    try {
+      // Mostrar mensaje de procesamiento
+      const processingAlert = "Generando archivo Excel con gráficas, por favor espere...";
+      console.log(processingAlert);
+
+      // Crear un nuevo libro de trabajo con ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Sistema Punto Azul';
+      workbook.created = new Date();
+      
+      // Determinar el nombre del archivo
+      const tipoLiteral = literal === 'linea_base' ? 'Linea_Base' : 'Literal_B';
+      const nombreArchivo = `Reporte_${tipoLiteral}_${reporte}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Preparar datos según el tipo de reporte
+      let datosParaExcel = [];
+      let encabezados = [];
+
+      if (reporte === 'toneladas' && literal === 'linea_base') {
+        // Reporte de toneladas - comparación por años
+        const datosProcesados = procesarDatosToneladas();
+        if (datosProcesados) {
+          const { empresasComparacion, anosDisponiblesOrdenados } = datosProcesados;
+          
+          encabezados = ['Empresa', 'NIT', 'Ciudad'];
+          anosDisponiblesOrdenados.forEach(year => {
+            encabezados.push(`Toneladas ${year}`);
+          });
+          if (anosDisponiblesOrdenados.length >= 2) {
+            encabezados.push('% Cambio');
+          }
+
+          datosParaExcel = empresasComparacion.map(empresa => {
+            const fila = [empresa.nombre, empresa.nit, empresa.ciudad];
+            
+            anosDisponiblesOrdenados.forEach(year => {
+              fila.push(empresa.toneladas[year.toString()]);
+            });
+
+            if (anosDisponiblesOrdenados.length >= 2) {
+              const anoAnterior = anosDisponiblesOrdenados[0].toString();
+              const anoActual = anosDisponiblesOrdenados[1].toString();
+              const valorAnterior = empresa.toneladas[anoAnterior];
+              const valorActual = empresa.toneladas[anoActual];
+              const cambio = calcularCambioPorcentual(valorAnterior, valorActual);
+              fila.push(`${cambio.toFixed(1)}%`);
+            }
+
+            return fila;
+          });
+        }
+      } else if (reporte === 'rangos' && literal === 'linea_base') {
+        // Reporte de rangos
+        if (datosRangos) {
+          encabezados = ['Rango (Toneladas)', 'N° Empresas', 'Porcentaje'];
+          datosParaExcel = datosRangos.map(item => [
+            item.rango,
+            item.numeroEmpresas,
+            `${item.porcentaje}%`
+          ]);
+        }
+      } else if (reporte === 'grupo' && literal === 'literal_b') {
+        // Reporte de grupos
+        encabezados = ['Empresa', 'NIT', 'Año', 'Grupo'];
+        datosParaExcel = datosReporte.map(empresa => [
+          empresa.nombre || 'N/A',
+          empresa.nit || 'N/A',
+          empresa.ano || ano,
+          empresa.grupo || 'Sin grupo'
+        ]);
+      } else if (reporte === 'peso' && literal === 'literal_b') {
+        // Reporte de peso
+        encabezados = ['Empresa', 'NIT', 'Año', 'Peso Facturación (Kg)'];
+        datosParaExcel = datosReporte.map(empresa => [
+          empresa.nombre || 'N/A',
+          empresa.nit || 'N/A',
+          empresa.ano || ano,
+          parseFloat(empresa.totalPesoFacturacion || 0).toFixed(2)
+        ]);
+      } else if (reporte === 'estado') {
+        // Reporte de estado (línea base o literal B)
+        encabezados = ['Empresa', 'NIT', 'Correo Facturación', 'Estado'];
+        datosParaExcel = datosReporte.map(empresa => [
+          empresa.nombre || 'N/A',
+          empresa.nit || 'N/A',
+          empresa.correo_facturacion || empresa.correoFacturacion || 'N/A',
+          empresa.estado || 'Sin estado'
+        ]);
+      }
+
+      // Crear hoja de datos
+      const hojaDatos = workbook.addWorksheet('Datos');
+      
+      // Agregar encabezados con estilo
+      const headerRow = hojaDatos.addRow(encabezados);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '366092' }
+      };
+
+      // Agregar datos
+      datosParaExcel.forEach(fila => {
+        hojaDatos.addRow(fila);
+      });
+
+      // Ajustar ancho de columnas
+      hojaDatos.columns.forEach(column => {
+        column.width = 20;
+      });
+
+      // Capturar gráfica como imagen
+      let imagenCapturada = false;
+      
+      // Buscar gráficas en diferentes contenedores
+      const chartSelectors = [
+        '#chart-container',
+        '#dynamic-chart-container', 
+        '.chart-container'
+      ];
+      
+      for (const selector of chartSelectors) {
+        const chartContainer = document.querySelector(selector);
+        if (chartContainer && chartContainer.querySelector('canvas')) {
+          try {
+            // Esperar un momento para que la gráfica se renderice completamente
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const canvas = await html2canvas(chartContainer, {
+              backgroundColor: '#ffffff',
+              scale: 2,
+              logging: false,
+              useCORS: true,
+              allowTaint: true
+            });
+            
+            // Convertir canvas a blob
+            const imageBlob = await new Promise(resolve => {
+              canvas.toBlob(resolve, 'image/png', 1.0);
+            });
+            
+            if (imageBlob) {
+              // Crear hoja para la gráfica
+              const hojaGrafica = workbook.addWorksheet('Gráfica');
+              
+              // Convertir blob a array buffer
+              const arrayBuffer = await imageBlob.arrayBuffer();
+              
+              // Agregar imagen al workbook
+              const imageId = workbook.addImage({
+                buffer: arrayBuffer,
+                extension: 'png',
+              });
+              
+              // Insertar imagen en la hoja
+              hojaGrafica.addImage(imageId, {
+                tl: { col: 1, row: 2 },
+                ext: { width: 600, height: 400 }
+              });
+              
+              // Agregar título a la gráfica
+              hojaGrafica.getCell('B1').value = `Gráfica - ${tipoLiteral} - ${reporte}`;
+              hojaGrafica.getCell('B1').font = { bold: true, size: 16 };
+              
+              imagenCapturada = true;
+              console.log('Gráfica capturada y agregada exitosamente');
+              break;
+            }
+          } catch (error) {
+            console.warn(`Error capturando gráfica con selector ${selector}:`, error);
+          }
+        }
+      }
+
+      // Crear hoja de resumen (usando el código anterior de resumen)
+      const hojaResumen = workbook.addWorksheet('Resumen');
+      
+      // Agregar información de resumen...
+      const resumenData = [
+        ['REPORTE GENERADO'],
+        ['Fecha:', new Date().toLocaleString('es-CO')],
+        ['Literal:', literal === 'linea_base' ? 'Línea Base' : 'Literal B'],
+        ['Tipo de Reporte:', reporte],
+        ['Año:', ano || 'N/A'],
+        ['Cliente:', cliente || 'Todos los clientes'],
+        ['Total de Registros:', datosParaExcel.length],
+        ['Gráfica incluida:', imagenCapturada ? 'Sí' : 'No'],
+        [],
+        ['DESCRIPCIÓN:'],
+        [literal === 'linea_base' ? 'Reporte de Línea Base' : 'Reporte de Literal B'],
+        [`Tipo: ${reporte}`]
+      ];
+
+      resumenData.forEach((row, index) => {
+        const excelRow = hojaResumen.addRow(row);
+        if (index === 0) {
+          excelRow.font = { bold: true, size: 14 };
+        }
+      });
+
+      // Generar y descargar el archivo
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      saveAs(blob, nombreArchivo);
+
+      // Mostrar mensaje de éxito
+      alert(`Reporte exportado exitosamente como: ${nombreArchivo}${imagenCapturada ? ' (con gráfica incluida)' : ' (sin gráfica)'}`);
+      
+    } catch (error) {
+      console.error('Error al exportar a Excel:', error);
+      alert('Error al generar el archivo Excel. Por favor intente nuevamente.');
+    }
+  };
+
+  // Función para generar gráficos específicos para cada tipo de reporte
+  const generateChart = () => {
+    // Chart para reportes de línea base - tipo de producto
+    if (literal === 'linea_base' && reporte === 'tipo_producto' && datosReporte) {
+      const productos = datosReporte.reduce((acc, empresa) => {
+        if (empresa.productos && Array.isArray(empresa.productos)) {
+          empresa.productos.forEach(producto => {
+            const tipo = producto.tipoProducto || 'Sin categoría';
+            acc[tipo] = (acc[tipo] || 0) + 1;
+          });
+        }
+        return acc;
+      }, {});
+
+      const data = {
+        labels: Object.keys(productos),
+        datasets: [{
+          label: 'Número de Productos',
+          data: Object.values(productos),
+          backgroundColor: [
+            'rgba(54, 162, 235, 0.6)',
+            'rgba(255, 99, 132, 0.6)',
+            'rgba(255, 205, 86, 0.6)',
+            'rgba(75, 192, 192, 0.6)',
+            'rgba(153, 102, 255, 0.6)',
+            'rgba(255, 159, 64, 0.6)',
+          ],
+          borderColor: [
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 99, 132, 1)',
+            'rgba(255, 205, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)',
+          ],
+          borderWidth: 1,
+        }]
+      };
+
+      return (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            Distribución por Tipo de Producto
+          </h3>
+          <div className="max-w-md mx-auto">
+            <Pie data={data} options={{
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const label = context.label || '';
+                      const value = context.parsed || 0;
+                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                      const percentage = ((value / total) * 100).toFixed(1);
+                      return `${label}: ${value} productos (${percentage}%)`;
+                    }
+                  }
+                }
+              }
+            }} />
+          </div>
+        </div>
+      );
+    }
+
+    // Chart para reportes de peso de línea base
+    if (literal === 'linea_base' && reporte === 'peso' && datosReporte) {
+      const pesoTotal = datosReporte.reduce((total, empresa) => {
+        return total + (parseFloat(empresa.totalPesoFacturacion) || 0);
+      }, 0);
+
+      // Definir rangos de peso
+      const rangos = [
+        { nombre: '0-10 Kg', min: 0, max: 10 },
+        { nombre: '11-50 Kg', min: 11, max: 50 },
+        { nombre: '51-100 Kg', min: 51, max: 100 },
+        { nombre: '101-500 Kg', min: 101, max: 500 },
+        { nombre: '501-1000 Kg', min: 501, max: 1000 },
+        { nombre: 'Más de 1000 Kg', min: 1001, max: Infinity }
+      ];
+
+      const datosPorRango = rangos.map(rango => {
+        const count = datosReporte.filter(empresa => {
+          const peso = parseFloat(empresa.totalPesoFacturacion) || 0;
+          return peso >= rango.min && peso <= rango.max;
+        }).length;
+
+        return {
+          rango: rango.nombre,
+          count: count
+        };
+      });
+
+      const data = {
+        labels: datosPorRango.map(item => item.rango),
+        datasets: [{
+          label: 'Número de Empresas',
+          data: datosPorRango.map(item => item.count),
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+        }]
+      };
+
+      return (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            Distribución por Rangos de Peso
+          </h3>
+          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <p className="text-sm text-gray-700 text-center">
+              <strong>Peso Total Facturado:</strong> {pesoTotal.toFixed(2)} Kg
+            </p>
+          </div>
+          <Bar data={data} options={{
+            responsive: true,
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const value = context.parsed.y || 0;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                    return `${value} empresas (${percentage}%)`;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            }
+          }} />
+        </div>
+      );
+    }
+
+    // Chart para reporte de grupo de Literal B
+    if (literal === 'literal_b' && reporte === 'grupo' && datosReporte) {
+      const grupos = datosReporte.reduce((acc, empresa) => {
+        const grupo = empresa.grupo || 'Sin grupo';
+        acc[grupo] = (acc[grupo] || 0) + 1;
+        return acc;
+      }, {});
+
+      const data = {
+        labels: Object.keys(grupos),
+        datasets: [{
+          label: 'Número de Empresas',
+          data: Object.values(grupos),
+          backgroundColor: [
+            'rgba(255, 99, 132, 0.6)',
+            'rgba(54, 162, 235, 0.6)',
+            'rgba(255, 205, 86, 0.6)',
+            'rgba(75, 192, 192, 0.6)',
+            'rgba(153, 102, 255, 0.6)',
+            'rgba(255, 159, 64, 0.6)',
+            'rgba(199, 199, 199, 0.6)',
+            'rgba(83, 102, 255, 0.6)',
+          ],
+          borderColor: [
+            'rgba(255, 99, 132, 1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 205, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)',
+            'rgba(199, 199, 199, 1)',
+            'rgba(83, 102, 255, 1)',
+          ],
+          borderWidth: 1,
+        }]
+      };
+
+      return (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            Distribución por Grupos - Año {ano}
+          </h3>
+          <Bar data={data} options={{
+            responsive: true,
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const value = context.parsed.y || 0;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                    return `${value} empresas (${percentage}%)`;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            }
+          }} />
+        </div>
+      );
+    }
+
+    // Chart para reporte de peso de Literal B
+    if (literal === 'literal_b' && reporte === 'peso' && datosReporte) {
+      const pesoTotal = datosReporte.reduce((total, empresa) => {
+        return total + (parseFloat(empresa.totalPesoFacturacion) || 0);
+      }, 0);
+
+      // Crear rangos dinámicos basados en los datos
+      const pesos = datosReporte
+        .map(empresa => parseFloat(empresa.totalPesoFacturacion) || 0)
+        .filter(peso => peso > 0)
+        .sort((a, b) => a - b);
+
+      if (pesos.length === 0) {
+        return (
+          <div className="mt-8 text-center">
+            <h3 className="text-lg font-semibold mb-4">
+              Distribución por Peso - Año {ano}
+            </h3>
+            <p className="text-gray-600">No hay datos de peso disponibles</p>
+          </div>
+        );
+      }
+
+      // Definir rangos basados en cuartiles
+      const q1 = pesos[Math.floor(pesos.length * 0.25)];
+      const q2 = pesos[Math.floor(pesos.length * 0.5)];
+      const q3 = pesos[Math.floor(pesos.length * 0.75)];
+      const max = pesos[pesos.length - 1];
+
+      const rangos = [
+        { nombre: `0 - ${q1.toFixed(0)} Kg`, min: 0, max: q1, color: 'rgba(255, 99, 132, 0.6)' },
+        { nombre: `${(q1 + 0.01).toFixed(0)} - ${q2.toFixed(0)} Kg`, min: q1 + 0.01, max: q2, color: 'rgba(54, 162, 235, 0.6)' },
+        { nombre: `${(q2 + 0.01).toFixed(0)} - ${q3.toFixed(0)} Kg`, min: q2 + 0.01, max: q3, color: 'rgba(255, 205, 86, 0.6)' },
+        { nombre: `${(q3 + 0.01).toFixed(0)} - ${max.toFixed(0)} Kg`, min: q3 + 0.01, max: max, color: 'rgba(75, 192, 192, 0.6)' }
+      ];
+
+      const datosPorRango = rangos.map(rango => {
+        const empresas = datosReporte.filter(empresa => {
+          const peso = parseFloat(empresa.totalPesoFacturacion) || 0;
+          return peso >= rango.min && peso <= rango.max;
+        });
+
+        const pesoRango = empresas.reduce((total, empresa) => {
+          return total + (parseFloat(empresa.totalPesoFacturacion) || 0);
+        }, 0);
+
+        return {
+          rango: rango.nombre,
+          count: empresas.length,
+          peso: pesoRango,
+          color: rango.color
+        };
+      });
+
+      const data = {
+        labels: datosPorRango.map(item => item.rango),
+        datasets: [{
+          label: 'Peso (Kg)',
+          data: datosPorRango.map(item => item.peso),
+          backgroundColor: datosPorRango.map(item => item.color),
+          borderColor: datosPorRango.map(item => item.color.replace('0.6', '1')),
+          borderWidth: 1,
+        }]
+      };
+
+      return (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            Distribución por Peso - Año {ano}
+          </h3>
+          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <p className="text-sm text-gray-700 text-center">
+              <strong>Peso Total Facturado:</strong> {pesoTotal.toFixed(2)} Kg
+            </p>
+          </div>
+          <div className="max-w-md mx-auto">
+            <Pie data={data} options={{
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const label = context.label || '';
+                      const value = context.parsed || 0;
+                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                      const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                      const rangeData = datosPorRango[context.dataIndex];
+                      return [
+                        `${label}`,
+                        `${value.toFixed(2)} Kg (${percentage}%)`,
+                        `${rangeData.count} empresas`
+                      ];
+                    }
+                  }
+                }
+              }
+            }} />
+          </div>
+        </div>
+      );
+    }
+
+    // Chart para reporte de estado (tanto línea base como Literal B)
+    if (reporte === 'estado' && datosReporte) {
+      const estados = datosReporte.reduce((acc, empresa) => {
+        const estado = empresa.estado || 'Sin estado';
+        acc[estado] = (acc[estado] || 0) + 1;
+        return acc;
+      }, {});
+
+      const data = {
+        labels: Object.keys(estados),
+        datasets: [{
+          label: 'Número de Empresas',
+          data: Object.values(estados),
+          backgroundColor: Object.keys(estados).map(estado => {
+            const estadoLower = estado.toLowerCase();
+            if (estadoLower.includes('finalizado') || estadoLower.includes('aprobado')) return 'rgba(34, 197, 94, 0.6)';
+            if (estadoLower.includes('firmado')) return 'rgba(34, 197, 94, 0.6)';
+            if (estadoLower.includes('guardado')) return 'rgba(59, 130, 246, 0.6)';
+            if (estadoLower.includes('pendiente')) return 'rgba(245, 158, 11, 0.6)';
+            if (estadoLower.includes('rechazado')) return 'rgba(239, 68, 68, 0.6)';
+            if (estadoLower.includes('iniciado')) return 'rgba(156, 163, 175, 0.6)';
+            return 'rgba(107, 114, 128, 0.6)';
+          }),
+          borderColor: Object.keys(estados).map(estado => {
+            const estadoLower = estado.toLowerCase();
+            if (estadoLower.includes('finalizado') || estadoLower.includes('aprobado')) return 'rgba(34, 197, 94, 1)';
+            if (estadoLower.includes('firmado')) return 'rgba(34, 197, 94, 1)';
+            if (estadoLower.includes('guardado')) return 'rgba(59, 130, 246, 1)';
+            if (estadoLower.includes('pendiente')) return 'rgba(245, 158, 11, 1)';
+            if (estadoLower.includes('rechazado')) return 'rgba(239, 68, 68, 1)';
+            if (estadoLower.includes('iniciado')) return 'rgba(156, 163, 175, 1)';
+            return 'rgba(107, 114, 128, 1)';
+          }),
+          borderWidth: 1,
+        }]
+      };
+
+      const title = literal === 'literal_b' 
+        ? `Estados de Literal B${cliente ? ` - ${cliente}` : ''}`
+        : `Estados de Línea Base${cliente ? ` - ${cliente}` : ''}`;
+
+      return (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            {title}
+          </h3>
+          <div className="max-w-md mx-auto">
+            <Pie data={data} options={{
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const label = context.label || '';
+                      const value = context.parsed || 0;
+                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                      const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                      return `${label}: ${value} empresas (${percentage}%)`;
+                    }
+                  }
+                }
+              }
+            }} />
+          </div>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   // Resetear paginación cuando cambia la búsqueda
@@ -463,6 +1105,16 @@ export default function Reportes() {
   // Genera datos de ejemplo para los gráficos
   const getChartData = () => {
     if (!datosReporte || !datosReporte.length) return null;
+    
+    // Solo manejar reportes específicos aquí, otros son manejados por generateChart()
+    if (literal === 'literal_b' && (reporte === 'grupo' || reporte === 'peso' || reporte === 'estado')) {
+      return null; // Estos son manejados por generateChart()
+    }
+    
+    if (literal === 'linea_base' && reporte === 'estado') {
+      return null; // También manejado por generateChart()
+    }
+    
     switch (reporte) {
       case 'rangos':
         // Gráficos específicos para rangos de toneladas
@@ -611,55 +1263,8 @@ export default function Reportes() {
           }
         };
       case 'estado':
-        // Gráfico de estados basado en datos reales
-        if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) return null;
-        
-        // Contar estados
-        const conteoEstados = {};
-        datosReporte.forEach(empresa => {
-          const estado = empresa.estado || 'Sin estado';
-          conteoEstados[estado] = (conteoEstados[estado] || 0) + 1;
-        });
-
-        const estados = Object.keys(conteoEstados);
-        const cantidades = Object.values(conteoEstados);
-        
-        // Colores para diferentes estados
-        const coloresEstados = estados.map(estado => {
-          const estadoLower = estado.toLowerCase();
-          if (estadoLower.includes('finalizado')) return '#22c55e'; // Verde
-          if (estadoLower.includes('guardado')) return '#3b82f6'; // Azul
-          if (estadoLower.includes('pendiente')) return '#f59e0b'; // Amarillo
-          if (estadoLower.includes('aprobado')) return '#10b981'; // Verde claro
-          if (estadoLower.includes('rechazado')) return '#ef4444'; // Rojo
-          return '#6b7280'; // Gris para otros
-        });
-
-        return {
-          type: 'pie',
-          data: {
-            labels: estados,
-            datasets: [{
-              label: 'Empresas',
-              data: cantidades,
-              backgroundColor: coloresEstados,
-              borderWidth: 2,
-              borderColor: '#ffffff'
-            }]
-          },
-          options: { 
-            responsive: true,
-            plugins: { 
-              title: {
-                display: true,
-                text: 'Distribución de Estados de Línea Base'
-              },
-              legend: {
-                position: 'bottom'
-              }
-            }
-          }
-        };
+        // Los reportes de estado son manejados por generateChart(), no por getChartData()
+        return null;
       default:
         return null;
     }
@@ -668,9 +1273,9 @@ export default function Reportes() {
   const opcionesReporte =
     literal === "literal_b"
       ? [
-          { value: "estado", label: "Estado" },
-          { value: "meta", label: "Meta" },
           { value: "grupo", label: "Grupo" },
+          { value: "peso", label: "Peso" },
+          { value: "estado", label: "Estado" },
         ]
       : literal === "linea_base"
       ? [
@@ -686,7 +1291,8 @@ export default function Reportes() {
         <div className="w-full max-w-2xl bg-white rounded shadow-lg p-6">
           <h2 className="text-blueGray-700 text-xl font-semibold mb-6">Reportes</h2>
           <div className={`grid gap-4 p-2 ${
-            literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")
+            ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
+             (literal === "literal_b" && (reporte === "grupo" || reporte === "peso")))
               ? "grid-cols-4" // Sin cliente: Literal, Reporte, Año, Botón
               : "grid-cols-5" // Con cliente: Literal, Reporte, Cliente, Año (opcional), Botón
           }`}>
@@ -720,8 +1326,9 @@ export default function Reportes() {
                 ))}
               </select>
             </div>
-            {/* Selector Cliente - Solo visible si NO es toneladas o rangos */}
-            {!(literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) && (
+            {/* Selector Cliente - Solo visible si NO es toneladas/rangos de línea base o grupo/peso de literal B */}
+            {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
+                (literal === "literal_b" && (reporte === "grupo" || reporte === "peso")))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Cliente</label>
                 <select
@@ -739,8 +1346,9 @@ export default function Reportes() {
                 </select>
               </div>
             )}
-            {/* Selector Año (solo para Línea Base - Toneladas o Rangos) */}
-            {literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && (
+            {/* Selector Año (para reportes que requieren año) */}
+            {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
+              (literal === "literal_b" && (reporte === "grupo" || reporte === "peso"))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Año</label>
                 <select
@@ -759,19 +1367,31 @@ export default function Reportes() {
               </div>
             )}
             {/* Botón Buscar */}
-            <div className="flex justify-center items-end">
+            <div className="flex justify-between items-center">
               <button
-                className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
+                className="bg-blueGray-600 h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none  ease-linear transition-all duration-150"
                 onClick={handleBuscar}
-                disabled={!literal || !reporte || (literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos") && !ano)}
+                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "peso"))) && !ano)}
                 title={
-                  literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")
-                    ? "Para reportes de toneladas/rangos solo se requiere año"
+                  ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
+                   (literal === "literal_b" && (reporte === "grupo" || reporte === "peso")))
+                    ? "Para estos reportes solo se requiere año"
                     : "Complete todos los campos requeridos"
                 }
               >
                 Buscar
               </button>
+              
+              {/* Botón Exportar Excel */}
+              {datosReporte && Array.isArray(datosReporte) && datosReporte.length > 0 && (
+                <button
+                  className="bg-green h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150"
+                  onClick={exportarAExcel}
+                  title="Exportar reporte a Excel"
+                >
+                  📊 Exportar Excel
+                </button>
+              )}
             </div>
           </div>
           
@@ -1010,6 +1630,618 @@ export default function Reportes() {
                 )}
               </div>
             ) : reporte === 'estado' && literal === 'linea_base' ? (
+              (() => {
+                const { datos, totalResultados, totalPaginas } = filtrarYPaginarDatosEstado(datosReporte);
+                
+                // Calcular porcentaje de empresas finalizadas
+                const empresasFinalizadas = datosReporte.filter(empresa => 
+                  empresa.estado?.toLowerCase().includes('finalizado')
+                ).length;
+                const totalEmpresas = datosReporte.length;
+                const porcentajeFinalizado = totalEmpresas > 0 ? ((empresasFinalizadas / totalEmpresas) * 100).toFixed(1) : 0;
+                
+                return (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-6 text-center">
+                      Estado de Línea Base
+                    </h3>
+                    
+                    {/* Progress Bar de Empresas Finalizadas */}
+                    <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Progreso de Finalización
+                        </span>
+                        <span className="text-sm font-bold text-green-600">
+                          {empresasFinalizadas} de {totalEmpresas} empresas ({porcentajeFinalizado}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                          style={{ width: `${porcentajeFinalizado}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Controles de la tabla */}
+                    <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Mostrar:</label>
+                        <select
+                          value={filasPorPagina}
+                          onChange={(e) => {setFilasPorPagina(Number(e.target.value)); setPaginaActual(1);}}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                        <span className="text-sm">resultados</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Buscar:</label>
+                        <input
+                          type="text"
+                          value={busquedaTabla}
+                          onChange={handleBusquedaChange}
+                          className="border border-gray-300 rounded px-3 py-1 text-sm"
+                          placeholder="Empresa, NIT, Correo o Estado..."
+                        />
+                      </div>
+                    </div>
+                
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-blue-100">
+                            <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Empresa</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Correo Facturación</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datos.map((empresa, index) => {
+                            // Función para obtener el color del estado
+                            const getEstadoColor = (estado) => {
+                              if (!estado) return 'bg-gray-100 text-gray-600';
+                              const estadoLower = estado.toLowerCase();
+                              if (estadoLower.includes('finalizado')) return 'bg-green-100 text-green-800';
+                              if (estadoLower.includes('firmado')) return 'bg-green-100 text-green-800';
+                              if (estadoLower.includes('guardado')) return 'bg-blue-100 text-blue-800';
+                              if (estadoLower.includes('pendiente')) return 'bg-yellow-100 text-yellow-800';
+                              if (estadoLower.includes('aprobado')) return 'bg-emerald-100 text-emerald-800';
+                              if (estadoLower.includes('rechazado')) return 'bg-red-100 text-red-800';
+                              return 'bg-gray-100 text-gray-600';
+                            };
+
+                            return (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="border border-gray-300 px-4 py-3 font-medium">
+                                  {empresa.nombre || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {empresa.nit || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {empresa.correo_facturacion || empresa.correoFacturacion || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(empresa.estado)}`}>
+                                    {empresa.estado || 'Sin estado'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Información de paginación y controles */}
+                    <div className="mt-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Mostrando {datos.length === 0 ? 0 : ((paginaActual - 1) * filasPorPagina) + 1} a{' '}
+                        {Math.min(paginaActual * filasPorPagina, totalResultados)} de {totalResultados} resultados
+                        {busquedaTabla && ` (filtrado de ${totalEmpresas} total)`}
+                      </div>
+                      
+                      {/* Controles de paginación */}
+                      {totalPaginas > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
+                            disabled={paginaActual === 1}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Anterior
+                          </button>
+                          
+                          <div className="flex gap-1">
+                            {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                              let pageNum;
+                              if (totalPaginas <= 5) {
+                                pageNum = i + 1;
+                              } else {
+                                const start = Math.max(1, paginaActual - 2);
+                                const end = Math.min(totalPaginas, start + 4);
+                                pageNum = start + i;
+                                if (pageNum > end) return null;
+                              }
+                              
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setPaginaActual(pageNum)}
+                                  className={`px-3 py-1 border text-sm rounded ${
+                                    paginaActual === pageNum
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          <button
+                            onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
+                            disabled={paginaActual === totalPaginas}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : reporte === 'grupo' && literal === 'literal_b' ? (
+              // Tabla especializada para reporte de grupos de Literal B
+              (() => {
+                const { datos, totalResultados, totalPaginas } = filtrarYPaginarDatos(datosReporte);
+                
+                return (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-4 text-center">
+                      Reporte por Grupos - Literal B - Año {ano}
+                    </h3>
+                    
+                    {/* Controles de la tabla */}
+                    <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Mostrar:</label>
+                        <select
+                          value={filasPorPagina}
+                          onChange={(e) => {setFilasPorPagina(Number(e.target.value)); setPaginaActual(1);}}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                        <span className="text-sm">resultados</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Buscar:</label>
+                        <input
+                          type="text"
+                          value={busquedaTabla}
+                          onChange={handleBusquedaChange}
+                          className="border border-gray-300 rounded px-3 py-1 text-sm"
+                          placeholder="Empresa, NIT o Grupo..."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-blue-100">
+                            <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Empresa</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Año</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Grupo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datos.map((empresa, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="border border-gray-300 px-4 py-3 font-medium">
+                                {empresa.nombre || 'N/A'}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">
+                                {empresa.nit || 'N/A'}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">
+                                {empresa.ano || ano}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">
+                                <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                  {empresa.grupo || 'Sin grupo'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Información de paginación y controles */}
+                    <div className="mt-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Mostrando {datos.length === 0 ? 0 : ((paginaActual - 1) * filasPorPagina) + 1} a{' '}
+                        {Math.min(paginaActual * filasPorPagina, totalResultados)} de {totalResultados} resultados
+                      </div>
+                      
+                      {/* Controles de paginación */}
+                      {totalPaginas > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
+                            disabled={paginaActual === 1}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Anterior
+                          </button>
+                          
+                          <div className="flex gap-1">
+                            {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                              let pageNum;
+                              if (totalPaginas <= 5) {
+                                pageNum = i + 1;
+                              } else {
+                                const start = Math.max(1, paginaActual - 2);
+                                const end = Math.min(totalPaginas, start + 4);
+                                pageNum = start + i;
+                                if (pageNum > end) return null;
+                              }
+                              
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setPaginaActual(pageNum)}
+                                  className={`px-3 py-1 border text-sm rounded ${
+                                    paginaActual === pageNum
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          <button
+                            onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
+                            disabled={paginaActual === totalPaginas}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : reporte === 'peso' && literal === 'literal_b' ? (
+              // Tabla especializada para reporte de peso de Literal B
+              (() => {
+                const { datos, totalResultados, totalPaginas } = filtrarYPaginarDatos(datosReporte);
+                
+                return (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-4 text-center">
+                      Reporte por Peso - Literal B - Año {ano}
+                    </h3>
+                    
+                    {/* Controles de la tabla */}
+                    <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Mostrar:</label>
+                        <select
+                          value={filasPorPagina}
+                          onChange={(e) => {setFilasPorPagina(Number(e.target.value)); setPaginaActual(1);}}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                        <span className="text-sm">resultados</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Buscar:</label>
+                        <input
+                          type="text"
+                          value={busquedaTabla}
+                          onChange={handleBusquedaChange}
+                          className="border border-gray-300 rounded px-3 py-1 text-sm"
+                          placeholder="Empresa o NIT..."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-blue-100">
+                            <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Empresa</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Año</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Peso Facturación (Kg)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datos.map((empresa, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="border border-gray-300 px-4 py-3 font-medium">
+                                {empresa.nombre || 'N/A'}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">
+                                {empresa.nit || 'N/A'}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">
+                                {empresa.ano || ano}
+                              </td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">
+                                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                                  parseFloat(empresa.totalPesoFacturacion || 0) > 0 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {parseFloat(empresa.totalPesoFacturacion || 0).toFixed(2)}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Información de paginación y controles */}
+                    <div className="mt-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Mostrando {datos.length === 0 ? 0 : ((paginaActual - 1) * filasPorPagina) + 1} a{' '}
+                        {Math.min(paginaActual * filasPorPagina, totalResultados)} de {totalResultados} resultados
+                      </div>
+                      
+                      {/* Controles de paginación */}
+                      {totalPaginas > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
+                            disabled={paginaActual === 1}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Anterior
+                          </button>
+                          
+                          <div className="flex gap-1">
+                            {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                              let pageNum;
+                              if (totalPaginas <= 5) {
+                                pageNum = i + 1;
+                              } else {
+                                const start = Math.max(1, paginaActual - 2);
+                                const end = Math.min(totalPaginas, start + 4);
+                                pageNum = start + i;
+                                if (pageNum > end) return null;
+                              }
+                              
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setPaginaActual(pageNum)}
+                                  className={`px-3 py-1 border text-sm rounded ${
+                                    paginaActual === pageNum
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          <button
+                            onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
+                            disabled={paginaActual === totalPaginas}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : reporte === 'estado' && literal === 'literal_b' ? (
+              // Tabla especializada para estado de Literal B (similar a línea base)
+              (() => {
+                const { datos, totalResultados, totalPaginas } = filtrarYPaginarDatosEstado(datosReporte);
+                
+                // Calcular porcentaje de empresas aprobadas
+                const empresasAprobadas = datosReporte.filter(empresa => 
+                  empresa.estado?.toLowerCase().includes('aprobado')
+                ).length;
+                const totalEmpresas = datosReporte.length;
+                const porcentajeAprobado = totalEmpresas > 0 ? ((empresasAprobadas / totalEmpresas) * 100).toFixed(1) : 0;
+                
+                return (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold mb-6 text-center">
+                      Estado de Literal B
+                    </h3>
+                    
+                    {/* Progress Bar de Empresas Aprobadas */}
+                    <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Progreso de Aprobación
+                        </span>
+                        <span className="text-sm font-bold text-green-600">
+                          {empresasAprobadas} de {totalEmpresas} empresas ({porcentajeAprobado}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                          style={{ width: `${porcentajeAprobado}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Controles de la tabla */}
+                    <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Mostrar:</label>
+                        <select
+                          value={filasPorPagina}
+                          onChange={(e) => {setFilasPorPagina(Number(e.target.value)); setPaginaActual(1);}}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                        </select>
+                        <span className="text-sm">resultados</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm">Buscar:</label>
+                        <input
+                          type="text"
+                          value={busquedaTabla}
+                          onChange={handleBusquedaChange}
+                          className="border border-gray-300 rounded px-3 py-1 text-sm"
+                          placeholder="Empresa, NIT, Correo o Estado..."
+                        />
+                      </div>
+                    </div>
+                
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-blue-100">
+                            <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Empresa</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Correo Facturación</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {datos.map((empresa, index) => {
+                            // Función para obtener el color del estado
+                            const getEstadoColor = (estado) => {
+                              if (!estado) return 'bg-gray-100 text-gray-600';
+                              const estadoLower = estado.toLowerCase();
+                              if (estadoLower.includes('aprobado')) return 'bg-green-100 text-green-800';
+                              if (estadoLower.includes('guardado')) return 'bg-blue-100 text-blue-800';
+                              if (estadoLower.includes('pendiente')) return 'bg-yellow-100 text-yellow-800';
+                              if (estadoLower.includes('rechazado')) return 'bg-red-100 text-red-800';
+                              if (estadoLower.includes('iniciado')) return 'bg-gray-100 text-gray-800';
+                              return 'bg-gray-100 text-gray-600';
+                            };
+
+                            return (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="border border-gray-300 px-4 py-3 font-medium">
+                                  {empresa.nombre || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {empresa.nit || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {empresa.correo_facturacion || empresa.correoFacturacion || 'N/A'}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(empresa.estado)}`}>
+                                    {empresa.estado || 'Sin estado'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Información de paginación y controles */}
+                    <div className="mt-4 flex flex-wrap justify-between items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Mostrando {datos.length === 0 ? 0 : ((paginaActual - 1) * filasPorPagina) + 1} a{' '}
+                        {Math.min(paginaActual * filasPorPagina, totalResultados)} de {totalResultados} resultados
+                        {busquedaTabla && ` (filtrado de ${totalEmpresas} total)`}
+                      </div>
+                      
+                      {/* Controles de paginación */}
+                      {totalPaginas > 1 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
+                            disabled={paginaActual === 1}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Anterior
+                          </button>
+                          
+                          <div className="flex gap-1">
+                            {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                              let pageNum;
+                              if (totalPaginas <= 5) {
+                                pageNum = i + 1;
+                              } else {
+                                const start = Math.max(1, paginaActual - 2);
+                                const end = Math.min(totalPaginas, start + 4);
+                                pageNum = start + i;
+                                if (pageNum > end) return null;
+                              }
+                              
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setPaginaActual(pageNum)}
+                                  className={`px-3 py-1 border text-sm rounded ${
+                                    paginaActual === pageNum
+                                      ? 'bg-blue-500 text-white border-blue-500'
+                                      : 'border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          <button
+                            onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
+                            disabled={paginaActual === totalPaginas}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : reporte === 'estado' && literal === 'linea_base' ? (
               // Tabla especializada para estado de línea base
               (() => {
                 const { datos, totalResultados, totalPaginas } = filtrarYPaginarDatosEstado(datosReporte);
@@ -1207,32 +2439,39 @@ export default function Reportes() {
                 </table>
               </div>
             )}
+            
+            {/* Gráficos específicos para cada tipo de reporte */}
+            <div id="chart-container" className="chart-container">
+              {generateChart()}
+            </div>
+            
             {/* Gráfico dinámico debajo de la tabla */}
-            {(() => {
-              const chart = getChartData();
-              if (!chart) return null;
-              
-              // Gráficos duales para rangos
-              if (chart.type === 'dual' && chart.charts) {
-                return (
-                  <div className="mt-8 space-y-8">
-                    {chart.charts.map((chartConfig, index) => (
-                      <div key={index} className="flex justify-center">
-                        <div style={{ maxWidth: 600, width: '100%' }}>
-                          <h4 className="text-center font-semibold mb-4 text-gray-700">
-                            {chartConfig.title}
-                          </h4>
-                          {chartConfig.type === 'bar' ? (
-                            <Bar data={chartConfig.data} options={chartConfig.options} height={120} />
-                          ) : chartConfig.type === 'line' ? (
-                            <Line data={chartConfig.data} options={chartConfig.options} height={120} />
-                          ) : null}
+            <div id="dynamic-chart-container" className="chart-container">
+              {(() => {
+                const chart = getChartData();
+                if (!chart) return null;
+                
+                // Gráficos duales para rangos
+                if (chart.type === 'dual' && chart.charts) {
+                  return (
+                    <div className="mt-8 space-y-8">
+                      {chart.charts.map((chartConfig, index) => (
+                        <div key={index} className="flex justify-center">
+                          <div style={{ maxWidth: 600, width: '100%' }}>
+                            <h4 className="text-center font-semibold mb-4 text-gray-700">
+                              {chartConfig.title}
+                            </h4>
+                            {chartConfig.type === 'bar' ? (
+                              <Bar data={chartConfig.data} options={chartConfig.options} height={120} />
+                            ) : chartConfig.type === 'line' ? (
+                              <Line data={chartConfig.data} options={chartConfig.options} height={120} />
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
+                      ))}
+                    </div>
+                  );
+                }
               
               if (chart.type === 'bar') {
                 return (
@@ -1243,6 +2482,8 @@ export default function Reportes() {
                   </div>
                 );
               }
+              
+              // Para otros tipos de gráficos (pie, bar, etc.)
               if (chart.type === 'pie') {
                 return (
                   <div className="mt-8 flex justify-center">
@@ -1252,6 +2493,7 @@ export default function Reportes() {
                   </div>
                 );
               }
+              
               // Progress bar para meta
               if (reporte === 'meta') {
                 // Ejemplo de datos de avance
@@ -1279,8 +2521,10 @@ export default function Reportes() {
                   </div>
                 );
               }
+              
               return null;
             })()}
+            </div>
             </>
           )}
         </div>

@@ -50,7 +50,8 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
   // Función para obtener productos de un usuario específico
   const handleUsuarioClick = async (usuario) => {
     console.log("Usuario seleccionado:", usuario);
-    console.log("ID a usar:", usuario.idInformacionB);
+    console.log("ID a usar para productos:", usuario.informacionB_idInformacionB);
+    console.log("ID a usar para información:", usuario.informacionB_idInformacionB);
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${usuario.informacionB_idInformacionB}`, {
@@ -550,7 +551,8 @@ Equipo Punto Azul`);
 
   // Función para renderizar el contenido según la pestaña activa
   const renderTabContent = () => {
-    const idInformacionB = productos[0]?.idInformacionB?._id;
+    // Usar el idInformacionB del usuario seleccionado, no del producto
+    const idInformacionB = selectedUsuario?.informacionB_idInformacionB || productos[0]?.idInformacionB?.idInformacionB;
     
     switch (activeTab) {
       case "resumen":

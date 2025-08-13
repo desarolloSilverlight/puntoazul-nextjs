@@ -81,7 +81,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         // Si está en modo readonly y tiene propIdInformacionB, usar datos del cliente específico
         if (readonly && propIdInformacionB) {
           console.log("Modo validación: cargando datos del cliente con idInformacionB:", propIdInformacionB);
-          url = `${API_BASE_URL}/informacion-b/getById/${propIdInformacionB}`;
+          url = `${API_BASE_URL}/informacion-b/getInformacion/${propIdInformacionB}`;
         } else {
           // Modo normal: usar datos del usuario logueado
           const idUsuario = propIdUsuario || localStorage.getItem("id");

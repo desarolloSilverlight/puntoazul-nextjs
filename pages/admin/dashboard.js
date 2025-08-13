@@ -6,6 +6,7 @@ import Admin from "layouts/Admin.js";
 // Componentes del dashboard
 import DashboardAdmin from "components/Dashboard/DashboardAdmin.js";
 import DashboardAsociado from "components/Dashboard/DashboardAsociado.js";
+import DashboardVinculado from "components/Dashboard/DashboardVinculado.js";
 
 export default function Dashboard() {
   const [perfil, setPerfil] = useState("");
@@ -39,16 +40,7 @@ export default function Dashboard() {
       case "Asociado":
         return <DashboardAsociado />;
       case "Vinculado":
-        return (
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <div className="text-lightBlue-600 text-lg font-semibold mb-4">
-                Dashboard Vinculado
-              </div>
-              <p className="text-gray-600">En construcción - Próximamente disponible</p>
-            </div>
-          </div>
-        );
+        return <DashboardVinculado />;
       default:
         return (
           <div className="flex items-center justify-center min-h-screen">

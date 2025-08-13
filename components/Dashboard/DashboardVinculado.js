@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { API_BASE_URL } from "../../utils/config";
 
-export default function DashboardAsociado() {
+export default function DashboardVinculado() {
   const [estadoFormulario, setEstadoFormulario] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,8 +17,8 @@ export default function DashboardAsociado() {
           return;
         }
 
-        // Verificar si existe formulario para este usuario
-        const response = await fetch(`${API_BASE_URL}/informacion-b/getByIdUsuario/${idUsuario}`);
+        // Verificar si existe formulario de línea base para este usuario
+        const response = await fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${idUsuario}`);
         
         if (response.status === 404) {
           // No existe formulario
@@ -28,7 +28,7 @@ export default function DashboardAsociado() {
           const estado = data.estado?.toLowerCase() || "guardado";
           setEstadoFormulario(estado);
         } else {
-          throw new Error("Error al consultar el formulario");
+          throw new Error("Error al consultar el formulario de línea base");
         }
 
       } catch (err) {
@@ -65,41 +65,41 @@ export default function DashboardAsociado() {
   // Configuraciones de mensajes según el estado
   const configuracionesMensajes = {
     sin_formulario: {
-      icono: "📝",
+      icono: "📊",
       titulo: "¡Bienvenido!",
-      mensaje: "Aún no has creado tu formulario Literal B para este año. Te ayudamos a comenzar de manera fácil y rápida.",
+      mensaje: "Aún no has creado tu formulario de Línea Base para este año. Te ayudamos a comenzar de manera fácil y rápida.",
       color: "blue",
-      botonTexto: "Crear mi formulario",
+      botonTexto: "Crear mi línea base",
       botonIcono: "fas fa-plus"
     },
     guardado: {
       icono: "💾",
-      titulo: "Formulario en progreso",
-      mensaje: "Has guardado tu formulario pero aún no lo has enviado para revisión. Puedes continuar editándolo cuando quieras.",
+      titulo: "Línea Base en progreso",
+      mensaje: "Has guardado tu formulario de línea base pero aún no lo has enviado para revisión. Puedes continuar editándolo cuando quieras.",
       color: "yellow",
       botonTexto: "Continuar editando",
       botonIcono: "fas fa-edit"
     },
     pendiente: {
       icono: "⏳",
-      titulo: "Formulario en revisión",
-      mensaje: "Tu formulario ha sido enviado y está siendo revisado por nuestro equipo. Te notificaremos cuando tengamos una respuesta.",
+      titulo: "Línea Base en revisión",
+      mensaje: "Tu formulario de línea base ha sido enviado y está siendo revisado por nuestro equipo. Te notificaremos cuando tengamos una respuesta.",
       color: "orange",
-      botonTexto: "Ver mi formulario",
+      botonTexto: "Ver mi línea base",
       botonIcono: "fas fa-eye"
     },
     aprobado: {
       icono: "✅",
-      titulo: "¡Formulario aprobado!",
-      mensaje: "Felicitaciones, tu formulario ha sido aprobado. Ya puedes cargar tu pdf firmado.",
+      titulo: "¡Línea Base aprobada!",
+      mensaje: "Felicitaciones, tu formulario de línea base ha sido aprobado. Ya puedes cargar tu pdf firmado.",
       color: "green",
-      botonTexto: "Ver formulario aprobado",
+      botonTexto: "Ver línea base aprobada",
       botonIcono: "fas fa-eye"
     },
     rechazado: {
       icono: "❌",
-      titulo: "Formulario requiere correcciones",
-      mensaje: "Tu formulario necesita algunas correcciones. Revisa los comentarios enviados en el correo y realiza los ajustes necesarios.",
+      titulo: "Línea Base requiere correcciones",
+      mensaje: "Tu formulario de línea base necesita algunas correcciones. Revisa los comentarios enviados en el correo y realiza los ajustes necesarios.",
       color: "red",
       botonTexto: "Hacer correcciones",
       botonIcono: "fas fa-edit"
@@ -107,9 +107,9 @@ export default function DashboardAsociado() {
     finalizado: {
       icono: "🎉",
       titulo: "¡Proceso completado!",
-      mensaje: "Has completado exitosamente el proceso. Tu formulario está finalizado y archivado.",
+      mensaje: "Has completado exitosamente el proceso. Tu formulario de línea base está finalizado y archivado.",
       color: "green",
-      botonTexto: "Ver formulario final",
+      botonTexto: "Ver línea base final",
       botonIcono: "fas fa-check-circle"
     }
   };
@@ -174,22 +174,22 @@ export default function DashboardAsociado() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className={`text-xl font-semibold ${colorActual.text}`}>
-                Formulario Literal B - Año 2024
+                Formulario Línea Base - Año 2025
               </h2>
               <p className="text-gray-600 mt-1">
-                Reporte anual de medicamentos y dispositivos médicos
+                Reporte de línea base de medicamentos y dispositivos médicos
               </p>
             </div>
             <div className={`${colorActual.accent} text-2xl`}>
-              <i className="fas fa-clipboard-list"></i>
+              <i className="fas fa-chart-line"></i>
             </div>
           </div>
 
           {/* Botón de acción principal */}
           <div className="flex justify-center">
             <a
-              href="/admin/literalb"
-              className={`${colorActual.button} text-black px-8 py-4 rounded-lg font-medium transition-colors duration-200 inline-flex items-center space-x-2 text-lg`}
+              href="/admin/literalf"
+              className={`${colorActual.button} text-white px-8 py-4 rounded-lg font-medium transition-colors duration-200 inline-flex items-center space-x-2 text-lg`}
             >
               <i className={config.botonIcono}></i>
               <span>{config.botonTexto}</span>
@@ -206,17 +206,13 @@ export default function DashboardAsociado() {
                 <i className="fas fa-info-circle text-blue-600 text-xl"></i>
               </div>
               <h3 className="text-lg font-semibold text-gray-800">
-                Sobre el formulario
+                Sobre la línea base
               </h3>
             </div>
             <ul className="space-y-3 text-gray-600">
-              {/* <li className="flex items-start">
-                <i className="fas fa-check text-green-500 mr-2 mt-0.5"></i>
-                <span>Cumplimiento de la Resolución 371 de 2009</span>
-              </li> */}
               <li className="flex items-start">
                 <i className="fas fa-check text-green-500 mr-2 mt-0.5"></i>
-                <span>Reporte anual obligatorio</span>
+                <span>Establecimiento de línea base inicial</span>
               </li>
               <li className="flex items-start">
                 <i className="fas fa-check text-green-500 mr-2 mt-0.5"></i>
@@ -225,6 +221,10 @@ export default function DashboardAsociado() {
               <li className="flex items-start">
                 <i className="fas fa-check text-green-500 mr-2 mt-0.5"></i>
                 <span>Soporte técnico disponible</span>
+              </li>
+              <li className="flex items-start">
+                <i className="fas fa-check text-green-500 mr-2 mt-0.5"></i>
+                <span>Seguimiento personalizado</span>
               </li>
             </ul>
           </div>

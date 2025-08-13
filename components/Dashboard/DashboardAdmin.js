@@ -10,7 +10,10 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-
+// Componentes de cards específicos
+import StatsCard from "./Cards/StatsCard";
+import FormStatusCard from "./Cards/FormStatusCard";
+import ChartCard from "./Cards/ChartCard";
 // Registrar los componentes de Chart.js
 ChartJS.register(
   CategoryScale,
@@ -21,10 +24,7 @@ ChartJS.register(
   Legend
 );
 
-// Componentes de cards específicos
-import StatsCard from "./Cards/StatsCard";
-import FormStatusCard from "./Cards/FormStatusCard";
-import ChartCard from "./Cards/ChartCard";
+
 
 export default function DashboardAdmin() {
   const [stats, setStats] = useState({

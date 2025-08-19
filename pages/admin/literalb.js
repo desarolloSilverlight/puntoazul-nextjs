@@ -146,9 +146,23 @@ export default function FormularioF() {
   const renderForm = () => {
     switch (activeTab) {
       case "Informacion":
-        return <InformacionB color="light" estado={estadoInformacionB} />;
+        return (
+          <InformacionB
+            color="light"
+            estado={estadoInformacionB}
+            onEstadoChange={(nuevo) => {
+              // Evitar renders innecesarios
+              setEstadoInformacionB(prev => (prev === nuevo ? prev : nuevo));
+            }}
+          />
+        );
       case "Productos":
-        return <ProductosB color="light" estado={estadoInformacionB} />;
+        return (
+          <ProductosB
+            color="light"
+            estado={estadoInformacionB}
+          />
+        );
       default:
         return null;
     }

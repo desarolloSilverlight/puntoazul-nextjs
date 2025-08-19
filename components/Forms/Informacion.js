@@ -9,7 +9,7 @@ if (typeof window !== "undefined") {
   Modal.setAppElement("#__next");
 }
 
-export default function FormularioAfiliado({ color, readonly, idInformacionF: propIdInformacionF, estado: propEstado }) {
+export default function FormularioAfiliado({ color, readonly, idInformacionF: propIdInformacionF, estado: propEstado, onEstadoChange }) {
   // Estado único para todos los campos del formulario
   const [formData, setFormData] = useState({
     nombre: "",
@@ -38,15 +38,24 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
   // Actualizar estado cuando cambie el prop
   useEffect(() => {
     if (propEstado) {
-      setEstado(propEstado);
+      setEstado(prev => {
+        if (prev !== propEstado) {
+          onEstadoChange && onEstadoChange(propEstado);
+        }
+        return propEstado;
+      });
       if (propEstado === "Guardado" || propEstado === "Rechazado") {
         setIsDisabled(false);
       } else {
         setIsDisabled(true);
       }
     } else {
-      // Si no hay propEstado, usar "Guardado" por defecto
-      setEstado("Guardado");
+      setEstado(prev => {
+        if (prev !== "Guardado") {
+          onEstadoChange && onEstadoChange("Guardado");
+        }
+        return "Guardado";
+      });
       setIsDisabled(false);
     }
   }, [propEstado]);
@@ -75,31 +84,20 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
     });
   };
 
-  // Función para validar el año de reporte
-  const handleAnoReporteChange = (e) => {
-    const { value } = e.target;
-    setFormData((prev) => ({ ...prev, anioReportado: value }));
+  // Años permitidos para anioReportado: año actual -1 y -2
+  const currentYear = new Date().getFullYear();
+  const allowedYears = [currentYear - 1, currentYear - 2];
 
-    if (timeoutId) {
-      clearTimeout(timeoutId);
+  // Asegurar valor inicial válido si no viene del backend
+  useEffect(() => {
+    if (!formData.anioReportado) {
+      setFormData(prev => ({ ...prev, anioReportado: allowedYears[0].toString() }));
+    } else if (!allowedYears.map(String).includes(formData.anioReportado)) {
+      // Si el backend trae un año fuera del rango, forzar al más reciente permitido
+      setFormData(prev => ({ ...prev, anioReportado: allowedYears[0].toString() }));
     }
-
-    timeoutId = setTimeout(() => {
-      if (value.length === 4) {
-        const anoReporte = parseInt(value, 10);
-        const ano = new Date().getFullYear(); // Año actual
-        // Solo se permiten los años actuales menos 2 o menos 3
-        if (!isNaN(anoReporte) && !isNaN(ano)) {
-          if (anoReporte !== ano - 2 && anoReporte !== ano - 3) {
-            alert(`El año de reporte solo puede ser ${ano - 2} o ${ano - 3}.`);
-            setIsSaveDisabled(true);
-          } else {
-            setIsSaveDisabled(false);
-          }
-        }
-      }
-    }, 1000);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.anioReportado]);
 
   // Función para formatear la fecha
   const formatDate = (dateString) => {
@@ -195,7 +193,13 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
           reporte: data.tipo_reporte || "unitario",
         });
 
-        setEstado(data.estado || "Guardado"); // Usar "Guardado" como valor por defecto
+        const nuevoEstado = data.estado || "Guardado";
+        setEstado(prev => {
+          if (prev !== nuevoEstado) {
+            onEstadoChange && onEstadoChange(nuevoEstado);
+          }
+          return nuevoEstado;
+        });
         
         // Solo controlar edición en modo normal
         if (!readonly) {
@@ -297,9 +301,17 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         
         // Actualizar localStorage con el estado actual
         localStorage.setItem("estadoInformacionF", "Guardado");
-        setEstado("Guardado");
-      } else if (checkResponse.status === 500) {
-        // Si no existen datos, crearlos
+        setEstado(prev => {
+          if (prev !== "Guardado") {
+            onEstadoChange && onEstadoChange("Guardado");
+          }
+          return "Guardado";
+        });
+      } else if (checkResponse.status === 404) { // antes 500, usar 404 para crear
+        // Validar anioReportado antes de crear
+        if (!allowedYears.map(String).includes(updatedFormData.anioReportado.toString())) {
+          updatedFormData.anioReportado = allowedYears[0].toString();
+        }
         const response = await fetch(`${API_BASE_URL}/informacion-f/crearInformacion`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -318,7 +330,12 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         localStorage.setItem("tipoReporte", updatedFormData.reporte || "unitario");
         // Guardar estado como "Guardado"
         localStorage.setItem("estadoInformacionF", "Guardado");
-        setEstado("Guardado");
+        setEstado(prev => {
+          if (prev !== "Guardado") {
+            onEstadoChange && onEstadoChange("Guardado");
+          }
+          return "Guardado";
+        });
       } else {
         throw new Error(`Error ${checkResponse.status}: ${checkResponse.statusText}`);
       }
@@ -630,17 +647,19 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" htmlFor="anioReportado">Año reportado</label>
-              <input
+              <select
                 className="border p-2 w-full"
-                type="text"
                 name="anioReportado"
                 id="anioReportado"
-                placeholder="Año reportado"
                 value={formData.anioReportado}
-                onChange={handleAnoReporteChange}
+                onChange={handleChange}
                 disabled={isDisabled}
                 required
-              />
+              >
+                {allowedYears.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" htmlFor="empresasRepresentadas">Empresas Representadas</label>
@@ -710,4 +729,5 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
 
 FormularioAfiliado.propTypes = {
   color: PropTypes.string,
+  onEstadoChange: PropTypes.func,
 };

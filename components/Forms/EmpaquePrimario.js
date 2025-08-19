@@ -5,6 +5,7 @@ import Modal from "react-modal";
 import { Oval } from 'react-loader-spinner';
 import Backdrop from '@mui/material/Backdrop';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 export default function FormularioAfiliado({ color, readonly = false, idInformacionF: propIdInformacionF, estado: propEstado }) {
   const [isLoading, setIsLoading] = useState(false);
   let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF");
@@ -15,6 +16,16 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const [productos, setProductos] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
+  const [erroresCampos, setErroresCampos] = useState({}); // {`${index}-campo`: "mensaje"}
+
+  // Helper para mostrar siempre con máximo dos decimales (sin afectar almacenamiento interno)
+  const format2 = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    // Aceptar valores con coma o punto, convertir a número
+    const num = parseFloat(v.toString().replace(',', '.'));
+    if (isNaN(num)) return v; // si no es número, devolver original
+    return num.toFixed(2).replace('.', ',');
+  };
 
   // Mover fetchToneladasAcumuladas fuera de los hooks para que esté disponible globalmente
   const fetchToneladasAcumuladas = async () => {
@@ -43,6 +54,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
         const data = await response.json();
+        const normalizarSiNo = (v) => {
+          if (!v && v !== 0) return "";
+          const s = v.toString().trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+            if (s === 'si') return 'Si';
+            if (s === 'no') return 'No';
+            return v; // dejar original si no coincide
+        };
         const productosFormateados = data.map(producto => ({
           id: producto.idEmpaque,
           idInformacionF: producto.idInformacionF,
@@ -58,6 +76,12 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             : (producto.multimaterial && typeof producto.multimaterial === 'object' ? producto.multimaterial : { multimaterial: "", tipo: "", otro: "" }),
           unidades: tipoReporte === "totalizado" ? "1" : (producto.unidades || ""),
         }));
+        // Normalizar Si/No en objetos multimaterial
+        productosFormateados.forEach(p => {
+          if (p.multimaterial && typeof p.multimaterial === 'object') {
+            p.multimaterial.multimaterial = normalizarSiNo(p.multimaterial.multimaterial);
+          }
+        });
         setProductos(productosFormateados);
       } catch (error) {
         console.error("Error al obtener los empaques primarios:", error);
@@ -102,8 +126,30 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         [subField]: value
       };
     } else {
-      const sanitizedValue = value.replace(",", ".");
-      nuevosProductos[index][field] = sanitizedValue;
+      let inputValue = value.trim();
+      // Validaciones para campos numéricos
+      const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio", "unidades"]; // unidades numérica (entera)
+      const keyError = `${index}-${field}`;
+      const nuevoErrores = { ...erroresCampos };
+      if (camposNumericos.includes(field)) {
+        // Prohibir punto
+        if (inputValue.includes(".")) {
+          nuevoErrores[keyError] = "Use coma (,) como separador decimal";
+        } else {
+          // Regex: enteros o con coma y hasta 2 decimales
+          const regex = field === "unidades" ? /^\d*$/ : /^\d+(,\d{0,2})?$/;
+          if (inputValue === "") {
+            // permitir vacío temporalmente
+            delete nuevoErrores[keyError];
+          } else if (!regex.test(inputValue)) {
+            nuevoErrores[keyError] = field === "unidades" ? "Solo dígitos" : "Máx 2 decimales con coma";
+          } else {
+            delete nuevoErrores[keyError];
+          }
+        }
+        setErroresCampos(nuevoErrores);
+      }
+      nuevosProductos[index][field] = inputValue;
     }
     // Si tipoReporte es totalizado y se intenta cambiar unidades, forzar a 1
     if (tipoReporte === "totalizado") {
@@ -116,8 +162,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     e.preventDefault();
     setIsLoading(true);
     // Validaciones requeridas
-    const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
-    const decimalRegex = /^\d+(\.\d{1,10})?$/;
+  const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
+  const decimalRegexComa = /^\d+(,\d{1,2})?$/; // hasta 2 decimales con coma
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
       // 1. empresaTitular y nombreProducto requeridos
@@ -126,55 +172,113 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         setIsLoading(false);
         return;
       }
-      // 2. Al menos un material debe ser mayor a 0
+      // 2. Al menos un material debe ser mayor a 0 (aceptando coma como separador)
+      const toNum = (v) => {
+        if (v === null || v === undefined || v === "") return 0;
+        const n = parseFloat(v.toString().replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+      };
       const sumaMateriales = [
-        Number(producto.papel) || 0,
-        Number(producto.metalFerrosos) || 0,
-        Number(producto.metalNoFerrosos) || 0,
-        Number(producto.carton) || 0,
-        Number(producto.vidrio) || 0
+        toNum(producto.papel),
+        toNum(producto.metalFerrosos),
+        toNum(producto.metalNoFerrosos),
+        toNum(producto.carton),
+        toNum(producto.vidrio)
       ];
       if (sumaMateriales.every(val => val === 0)) {
         alert(`En la fila ${i + 1}, al menos uno de los materiales (Papel, Metal Ferrosos, Metal No Ferrosos, Cartón, Vidrio) debe ser mayor a 0.`);
         setIsLoading(false);
         return;
       }
-      // 3. Validar campos numéricos
+      // 3. Validar campos numéricos (coma, máx 2 decimales, sin punto)
       for (const campo of camposNumericos) {
-        let valor = producto[campo];
-        if (valor !== "" && valor !== null && valor !== undefined) {
-          valor = valor.toString().replace(/,/g, ".");
-          if (!decimalRegex.test(valor)) {
-            alert(`El campo '${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto[campo]}`);
+        const rawValor = producto[campo];
+        let valorStr = (rawValor === null || rawValor === undefined) ? "" : rawValor.toString();
+        if (valorStr.includes('.')) {
+          alert(`Fila ${i + 1} campo '${campo}': No use punto. Use coma (,) para decimales.`);
+          setIsLoading(false);
+          return;
+        }
+        if (valorStr !== "") {
+          if (!decimalRegexComa.test(valorStr)) {
+            alert(`Fila ${i + 1} campo '${campo}': Formato inválido. Use hasta 2 decimales con coma.`);
             setIsLoading(false);
             return;
           }
-          productos[i][campo] = valor;
         }
       }
-      // 4. Multimaterial no puede quedar en "Seleccione..."
+      // 4. Multimaterial validaciones + dependientes
       if (!producto.multimaterial.multimaterial) {
         alert(`En la fila ${i + 1}, debe seleccionar una opción para 'Multimaterial'.`);
         setIsLoading(false);
         return;
       }
-      // 5. Unidades debe tener un valor
+      if (!['Si','No'].includes(producto.multimaterial.multimaterial)) {
+        alert(`En la fila ${i + 1}, 'Multimaterial' debe ser 'Si' o 'No'.`);
+        setIsLoading(false);
+        return;
+      }
+      if (producto.multimaterial.multimaterial === 'Si') {
+        if (!producto.multimaterial.tipo) {
+          alert(`En la fila ${i + 1}, debe seleccionar 'Tipo Multimaterial'.`);
+          setIsLoading(false);
+          return;
+        }
+        if (producto.multimaterial.tipo === 'Otro' && !producto.multimaterial.otro.trim()) {
+          alert(`En la fila ${i + 1}, debe diligenciar 'Otro Multimaterial'.`);
+          setIsLoading(false);
+          return;
+        }
+        if (producto.multimaterial.tipo !== 'Otro' && producto.multimaterial.otro.trim()) {
+          alert(`En la fila ${i + 1}, 'Otro Multimaterial' debe estar vacío porque el tipo seleccionado no es 'Otro'.`);
+          setIsLoading(false);
+          return;
+        }
+      } else { // No
+        if (producto.multimaterial.tipo.trim() || producto.multimaterial.otro.trim()) {
+          alert(`En la fila ${i + 1}, los campos de tipo/otro multimaterial deben estar vacíos cuando 'Multimaterial' es 'No'.`);
+          setIsLoading(false);
+          return;
+        }
+      }
+      // 5. Unidades debe tener un valor (entero y sin coma/punto)
       if (!producto.unidades || producto.unidades === "") {
         alert(`En la fila ${i + 1}, el campo 'Unidades' es obligatorio.`);
         setIsLoading(false);
         return;
       }
+      if (/[,\.]/.test(producto.unidades)) {
+        alert(`En la fila ${i + 1}, 'Unidades' debe ser un número entero sin separadores.`);
+        setIsLoading(false);
+        return;
+      }
     }
     try {
-      // Serializar multimaterial como string para el backend
-      const productosSerializados = productos.map(p => ({
-        ...p,
-        multimaterial: JSON.stringify({
-          multimaterial: p.multimaterial.multimaterial,
-          tipo: p.multimaterial.tipo,
-          otro: p.multimaterial.otro
-        })
-      }));
+      // Serializar multimaterial y normalizar números (convertir coma a punto para backend)
+      const productosSerializados = productos.map(p => {
+        const normalizar = v => {
+          if (v === null || v === undefined || v === "") return "0";
+            if (typeof v === 'string') {
+              if (v.includes('.')) throw new Error('Formato con punto detectado en números (no permitido).');
+              return v.replace(',', '.');
+            }
+          return String(v);
+        };
+        return {
+          ...p,
+          papel: normalizar(p.papel),
+          metalFerrosos: normalizar(p.metalFerrosos),
+          metalNoFerrosos: normalizar(p.metalNoFerrosos),
+          carton: normalizar(p.carton),
+          vidrio: normalizar(p.vidrio),
+          unidades: p.unidades ? String(p.unidades) : '0',
+          multimaterial: JSON.stringify({
+            multimaterial: p.multimaterial.multimaterial,
+            tipo: p.multimaterial.tipo,
+            otro: p.multimaterial.otro
+          })
+        };
+      });
       const response = await fetch(`${API_BASE_URL}/informacion-f/crearEmpaquePri`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,93 +305,90 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   };
 
   // Excel download functionality
-  const descargarPlantilla = () => {
-    // Datos de ejemplo para múltiples productos (ajustados según tipoReporte)
-    const unidadesEjemplo = tipoReporte === "totalizado" ? "1" : "1500";
+  const descargarPlantilla = async () => {
+    // Encabezados estándar
+    const headers = [
+      'Empresa titular',
+      'Nombre Producto',
+      'Papel (g)',
+      'Metal Ferrosos (g)',
+      'Metal No Ferrosos (g)',
+      'Cartón (g)',
+      'Vidrio (g)',
+      'Multimaterial',
+      'Tipo Multimaterial',
+      'Otro Multimaterial',
+      'Unidades'
+    ];
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'PuntoAzul';
+    workbook.created = new Date();
+
+  // Hoja 1 (solo encabezados estrictamente)
+  const sheetEntrada = workbook.addWorksheet('Empaques');
+  sheetEntrada.addRow(headers);
+  sheetEntrada.getRow(1).font = { bold: true };
+  sheetEntrada.columns.forEach(col => { col.width = 24; });
+
+    // Hoja 2 (ejemplos + instrucciones)
+    const sheetEjemplos = workbook.addWorksheet('Ejemplos_Instrucciones');
+    const unidadesEjemplo = tipoReporte === 'totalizado' ? '1' : '1500';
     const datosEjemplo = [
-      {
-        "Empresa titular": "Ejemplo Empresa A",
-        "Nombre Producto": "Producto Ejemplo 1",
-        "Papel (g)": "5.5",
-        "Metal Ferrosos (g)": "2.3",
-        "Metal No Ferrosos (g)": "0",
-        "Cartón (g)": "15.7",
-        "Vidrio (g)": "0",
-        "Multimaterial": "No",
-        "Tipo Multimaterial": "",
-        "Otro Multimaterial": "",
-        "Unidades": unidadesEjemplo
-      },
-      {
-        "Empresa titular": "Ejemplo Empresa B", 
-        "Nombre Producto": "Producto Ejemplo 2",
-        "Papel (g)": "0",
-        "Metal Ferrosos (g)": "8.25",
-        "Metal No Ferrosos (g)": "3.1",
-        "Cartón (g)": "0",
-        "Vidrio (g)": "12.8",
-        "Multimaterial": "Sí",
-        "Tipo Multimaterial": "Papel multimaterial o laminado",
-        "Otro Multimaterial": "",
-        "Unidades": tipoReporte === "totalizado" ? "1" : "2300"
-      },
-      {
-        "Empresa titular": "Ejemplo Empresa C",
-        "Nombre Producto": "Producto Ejemplo 3", 
-        "Papel (g)": "1.2",
-        "Metal Ferrosos (g)": "0",
-        "Metal No Ferrosos (g)": "0",
-        "Cartón (g)": "25.5",
-        "Vidrio (g)": "0",
-        "Multimaterial": "Sí",
-        "Tipo Multimaterial": "Otro",
-        "Otro Multimaterial": "Material compuesto especial",
-        "Unidades": tipoReporte === "totalizado" ? "1" : "800"
-      }
+      ['Ejemplo Empresa A', 'Producto Ejemplo 1', '5,50', '2,30', '0', '15,70', '0', 'No', '', '', unidadesEjemplo],
+      ['Ejemplo Empresa B', 'Producto Ejemplo 2', '0', '8,25', '3,10', '0', '12,80', 'Si', 'Papel multimaterial o laminado', '', (tipoReporte === 'totalizado' ? '1' : '2300')],
+      ['Ejemplo Empresa C', 'Producto Ejemplo 3', '1,20', '0', '0', '25,50', '0', 'Si', 'Otro', 'Material compuesto especial', (tipoReporte === 'totalizado' ? '1' : '800')],
     ];
+    sheetEjemplos.addRow(headers).font = { bold: true };
+    datosEjemplo.forEach(r => sheetEjemplos.addRow(r));
+    sheetEjemplos.columns.forEach(col => { col.width = 26; });
 
-    // Crear workbook y worksheet
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(datosEjemplo);
-
-    // Agregar instrucciones sobre campos
+    let fila = sheetEjemplos.addRow([]).number; // fila en blanco
     const instrucciones = [
-      [""],
-      ["INSTRUCCIONES IMPORTANTES:"],
-      [""],
-      ["Campo 'Multimaterial': Debe ser exactamente 'Sí' o 'No'"],
-      [""],
-      ["Si Multimaterial = 'No': Dejar 'Tipo Multimaterial' y 'Otro Multimaterial' VACÍOS"],
-      [""],
-      ["Si Multimaterial = 'Sí', opciones válidas para 'Tipo Multimaterial':"],
-      ["• Papel multimaterial o laminado"],
-      ["• Polyboard - papel para bebidas"],
-      ["• Carton multimaterial o laminado"],
-      ["• Carton para bebidas"],
-      ["• Otro"],
-      [""],
-      ["Si 'Tipo Multimaterial' = 'Otro': Completar 'Otro Multimaterial'"],
-      ["Si 'Tipo Multimaterial' ≠ 'Otro': Dejar 'Otro Multimaterial' VACÍO"]
+      'INSTRUCCIONES IMPORTANTES:',
+      '',
+      "Campo 'Multimaterial': Debe ser exactamente 'Si' o 'No' (sin tilde).",
+      "Si Multimaterial = 'No': Dejar 'Tipo Multimaterial' y 'Otro Multimaterial' VACIOS.",
+      "Si Multimaterial = 'Si', opciones válidas para 'Tipo Multimaterial':",
+      '• Papel multimaterial o laminado',
+      '• Polyboard - papel para bebidas',
+      '• Carton multimaterial o laminado',
+      '• Carton para bebidas',
+      '• Otro',
+      "Si 'Tipo Multimaterial' = 'Otro': Completar 'Otro Multimaterial'.",
+      "Si 'Tipo Multimaterial' != 'Otro': Dejar 'Otro Multimaterial' VACIO.",
+      'Los pesos deben estar en gramos, usar coma para decimales (máx 2 en la interfaz).',
     ];
-
-    // Agregar nota sobre el tipo de reporte si es totalizado
-    if (tipoReporte === "totalizado") {
-      instrucciones.unshift(["IMPORTANTE: Las unidades deben ser 1 para reportes totalizados"], [""]);
+    if (tipoReporte === 'totalizado') {
+      instrucciones.unshift('IMPORTANTE: Las unidades deben ser 1 para reportes totalizados.', '');
     }
+    instrucciones.forEach(texto => {
+      const row = sheetEjemplos.addRow([texto]);
+      sheetEjemplos.mergeCells(`A${row.number}:K${row.number}`);
+      if (/INSTRUCCIONES/.test(texto) || /IMPORTANTE/.test(texto)) {
+        row.font = { bold: true };
+      }
+    });
 
-    // Agregar las instrucciones al worksheet
-    XLSX.utils.sheet_add_aoa(worksheet, instrucciones, { origin: 'A5' });
-
-    // Agregar la hoja al workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Empaques Primarios");
-
-    // Nombre del archivo según el tipo de reporte
-    const nombreArchivo = tipoReporte === "totalizado" 
-      ? "plantilla_empaques_primarios_totalizado.xlsx"
-      : "plantilla_empaques_primarios.xlsx";
-    
-    // Descargar el archivo
-    XLSX.writeFile(workbook, nombreArchivo);
+    // Descargar
+    const nombreArchivo = tipoReporte === 'totalizado'
+      ? 'plantilla_empaques_primarios_totalizado.xlsx'
+      : 'plantilla_empaques_primarios.xlsx';
+    try {
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombreArchivo;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error generando Excel:', err);
+      alert('No se pudo generar la plantilla Excel.');
+    }
   };
 
   // Excel upload functionality
@@ -302,28 +403,57 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        if (jsonData.length === 0) {
+        // Leer como matriz para detectar si hay fila de nota previa a encabezados
+        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        if (!rawRows || rawRows.length === 0) {
           alert('El archivo Excel está vacío.');
+          return;
+        }
+        // Buscar fila que contenga los encabezados (que incluya 'Empresa' y 'Nombre')
+        let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('empresa')) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('nombre')));
+        if (headerIndex === -1) {
+          alert('No se encontraron encabezados válidos en el Excel (faltan columnas como Empresa titular, Nombre Producto).');
+          return;
+        }
+        const headers = rawRows[headerIndex].map(h => (h || '').toString().trim());
+        const dataMatrix = rawRows.slice(headerIndex + 1).filter(r => r.some(c => c !== null && c !== undefined && c !== ''));
+        const jsonData = dataMatrix.map(rowArr => {
+          const obj = {};
+            headers.forEach((h, i) => { obj[h] = rowArr[i]; });
+          return obj;
+        });
+        if (jsonData.length === 0) {
+          alert('No hay filas de datos después de los encabezados.');
           return;
         }
 
         // Mapeo de columnas con flexibilidad
+        const normalizarSiNo = (v) => {
+          if (v === null || v === undefined) return "";
+          const s = v.toString().trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+          if (s === 'si') return 'Si';
+          if (s === 'no') return 'No';
+          return v.toString().trim();
+        };
         const mapearColumnas = (row) => {
           const keys = Object.keys(row);
+          const lower = keys.map(k => k.toLowerCase());
+          const findKey = (predicate) => {
+            const idx = lower.findIndex(predicate);
+            return idx >= 0 ? keys[idx] : null;
+          };
           return {
-            empresaTitular: row[keys.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('titular'))] || "",
-            nombreProducto: row[keys.find(k => k.toLowerCase().includes('nombre') && k.toLowerCase().includes('producto'))] || "",
-            papel: row[keys.find(k => k.toLowerCase().includes('papel'))] || "0",
-            metalFerrosos: row[keys.find(k => k.toLowerCase().includes('metal') && k.toLowerCase().includes('ferr'))] || "0",
-            metalNoFerrosos: row[keys.find(k => k.toLowerCase().includes('metal') && k.toLowerCase().includes('no') && k.toLowerCase().includes('ferr'))] || "0",
-            carton: row[keys.find(k => k.toLowerCase().includes('cart'))] || "0",
-            vidrio: row[keys.find(k => k.toLowerCase().includes('vidrio'))] || "0",
-            multimaterial: row[keys.find(k => k.toLowerCase().includes('multimaterial') && !k.toLowerCase().includes('tipo') && !k.toLowerCase().includes('otro'))] || "",
-            tipoMultimaterial: row[keys.find(k => k.toLowerCase().includes('tipo') && k.toLowerCase().includes('multimaterial'))] || "",
-            otroMultimaterial: row[keys.find(k => k.toLowerCase().includes('otro') && k.toLowerCase().includes('multimaterial'))] || "",
-            unidades: row[keys.find(k => k.toLowerCase().includes('unidades'))] || ""
+            empresaTitular: row[findKey(k => k.includes('empresa') || k.includes('titular'))] || "",
+            nombreProducto: row[findKey(k => k.includes('nombre') && k.includes('producto'))] || "",
+            papel: row[findKey(k => k.includes('papel'))] || "0",
+            metalFerrosos: row[findKey(k => k.includes('metal') && k.includes('ferr') && !k.includes('no'))] || "0",
+            metalNoFerrosos: row[findKey(k => k.includes('metal') && k.includes('no') && k.includes('ferr'))] || "0",
+            carton: row[findKey(k => k.includes('cart'))] || "0",
+            vidrio: row[findKey(k => k.includes('vidrio'))] || "0",
+            multimaterial: normalizarSiNo(row[findKey(k => k.includes('multimaterial') && !k.includes('tipo') && !k.includes('otro'))] || ""),
+            tipoMultimaterial: row[findKey(k => k.includes('tipo') && k.includes('multimaterial'))] || "",
+            otroMultimaterial: row[findKey(k => k.includes('otro') && k.includes('multimaterial'))] || "",
+            unidades: row[findKey(k => k.includes('unidades'))] || ""
           };
         };
 
@@ -335,7 +465,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
         jsonData.forEach((row, index) => {
           const producto = mapearColumnas(row);
-          const numeroFila = index + 2; // +2 porque Excel empieza en 1 y hay encabezados
+          const numeroFila = headerIndex + 2 + index; // fila real en Excel considerando encabezados y base 1
 
           // 1. Validar campos requeridos
           if (!producto.empresaTitular.trim()) {
@@ -349,8 +479,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           }
 
           // 2. Validar multimaterial
-          if (!producto.multimaterial || !["Sí", "No"].includes(producto.multimaterial)) {
-            errores.push(`Fila ${numeroFila}: 'Multimaterial' debe ser 'Sí' o 'No'`);
+          if (!producto.multimaterial || !["Si", "No"].includes(producto.multimaterial)) {
+            errores.push(`Fila ${numeroFila}: 'Multimaterial' debe ser 'Si' o 'No'`);
           }
 
           // 3. Validar campos numéricos
@@ -375,7 +505,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           }
 
           // 5. Validar tipo multimaterial si es necesario
-          if (producto.multimaterial === "Sí") {
+      if (producto.multimaterial === "Si") {
             const tiposValidos = [
               "Papel multimaterial o laminado",
               "Polyboard - papel para bebidas", 
@@ -384,7 +514,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               "Otro"
             ];
             if (!tiposValidos.includes(producto.tipoMultimaterial)) {
-              errores.push(`Fila ${numeroFila}: 'Tipo Multimaterial' debe ser una opción válida cuando Multimaterial es 'Sí'. Opciones: ${tiposValidos.join(', ')}`);
+        errores.push(`Fila ${numeroFila}: 'Tipo Multimaterial' debe ser una opción válida cuando Multimaterial es 'Si'. Opciones: ${tiposValidos.join(', ')}`);
             }
             if (producto.tipoMultimaterial === "Otro" && !producto.otroMultimaterial.trim()) {
               errores.push(`Fila ${numeroFila}: 'Otro Multimaterial' es requerido cuando el tipo es 'Otro'`);
@@ -393,7 +523,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             if (producto.tipoMultimaterial !== "Otro" && producto.otroMultimaterial.trim()) {
               errores.push(`Fila ${numeroFila}: 'Otro Multimaterial' debe estar vacío cuando el tipo no es 'Otro'`);
             }
-          } else if (producto.multimaterial === "No") {
+      } else if (producto.multimaterial === "No") {
             // Si multimaterial es "No", tanto tipo como otro deben estar vacíos
             if (producto.tipoMultimaterial.trim()) {
               errores.push(`Fila ${numeroFila}: 'Tipo Multimaterial' debe estar vacío cuando Multimaterial es 'No'`);
@@ -633,12 +763,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           <div
                             contentEditable
                             onBlur={e => handleChange(idx, "papel", e.target.textContent || "")}
-                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-papel`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${idx}-papel`] || ''}
                           >
-                            {producto.papel}
+                            {format2(producto.papel)}
                           </div>
                         ) : (
-                          <div className="p-1">{producto.papel}</div>
+                          <div className="p-1">{format2(producto.papel)}</div>
                         )}
                       </td>
                       <td className="border border-gray-300 px-2 py-1">
@@ -646,12 +777,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           <div
                             contentEditable
                             onBlur={e => handleChange(idx, "metalFerrosos", e.target.textContent || "")}
-                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-metalFerrosos`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${idx}-metalFerrosos`] || ''}
                           >
-                            {producto.metalFerrosos}
+                            {format2(producto.metalFerrosos)}
                           </div>
                         ) : (
-                          <div className="p-1">{producto.metalFerrosos}</div>
+                          <div className="p-1">{format2(producto.metalFerrosos)}</div>
                         )}
                       </td>
                       <td className="border border-gray-300 px-2 py-1">
@@ -659,12 +791,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           <div
                             contentEditable
                             onBlur={e => handleChange(idx, "metalNoFerrosos", e.target.textContent || "")}
-                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-metalNoFerrosos`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${idx}-metalNoFerrosos`] || ''}
                           >
-                            {producto.metalNoFerrosos}
+                            {format2(producto.metalNoFerrosos)}
                           </div>
                         ) : (
-                          <div className="p-1">{producto.metalNoFerrosos}</div>
+                          <div className="p-1">{format2(producto.metalNoFerrosos)}</div>
                         )}
                       </td>
                       <td className="border border-gray-300 px-2 py-1">
@@ -672,12 +805,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           <div
                             contentEditable
                             onBlur={e => handleChange(idx, "carton", e.target.textContent || "")}
-                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-carton`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${idx}-carton`] || ''}
                           >
-                            {producto.carton}
+                            {format2(producto.carton)}
                           </div>
                         ) : (
-                          <div className="p-1">{producto.carton}</div>
+                          <div className="p-1">{format2(producto.carton)}</div>
                         )}
                       </td>
                       <td className="border border-gray-300 px-2 py-1">
@@ -685,12 +819,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           <div
                             contentEditable
                             onBlur={e => handleChange(idx, "vidrio", e.target.textContent || "")}
-                            className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-vidrio`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${idx}-vidrio`] || ''}
                           >
-                            {producto.vidrio}
+                            {format2(producto.vidrio)}
                           </div>
                         ) : (
-                          <div className="p-1">{producto.vidrio}</div>
+                          <div className="p-1">{format2(producto.vidrio)}</div>
                         )}
                       </td>
                       <td className="border border-gray-300 px-2 py-1">
@@ -703,10 +838,10 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                               disabled={!esEditable}
                             >
                               <option value="">Seleccione...</option>
-                              <option value="Sí">Sí</option>
+                              <option value="Si">Si</option>
                               <option value="No">No</option>
                             </select>
-                            {producto.multimaterial.multimaterial === "Sí" && (
+                            {producto.multimaterial.multimaterial === "Si" && (
                               <select
                                 value={producto.multimaterial.tipo}
                                 onChange={e => handleChange(idx, "multimaterial.tipo", e.target.value)}
@@ -721,7 +856,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                                 <option value="Otro">Otro</option>
                               </select>
                             )}
-                            {producto.multimaterial.multimaterial === "Sí" && producto.multimaterial.tipo === "Otro" && (
+                            {producto.multimaterial.multimaterial === "Si" && producto.multimaterial.tipo === "Otro" && (
                               <input
                                 type="text"
                                 className="w-full mt-1 p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"

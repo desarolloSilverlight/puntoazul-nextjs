@@ -139,6 +139,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     }
     
     // Validar que todos los campos numéricos sean enteros
+    // Campos numéricos ingresados manualmente (los totales se calculan y no se validan contra input directo)
     const camposNumericos = [
       "pesoEmpaqueComercialRX",
       "pesoTotalComercialRX",
@@ -149,9 +150,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       "pesoEmpaqueIntrahospitalario",
       "pesoTotalIntrahospitalario",
       "pesoEmpaqueMuestrasMedicas",
-      "pesoTotalMuestrasMedicas",
-      "totalPesoEmpaques",
-      "totalPesoProducto"
+      "pesoTotalMuestrasMedicas"
     ];
     for (const producto of productos) {
       for (const campo of camposNumericos) {
@@ -257,27 +256,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(plantillaData);
 
-    // Agregar fórmulas para las columnas de totales después de crear la hoja
-    plantillaData.forEach((_, index) => {
-      const rowNumber = index + 2; // Las filas en Excel empiezan en 2 (después del header)
-      
-      // Fórmula para Total Peso Empaques (suma de columnas F, H, J, L, N)
-      ws[`Q${rowNumber}`] = { f: `F${rowNumber}+H${rowNumber}+J${rowNumber}+L${rowNumber}+N${rowNumber}` };
-      
-      // Fórmula para Total Peso Producto (suma de columnas G, I, K, M, O)
-      ws[`R${rowNumber}`] = { f: `G${rowNumber}+I${rowNumber}+K${rowNumber}+M${rowNumber}+O${rowNumber}` };
-    });
-
-    // Agregar headers para las columnas de totales
-    ws['Q1'] = { v: 'Total Peso Empaques (kg)', t: 's' };
-    ws['R1'] = { v: 'Total Peso Producto (kg)', t: 's' };
-
-    // Actualizar el rango de la hoja para incluir las nuevas columnas
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    range.e.c = 17; // Extender hasta la columna R (17)
-    ws['!ref'] = XLSX.utils.encode_range(range);
-
-    // Configurar ancho de columnas
+    // Configurar ancho de columnas (sin columnas de totales finales)
     ws['!cols'] = [
       { width: 25 }, // Razón Social
       { width: 20 }, // Marca
@@ -294,9 +273,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       { width: 20 }, // Peso Total Intrahospitalario
       { width: 20 }, // Peso Empaque Muestras Médicas
       { width: 20 }, // Peso Total Muestras Médicas
-      { width: 15 }, // Fabricación
-      { width: 20 }, // Total Peso Empaques
-      { width: 20 }  // Total Peso Producto
+      { width: 15 } // Fabricación
     ];
 
     // Agregar worksheet al workbook
@@ -348,9 +325,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           const pesoEmpaqueMuestrasMedicas = row["Peso Empaque Muestras Médicas (kg)"] || row["pesoEmpaqueMuestrasMedicas"] || 0;
           const pesoTotalMuestrasMedicas = row["Peso Total Muestras Médicas (kg)"] || row["pesoTotalMuestrasMedicas"] || 0;
 
-          // Campos calculados (opcionales, se calcularán automáticamente si no están presentes)
-          const totalPesoEmpaquesExcel = row["Total Peso Empaques (kg)"] || row["totalPesoEmpaques"] || null;
-          const totalPesoProductoExcel = row["Total Peso Producto (kg)"] || row["totalPesoProducto"] || null;
+          // Totales se ignorarán si vienen en el archivo (se recalculan siempre)
 
           // Validaciones de campos obligatorios
           if (!razonSocial || razonSocial.trim() === "") {
@@ -377,13 +352,6 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
             { valor: pesoTotalMuestrasMedicas, nombre: "Peso Total Muestras Médicas" }
           ];
 
-          // Agregar validación para totales si están presentes
-          if (totalPesoEmpaquesExcel !== null) {
-            camposNumericos.push({ valor: totalPesoEmpaquesExcel, nombre: "Total Peso Empaques" });
-          }
-          if (totalPesoProductoExcel !== null) {
-            camposNumericos.push({ valor: totalPesoProductoExcel, nombre: "Total Peso Producto" });
-          }
 
           camposNumericos.forEach(campo => {
             const num = parseFloat(campo.valor);
@@ -403,18 +371,16 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           if (erroresFila.length > 0) {
             errores.push(`Fila ${rowNumber}: ${erroresFila.join(", ")}`);
           } else {
-            // Calcular totales automáticamente (usar valores del Excel si están presentes)
-            const totalPesoEmpaques = totalPesoEmpaquesExcel !== null 
-              ? parseFloat(totalPesoEmpaquesExcel) 
-              : parseFloat(pesoEmpaqueComercialRX) + parseFloat(pesoEmpaqueComercialOTC) + 
-                parseFloat(pesoEmpaqueInstitucional) + parseFloat(pesoEmpaqueIntrahospitalario) + 
-                parseFloat(pesoEmpaqueMuestrasMedicas);
-            
-            const totalPesoProducto = totalPesoProductoExcel !== null 
-              ? parseFloat(totalPesoProductoExcel)
-              : parseFloat(pesoTotalComercialRX) + parseFloat(pesoTotalComercialOTC) + 
-                parseFloat(pesoTotalInstitucional) + parseFloat(pesoTotalIntrahospitalario) + 
-                parseFloat(pesoTotalMuestrasMedicas);
+            // Calcular totales siempre a partir de los campos base
+            const totalPesoEmpaques = 
+              parseFloat(pesoEmpaqueComercialRX) + parseFloat(pesoEmpaqueComercialOTC) + 
+              parseFloat(pesoEmpaqueInstitucional) + parseFloat(pesoEmpaqueIntrahospitalario) + 
+              parseFloat(pesoEmpaqueMuestrasMedicas);
+
+            const totalPesoProducto = 
+              parseFloat(pesoTotalComercialRX) + parseFloat(pesoTotalComercialOTC) + 
+              parseFloat(pesoTotalInstitucional) + parseFloat(pesoTotalIntrahospitalario) + 
+              parseFloat(pesoTotalMuestrasMedicas);
 
             productosValidados.push({
               id: productos.length + productosValidados.length + 1,
@@ -740,23 +706,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                         </div>
                       )}
                     </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "totalPesoEmpaques", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.totalPesoEmpaques}
-                      </div>
+                    <td className="min-w-[100px] p-1 border border-gray-300 bg-gray-100 cursor-not-allowed" title="Campo calculado automáticamente">
+                      {producto.totalPesoEmpaques}
                     </td>
-                    <td className="min-w-[100px] p-1 border border-gray-300">
-                      <div
-                        contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "totalPesoProducto", e.target.textContent || "")}
-                        className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
-                      >
-                        {producto.totalPesoProducto}
-                      </div>
+                    <td className="min-w-[100px] p-1 border border-gray-300 bg-gray-100 cursor-not-allowed" title="Campo calculado automáticamente">
+                      {producto.totalPesoProducto}
                     </td>
                     <td>
                       {!readonly && (

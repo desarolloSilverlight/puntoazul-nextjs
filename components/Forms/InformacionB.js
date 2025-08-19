@@ -3,7 +3,7 @@ import Modal from "react-modal";
 import PropTypes from "prop-types";
 import { API_BASE_URL } from "../../utils/config";
 
-export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, estado: propEstado, readonly = false, idInformacionB: propIdInformacionB }) {
+export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, estado: propEstado, readonly = false, idInformacionB: propIdInformacionB, onEstadoChange }) {
   // Necesario para accesibilidad con react-modal
   if (typeof window !== "undefined") {
     Modal.setAppElement("#__next");
@@ -33,8 +33,12 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   // Actualizar estado cuando cambie la prop
   React.useEffect(() => {
     if (propEstado) {
-      setEstado(propEstado);
-      // Controlar edición basado en el estado
+      setEstado(prev => {
+        if (prev !== propEstado) {
+          onEstadoChange && onEstadoChange(propEstado);
+        }
+        return propEstado;
+      });
       if (propEstado === "Iniciado" || propEstado === "Guardado" || propEstado === "Rechazado") {
         setIsDisabled(false);
       } else {
@@ -105,11 +109,10 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         const data = await response.json();
         console.log("Datos obtenidos:", data);
         
-        // Solo guardar en localStorage si no es modo readonly
-        if (!readonly) {
-          localStorage.setItem("idInformacionB", data.idInformacionB); // Guardar id en localStorage
-          localStorage.setItem("estadoInformacionB", data.estado); // Guardar estado en localStorage
-        }
+    if (!readonly) {
+      localStorage.setItem("idInformacionB", data.idInformacionB);
+      localStorage.setItem("estadoInformacionB", data.estado);
+    }
         
         // Llenar los campos del formulario con los datos obtenidos
         setFormData({
@@ -131,7 +134,12 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         });
 
         // Manejar el estado del formulario según el valor de "estado"
-        setEstado(data.estado);
+        setEstado(prev => {
+          if (prev !== data.estado) {
+            onEstadoChange && onEstadoChange(data.estado);
+          }
+          return data.estado;
+        });
         
         // Solo controlar edición en modo normal
         if (!readonly) {
@@ -206,7 +214,12 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         alert("Formulario actualizado correctamente.");
         // Actualizar estado a "Guardado"
         localStorage.setItem("estadoInformacionB", "Guardado");
-        setEstado("Guardado");
+        setEstado(prev => {
+          if (prev !== "Guardado") {
+            onEstadoChange && onEstadoChange("Guardado");
+          }
+          return "Guardado";
+        });
         setIsDisabled(false); // Permitir edición en estado Guardado
       } else if (checkResponse.status === 404) {
         // Si no existen datos, crearlos
@@ -226,7 +239,12 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         localStorage.setItem("idInformacionB", result.data.idInformacionB); // Guardar id en localStorage
         // Actualizar estado a "Guardado"
         localStorage.setItem("estadoInformacionB", "Guardado");
-        setEstado("Guardado");
+        setEstado(prev => {
+          if (prev !== "Guardado") {
+            onEstadoChange && onEstadoChange("Guardado");
+          }
+          return "Guardado";
+        });
         setIsDisabled(false); // Permitir edición en estado Guardado
       } else {
         throw new Error(`Error ${checkResponse.status}: ${checkResponse.statusText}`);
@@ -572,4 +590,5 @@ FormularioAfiliado.propTypes = {
   estado: PropTypes.string,
   readonly: PropTypes.bool,
   idInformacionB: PropTypes.string,
+  onEstadoChange: PropTypes.func,
 };

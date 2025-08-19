@@ -5,6 +5,7 @@ import Modal from "react-modal";
 import { Oval } from 'react-loader-spinner';
 import Backdrop from '@mui/material/Backdrop';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 export default function FormularioAfiliado({ color, readonly = false, idInformacionF: propIdInformacionF }) {
   const [isLoading, setIsLoading] = useState(false);
   let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF");
@@ -14,6 +15,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const [productos, setProductos] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
+  const [erroresCampos, setErroresCampos] = useState({});
 
   // Obtener productos desde el backend al cargar el componente
   // --- Toneladas acumuladas globales ---
@@ -47,12 +49,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const data = await response.json();
         console.log("Empaques plásticos obtenidos:", data);
         // Mapear los datos recibidos al formato esperado por el componente
-        const productosFormateados = data.map(producto => ({
+  const productosFormateados = data.map(producto => ({
           id: producto.idEmpaque,
           idInformacionF: producto.idInformacionF,
           empresaTitular: producto.empresa || "",
           nombreProducto: producto.nombre_producto || "",
-          pesoUnitario: producto.peso || "",
           pet: producto.pet || "",
           unidades: producto.unidades || "",
           liquidos: JSON.parse(producto.liquidos || "{}"),
@@ -81,33 +82,33 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         empresaTitular: "",
         nombreProducto: "",
         liquidos: {
-          "PET Agua": 0,
-          "PET Otros": 0,
-          "PET": 0,
-          HDPE: 0,
-          PVC: 0,
-          LDPE: 0,
-          PP: 0,
-          PS: 0,
-          Otros: 0
+          "PET Agua": '0,00',
+          "PET Otros": '0,00',
+          "PET": '0,00',
+          HDPE: '0,00',
+          PVC: '0,00',
+          LDPE: '0,00',
+          PP: '0,00',
+          PS: '0,00',
+          Otros: '0,00'
         },
         otrosProductos: {
-          PET: 0,
-          HDPE: 0,
-          PVC: 0,
-          LDPE: 0,
-          PP: 0,
-          PS: 0,
-          Otros: 0
+          PET: '0,00',
+          HDPE: '0,00',
+          PVC: '0,00',
+          LDPE: '0,00',
+          PP: '0,00',
+          PS: '0,00',
+          Otros: '0,00'
         },
         construccion: {
-          PET: 0,
-          HDPE: 0,
-          PVC: 0,
-          LDPE: 0,
-          PP: 0,
-          PS: 0,
-          Otros: 0
+          PET: '0,00',
+          HDPE: '0,00',
+          PVC: '0,00',
+          LDPE: '0,00',
+          PP: '0,00',
+          PS: '0,00',
+          Otros: '0,00'
         },
         excepciones: "",
         prohibiciones: "",
@@ -116,63 +117,80 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     ]);
   };
 
+  // Helper formato dos decimales
+  const format2 = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    const num = parseFloat(v.toString().replace(',', '.'));
+    if (isNaN(num)) return v;
+    return num.toFixed(2).replace('.', ',');
+  };
+
   const handleChange = (index, field, value) => {
     const nuevosProductos = [...productos];
-    const sanitizedValue = value.replace(",", ".");
-
-    if (field.startsWith("liquidos.")) {
-      const subField = field.split(".")[1];
-      if (typeof nuevosProductos[index].liquidos === 'string') {
-        try {
-          nuevosProductos[index].liquidos = JSON.parse(nuevosProductos[index].liquidos);
-        } catch {
-          nuevosProductos[index].liquidos = {};
-        }
-      }
-      nuevosProductos[index].liquidos[subField] = sanitizedValue;
-    } else if (field.startsWith("otrosProductos.")) {
-      const subField = field.split(".")[1];
-      if (typeof nuevosProductos[index].otrosProductos === 'string') {
-        try {
-          nuevosProductos[index].otrosProductos = JSON.parse(nuevosProductos[index].otrosProductos);
-        } catch {
-          nuevosProductos[index].otrosProductos = {};
-        }
-      }
-      nuevosProductos[index].otrosProductos[subField] = sanitizedValue;
-    } else if (field.startsWith("construccion.")) {
-      const subField = field.split(".")[1];
-      if (typeof nuevosProductos[index].construccion === 'string') {
-        try {
-          nuevosProductos[index].construccion = JSON.parse(nuevosProductos[index].construccion);
-        } catch {
-          nuevosProductos[index].construccion = {};
-        }
-      }
-      nuevosProductos[index].construccion[subField] = sanitizedValue;
-    } else if (field === "excepciones" || field === "prohibiciones") {
-      nuevosProductos[index][field] = value;
-    } else if (field === "unidades") {
-      // Si tipoReporte es totalizado, forzar a 1
-      if (localStorage.getItem("tipoReporte") === "totalizado") {
-        nuevosProductos[index].unidades = "1";
+    const tipoReporteLocal = localStorage.getItem('tipoReporte');
+    const registrar = (objRef, subField, raw) => {
+      let val = raw.trim();
+      const keyErr = `${index}-${field}`;
+      const nuevoErr = { ...erroresCampos };
+      if (val.includes('.')) {
+        nuevoErr[keyErr] = 'Use coma (,) para decimales';
+      } else if (val !== '' && !/^\d+(,\d{0,2})?$/.test(val)) {
+        nuevoErr[keyErr] = 'Máx 2 decimales con coma';
       } else {
-        nuevosProductos[index].unidades = sanitizedValue;
+        delete nuevoErr[keyErr];
+      }
+      setErroresCampos(nuevoErr);
+      objRef[subField] = val === '' ? '' : val; // mantener tal cual; formateo visual con format2
+    };
+    if (field.startsWith('liquidos.')) {
+      const sub = field.split('.')[1];
+      if (typeof nuevosProductos[index].liquidos === 'string') {
+        try { nuevosProductos[index].liquidos = JSON.parse(nuevosProductos[index].liquidos); } catch { nuevosProductos[index].liquidos = {}; }
+      }
+      registrar(nuevosProductos[index].liquidos, sub, value);
+    } else if (field.startsWith('otrosProductos.')) {
+      const sub = field.split('.')[1];
+      if (typeof nuevosProductos[index].otrosProductos === 'string') {
+        try { nuevosProductos[index].otrosProductos = JSON.parse(nuevosProductos[index].otrosProductos); } catch { nuevosProductos[index].otrosProductos = {}; }
+      }
+      registrar(nuevosProductos[index].otrosProductos, sub, value);
+    } else if (field.startsWith('construccion.')) {
+      const sub = field.split('.')[1];
+      if (typeof nuevosProductos[index].construccion === 'string') {
+        try { nuevosProductos[index].construccion = JSON.parse(nuevosProductos[index].construccion); } catch { nuevosProductos[index].construccion = {}; }
+      }
+      registrar(nuevosProductos[index].construccion, sub, value);
+    } else if (field === 'excepciones' || field === 'prohibiciones') {
+      nuevosProductos[index][field] = value;
+    } else if (field === 'unidades') {
+      if (tipoReporteLocal === 'totalizado') {
+        nuevosProductos[index].unidades = '1';
+      } else {
+        const val = value.trim();
+        const keyErr = `${index}-unidades`;
+        const nuevoErr = { ...erroresCampos };
+        if (val.includes('.') || val.includes(',')) {
+          nuevoErr[keyErr] = 'Solo enteros';
+        } else if (val !== '' && !/^\d+$/.test(val)) {
+          nuevoErr[keyErr] = 'Solo dígitos';
+        } else {
+          delete nuevoErr[keyErr];
+        }
+        setErroresCampos(nuevoErr);
+        nuevosProductos[index].unidades = val;
       }
     } else {
-      nuevosProductos[index][field] = sanitizedValue;
+      nuevosProductos[index][field] = value;
     }
-
     setProductos(nuevosProductos);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    // Validar que todos los campos de liquidos, otrosProductos y construccion sean decimales con hasta 10 decimales y reemplazar comas por puntos
-    const camposLiquidos = ["PET Agua", "PET Otros", "PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
-    const camposOtros = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
-    const decimalRegex = /^\d+(\.\d{1,10})?$/;
+  const camposLiquidos = ["PET Agua", "PET Otros", "PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
+  const camposOtros = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
+  const decimalRegexComa = /^\d+(,\d{1,2})?$/;
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
       // Validación de empresaTitular, nombreProducto y unidades
@@ -211,54 +229,44 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         setIsLoading(false);
         return;
       }
-      // liquidos
-      for (const campo of camposLiquidos) {
-        let valor = producto.liquidos[campo];
-        if (valor !== undefined && valor !== "") {
-          valor = valor.toString().replace(/,/g, ".");
-          if (!decimalRegex.test(valor)) {
-            alert(`El campo 'Líquidos.${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto.liquidos[campo]}`);
-            setIsLoading(false);
-            return;
+      const validarGrupo = (grupo, nombreGrupo) => {
+        for (const campo of grupo) {
+          let valor = producto[nombreGrupo][campo];
+          if (valor === null || valor === undefined || valor === '') {
+            producto[nombreGrupo][campo] = '0';
+            continue;
           }
-          // Actualizar el valor en productos para asegurar que se envía con punto
-          productos[i].liquidos[campo] = valor;
+          const str = valor.toString();
+          if (str.includes('.')) { alert(`Fila ${i+1} ${nombreGrupo}.${campo}: No use punto, use coma.`); setIsLoading(false); return false; }
+          if (str !== '' && !decimalRegexComa.test(str)) { alert(`Fila ${i+1} ${nombreGrupo}.${campo}: Formato inválido (máx 2 decimales con coma).`); setIsLoading(false); return false; }
         }
-      }
-      // otrosProductos
-      for (const campo of camposOtros) {
-        let valor = producto.otrosProductos[campo];
-        if (valor !== undefined && valor !== "") {
-          valor = valor.toString().replace(/,/g, ".");
-          if (!decimalRegex.test(valor)) {
-            alert(`El campo 'Otros Productos.${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto.otrosProductos[campo]}`);
-            setIsLoading(false);
-            return;
-          }
-          productos[i].otrosProductos[campo] = valor;
-        }
-      }
-      // construccion
-      for (const campo of camposOtros) {
-        let valor = producto.construccion[campo];
-        if (valor !== undefined && valor !== "") {
-          valor = valor.toString().replace(/,/g, ".");
-          if (!decimalRegex.test(valor)) {
-            alert(`El campo 'Construcción.${campo}' en la fila ${i + 1} debe ser un número decimal válido (máx 10 decimales). Valor ingresado: ${producto.construccion[campo]}`);
-            setIsLoading(false);
-            return;
-          }
-          productos[i].construccion[campo] = valor;
-        }
-      }
+        return true;
+      };
+      if (!validarGrupo(camposLiquidos, 'liquidos')) return;
+      if (!validarGrupo(camposOtros, 'otrosProductos')) return;
+      if (!validarGrupo(camposOtros, 'construccion')) return;
     }
     // Serializar los campos de plásticos solo una vez antes de enviar
-    const productosSerializados = productos.map((producto) => ({
-      ...producto,
-      liquidos: typeof producto.liquidos === 'string' ? JSON.parse(producto.liquidos) : producto.liquidos,
-      otrosProductos: typeof producto.otrosProductos === 'string' ? JSON.parse(producto.otrosProductos) : producto.otrosProductos,
-      construccion: typeof producto.construccion === 'string' ? JSON.parse(producto.construccion) : producto.construccion
-    }));
+    const convertir = v => {
+      if (v === null || v === undefined || v === '') return '0';
+      if (typeof v === 'string') {
+        if (v.includes('.')) throw new Error('Formato con punto detectado en números (no permitido).');
+        return v.replace(',', '.');
+      }
+      return String(v);
+    };
+    const productosSerializados = productos.map((producto) => {
+      const liq = typeof producto.liquidos === 'string' ? JSON.parse(producto.liquidos) : producto.liquidos;
+      const otr = typeof producto.otrosProductos === 'string' ? JSON.parse(producto.otrosProductos) : producto.otrosProductos;
+      const cons = typeof producto.construccion === 'string' ? JSON.parse(producto.construccion) : producto.construccion;
+      const normGrupo = (g) => Object.fromEntries(Object.entries(g).map(([k,v]) => [k, convertir(v)]));
+      return {
+        ...producto,
+        liquidos: normGrupo(liq),
+        otrosProductos: normGrupo(otr),
+        construccion: normGrupo(cons)
+      };
+    });
     try {
       const response = await fetch(`${API_BASE_URL}/informacion-f/crearEmpaquePlastico`, {
         method: "POST",
@@ -286,145 +294,44 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   };
 
   // Excel download functionality
-  const descargarPlantilla = () => {
-    const tipoReporte = localStorage.getItem("tipoReporte");
-    const unidadesEjemplo = tipoReporte === "totalizado" ? "1" : "500";
-    
-    // Crear datos ejemplo con estructura plana para Excel
-    const datosEjemplo = [
-      {
-        "Empresa titular": "Ejemplo Empresa A",
-        "Nombre Producto": "Envase Plástico 1",
-        "Liquidos_PET_Agua": "2.5",
-        "Liquidos_PET_Otros": "0",
-        "Liquidos_PET": "1.8",
-        "Liquidos_HDPE": "0",
-        "Liquidos_PVC": "0",
-        "Liquidos_LDPE": "0.5",
-        "Liquidos_PP": "0",
-        "Liquidos_PS": "0",
-        "Liquidos_Otros": "0",
-        "OtrosProductos_PET": "3.2",
-        "OtrosProductos_HDPE": "0",
-        "OtrosProductos_PVC": "0",
-        "OtrosProductos_LDPE": "0",
-        "OtrosProductos_PP": "1.1",
-        "OtrosProductos_PS": "0",
-        "OtrosProductos_Otros": "0",
-        "Construccion_PET": "0",
-        "Construccion_HDPE": "0",
-        "Construccion_PVC": "0",
-        "Construccion_LDPE": "0",
-        "Construccion_PP": "0",
-        "Construccion_PS": "0",
-        "Construccion_Otros": "0",
-        "Excepciones": "no_aplica",
-        "Prohibiciones": "bolsas_pago",
-        "Unidades": unidadesEjemplo
-      },
-      {
-        "Empresa titular": "Ejemplo Empresa B",
-        "Nombre Producto": "Envase Plástico 2",
-        "Liquidos_PET_Agua": "0",
-        "Liquidos_PET_Otros": "3.7",
-        "Liquidos_PET": "0",
-        "Liquidos_HDPE": "2.1",
-        "Liquidos_PVC": "0",
-        "Liquidos_LDPE": "0",
-        "Liquidos_PP": "0",
-        "Liquidos_PS": "0",
-        "Liquidos_Otros": "0",
-        "OtrosProductos_PET": "0",
-        "OtrosProductos_HDPE": "4.5",
-        "OtrosProductos_PVC": "0",
-        "OtrosProductos_LDPE": "0",
-        "OtrosProductos_PP": "0",
-        "OtrosProductos_PS": "1.8",
-        "OtrosProductos_Otros": "0",
-        "Construccion_PET": "0",
-        "Construccion_HDPE": "0",
-        "Construccion_PVC": "0",
-        "Construccion_LDPE": "0",
-        "Construccion_PP": "0",
-        "Construccion_PS": "0",
-        "Construccion_Otros": "0",
-        "Excepciones": "medicos",
-        "Prohibiciones": "no_aplica",
-        "Unidades": tipoReporte === "totalizado" ? "1" : "750"
-      }
+  const descargarPlantilla = async () => {
+    const tipoReporte = localStorage.getItem('tipoReporte');
+    const headers = [
+      'Empresa titular','Nombre Producto',
+      'Liquidos PET Agua (g)','Liquidos PET Otros (g)','Liquidos PET (g)','Liquidos HDPE (g)','Liquidos PVC (g)','Liquidos LDPE (g)','Liquidos PP (g)','Liquidos PS (g)','Liquidos Otros (g)',
+      'OtrosProductos PET (g)','OtrosProductos HDPE (g)','OtrosProductos PVC (g)','OtrosProductos LDPE (g)','OtrosProductos PP (g)','OtrosProductos PS (g)','OtrosProductos Otros (g)',
+      'Construccion PET (g)','Construccion HDPE (g)','Construccion PVC (g)','Construccion LDPE (g)','Construccion PP (g)','Construccion PS (g)','Construccion Otros (g)',
+      'Excepciones','Prohibiciones','Unidades'
     ];
-
-    // Crear workbook y worksheet
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(datosEjemplo);
-
-    // Agregar instrucciones detalladas
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator='PuntoAzul'; workbook.created=new Date();
+    const sheetEntrada = workbook.addWorksheet('Empaques');
+    sheetEntrada.addRow(headers); sheetEntrada.getRow(1).font={bold:true}; sheetEntrada.columns.forEach(c=> c.width=20);
+    const sheetEjemplos = workbook.addWorksheet('Ejemplos_Instrucciones');
+    sheetEjemplos.addRow(headers).font={bold:true};
+    const unidadesEj = tipoReporte==='totalizado'?'1':'500';
+    const ejemplo2U = tipoReporte==='totalizado'?'1':'750';
+    const ejemplos = [
+      ['Ejemplo Empresa A','Envase Plástico 1','2,50','0','1,80','0','0','0,50','0','0','0','3,20','0','0','0','1,10','0','0','0','0','0','0','0','0','0','no_aplica','bolsas_pago',unidadesEj],
+      ['Ejemplo Empresa B','Envase Plástico 2','0','3,70','0','2,10','0','0','0','0','0','0','4,50','0','0','0','0','1,80','0','0','0','0','0','0','0','medicos','no_aplica',ejemplo2U]
+    ];
+    ejemplos.forEach(r=> sheetEjemplos.addRow(r));
+    sheetEjemplos.columns.forEach(c=> c.width=22);
+    sheetEjemplos.addRow([]);
     const instrucciones = [
-      [""],
-      ["INSTRUCCIONES IMPORTANTES PARA EMPAQUES PLÁSTICOS:"],
-      [""],
-      ["CAMPOS OBLIGATORIOS:"],
-      ["• Empresa titular: No puede estar vacío"],
-      ["• Nombre Producto: No puede estar vacío"],
-      ["• Unidades: No puede estar vacío"],
-      ["• Excepciones: Debe seleccionar una opción válida"],
-      ["• Prohibiciones: Debe seleccionar una opción válida"],
-      [""],
-      ["REGLA ESPECIAL EXCEPCIONES/PROHIBICIONES:"],
-      ["• UNO de los dos campos DEBE ser 'no_aplica'"],
-      ["• NO pueden ser ambos diferentes a 'no_aplica'"],
-      [""],
-      ["VALORES NUMÉRICOS:"],
-      ["• Todos los pesos en gramos con hasta 10 decimales"],
-      ["• Usar punto (.) como separador decimal"],
-      ["• Campos vacíos se interpretarán como 0"],
-      [""],
-      ["OPCIONES VÁLIDAS PARA 'Excepciones':"],
-      ["• medicos - Propósitos médicos"],
-      ["• quimicos - Químicos con riesgo a la salud humana o al medio ambiente"],
-      ["• alimentos - Alimentos, líquidos y bebidas de origen animal, por razones de asepsia o inocuidad"],
-      ["• higiene - Fines específicos que por razones de higiene o salud requieren bolsa"],
-      ["• asistencia - Uso del plástico en los establecimientos que brindan asistencia médica"],
-      ["• impacto - Los plásticos de un solo uso cuyos sustitutos tengan un impacto ambiental y humano mayor"],
-      ["• residuos - Empacar o envasar residuos peligrosos"],
-      ["• reciclado - Aquellos productos fabricados con 100% de materia reciclada"],
-      ["• pitillos - Pitillos adheridos a envases de hasta 300 ml con sistema de retención"],
-      ["• no_aplica - No Aplica"],
-      [""],
-      ["OPCIONES VÁLIDAS PARA 'Prohibiciones':"],
-      ["• bolsas_pago - Bolsas de punto de pago (2024)"],
-      ["• bolsas_publicidad - Bolsas para publicidad, facturas y lavanderías (2024)"],
-      ["• rollos_bolsas - Rollos de bolsas vacías en comercios (2024)"],
-      ["• mezcladores_pitillos - Mezcladores y pitillos para bebidas (2024)"],
-      ["• soportes_bombas - Soportes plásticos para bombas de inflar (2024)"],
-      ["• soportes_copitos - Soportes plásticos de los hisopos flexibles (2024)"],
-      ["• envases_liquidos - Envases y bolsas para líquidos no preenvasados (2030)"],
-      ["• platos_utensilios - Platos, bandejas, cubiertos, vasos y guantes para comer (2030)"],
-      ["• confeti_manteles - Confeti, manteles y serpentinas (2030)"],
-      ["• empaques_alimentos - Empaques para comidas no preenvasadas (2030)"],
-      ["• laminas_alimentos - Láminas para servir o envolver alimentos (2030)"],
-      ["• empaques_frutas - Empaques para frutas, verduras y tubérculos frescos (2030)"],
-      ["• adhesivos_etiquetas - Adhesivos, etiquetas o distintivos en vegetales (2030)"],
-      ["• no_aplica - No Aplica"]
+      'INSTRUCCIONES IMPORTANTES PARA EMPAQUES PLÁSTICOS:',
+      '',
+      'Campos obligatorios: Empresa titular, Nombre Producto, Unidades, Excepciones, Prohibiciones',
+      "Regla: Uno de Excepciones o Prohibiciones debe ser 'no_aplica'",
+      'Valores numéricos: coma (,) para decimales, máx 2. No usar punto.',
+      'Campos vacíos se interpretan como 0,00',
+      'Opciones Excepciones: medicos, quimicos, alimentos, higiene, asistencia, impacto, residuos, reciclado, pitillos, no_aplica',
+      'Opciones Prohibiciones: bolsas_pago, bolsas_publicidad, rollos_bolsas, mezcladores_pitillos, soportes_bombas, soportes_copitos, envases_liquidos, platos_utensilios, confeti_manteles, empaques_alimentos, laminas_alimentos, empaques_frutas, adhesivos_etiquetas, no_aplica'
     ];
-
-    // Agregar nota sobre tipo de reporte
-    if (tipoReporte === "totalizado") {
-      instrucciones.unshift(["IMPORTANTE: Las unidades deben ser 1 para reportes totalizados"], [""]);
-    }
-
-    // Agregar las instrucciones
-    XLSX.utils.sheet_add_aoa(worksheet, instrucciones, { origin: 'A4' });
-
-    // Agregar la hoja al workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Empaques Plásticos");
-
-    // Nombre del archivo según el tipo de reporte
-    const nombreArchivo = tipoReporte === "totalizado" 
-      ? "plantilla_empaques_plasticos_totalizado.xlsx"
-      : "plantilla_empaques_plasticos.xlsx";
-    
-    XLSX.writeFile(workbook, nombreArchivo);
+    if (tipoReporte==='totalizado') instrucciones.unshift('IMPORTANTE: Unidades deben ser 1 para reporte totalizado','');
+    instrucciones.forEach(t=> { const row=sheetEjemplos.addRow([t]); sheetEjemplos.mergeCells(`A${row.number}:AC${row.number}`); if(/INSTRUCCIONES|IMPORTANTE/.test(t)) row.font={bold:true}; });
+    const nombreArchivo = tipoReporte==='totalizado'?'plantilla_empaques_plasticos_totalizado.xlsx':'plantilla_empaques_plasticos.xlsx';
+    try { const buf = await workbook.xlsx.writeBuffer(); const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=nombreArchivo; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);} catch(e){ console.error('Error generando Excel:',e); alert('No se pudo generar la plantilla Excel.'); }
   };
 
   // Excel upload functionality
@@ -439,57 +346,57 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        if (jsonData.length === 0) {
-          alert('El archivo Excel está vacío.');
-          return;
-        }
-
-        // Mapeo de columnas con flexibilidad para estructura plana
+        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        if (!rawRows || rawRows.length===0){ alert('El archivo Excel está vacío.'); return; }
+        let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c=> typeof c==='string' && c.toLowerCase().includes('empresa')) && r.some(c=> typeof c==='string' && c.toLowerCase().includes('nombre')));
+        if (headerIndex === -1){ alert('No se encontraron encabezados válidos.'); return; }
+        const headers = rawRows[headerIndex].map(h => (h||'').toString().trim());
+        const dataMatrix = rawRows.slice(headerIndex+1).filter(r => r.some(c=> c!==null && c!==undefined && c!==''));
+        const jsonData = dataMatrix.map(r => { const o={}; headers.forEach((h,i)=> o[h]=r[i]); return o; });
+        if (jsonData.length===0){ alert('No hay filas de datos después de encabezados.'); return; }
         const mapearColumnas = (row) => {
-          const keys = Object.keys(row);
+          const keys = Object.keys(row); const lower = keys.map(k=>k.toLowerCase()); const find=(pred)=> { const i=lower.findIndex(pred); return i>=0? keys[i]: null; };
+          const g = (pref, material) => row[find(k=> k.includes(pref) && k.includes(material))] || '0';
           return {
-            empresaTitular: row[keys.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('titular'))] || "",
-            nombreProducto: row[keys.find(k => k.toLowerCase().includes('nombre') && k.toLowerCase().includes('producto'))] || "",
-            // Líquidos (9 campos)
-            liquidosPETAgua: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('pet') && k.toLowerCase().includes('agua'))] || "0",
-            liquidosPETOtros: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('pet') && k.toLowerCase().includes('otros'))] || "0",
-            liquidosPET: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('pet') && !k.toLowerCase().includes('agua') && !k.toLowerCase().includes('otros'))] || "0",
-            liquidosHDPE: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('hdpe'))] || "0",
-            liquidosPVC: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('pvc'))] || "0",
-            liquidosLDPE: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('ldpe'))] || "0",
-            liquidosPP: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('pp'))] || "0",
-            liquidosPS: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('ps'))] || "0",
-            liquidosOtros: row[keys.find(k => k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('otros'))] || "0",
-            // Otros Productos (7 campos)
-            otrosPET: row[keys.find(k => k.toLowerCase().includes('otrosproductos') && k.toLowerCase().includes('pet'))] || "0",
-            otrosHDPE: row[keys.find(k => k.toLowerCase().includes('otrosproductos') && k.toLowerCase().includes('hdpe'))] || "0",
-            otrosPVC: row[keys.find(k => k.toLowerCase().includes('otrosproductos') && k.toLowerCase().includes('pvc'))] || "0",
-            otrosLDPE: row[keys.find(k => k.toLowerCase().includes('otrosproductos') && k.toLowerCase().includes('ldpe'))] || "0",
-            otrosPP: row[keys.find(k => k.toLowerCase().includes('otrosproductos') && k.toLowerCase().includes('pp'))] || "0",
-            otrosPS: row[keys.find(k => k.toLowerCase().includes('otrosproductos') && k.toLowerCase().includes('ps'))] || "0",
-            otrosOtros: row[keys.find(k => k.toLowerCase().includes('otrosproductos') && k.toLowerCase().includes('otros'))] || "0",
-            // Construcción (7 campos)
-            construccionPET: row[keys.find(k => k.toLowerCase().includes('construccion') && k.toLowerCase().includes('pet'))] || "0",
-            construccionHDPE: row[keys.find(k => k.toLowerCase().includes('construccion') && k.toLowerCase().includes('hdpe'))] || "0",
-            construccionPVC: row[keys.find(k => k.toLowerCase().includes('construccion') && k.toLowerCase().includes('pvc'))] || "0",
-            construccionLDPE: row[keys.find(k => k.toLowerCase().includes('construccion') && k.toLowerCase().includes('ldpe'))] || "0",
-            construccionPP: row[keys.find(k => k.toLowerCase().includes('construccion') && k.toLowerCase().includes('pp'))] || "0",
-            construccionPS: row[keys.find(k => k.toLowerCase().includes('construccion') && k.toLowerCase().includes('ps'))] || "0",
-            construccionOtros: row[keys.find(k => k.toLowerCase().includes('construccion') && k.toLowerCase().includes('otros'))] || "0",
-            // Campos de selección
-            excepciones: row[keys.find(k => k.toLowerCase().includes('excepciones'))] || "",
-            prohibiciones: row[keys.find(k => k.toLowerCase().includes('prohibiciones'))] || "",
-            unidades: row[keys.find(k => k.toLowerCase().includes('unidades'))] || ""
+            empresaTitular: row[find(k=> k.includes('empresa') || k.includes('titular'))] || '',
+            nombreProducto: row[find(k=> k.includes('nombre') && k.includes('producto'))] || '',
+            liquidos: {
+              'PET Agua': g('liquidos','agua'),
+              'PET Otros': g('liquidos','otros'),
+              'PET': (()=>{ const k = keys.find(k=> k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('pet') && !k.toLowerCase().includes('agua') && !k.toLowerCase().includes('otros')); return row[k] || '0'; })(),
+              'HDPE': g('liquidos','hdpe'),
+              'PVC': g('liquidos','pvc'),
+              'LDPE': g('liquidos','ldpe'),
+              'PP': g('liquidos','pp'),
+              'PS': g('liquidos','ps'),
+              'Otros': g('liquidos','otros')
+            },
+            otrosProductos: {
+              'PET': g('otrosproductos','pet'),
+              'HDPE': g('otrosproductos','hdpe'),
+              'PVC': g('otrosproductos','pvc'),
+              'LDPE': g('otrosproductos','ldpe'),
+              'PP': g('otrosproductos','pp'),
+              'PS': g('otrosproductos','ps'),
+              'Otros': g('otrosproductos','otros')
+            },
+            construccion: {
+              'PET': g('construccion','pet'),
+              'HDPE': g('construccion','hdpe'),
+              'PVC': g('construccion','pvc'),
+              'LDPE': g('construccion','ldpe'),
+              'PP': g('construccion','pp'),
+              'PS': g('construccion','ps'),
+              'Otros': g('construccion','otros')
+            },
+            excepciones: row[find(k=> k.includes('excepciones'))] || '',
+            prohibiciones: row[find(k=> k.includes('prohibiciones'))] || '',
+            unidades: row[find(k=> k.includes('unidades'))] || ''
           };
         };
-
-        // Validar y procesar datos
-        const productosValidados = [];
-        const errores = [];
-        const decimalRegex = /^\d+(\.\d{1,10})?$/;
-        const tipoReporte = localStorage.getItem("tipoReporte");
+        const productosValidados = []; const errores = [];
+        const decimalRegexFlexible = /^\d+(?:[\.,]\d{1,10})?$/;
+        const tipoReporte = localStorage.getItem('tipoReporte');
 
         // Opciones válidas
         const opcionesExcepciones = ["medicos", "quimicos", "alimentos", "higiene", "asistencia", "impacto", "residuos", "reciclado", "pitillos", "no_aplica"];
@@ -497,7 +404,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
         jsonData.forEach((row, index) => {
           const producto = mapearColumnas(row);
-          const numeroFila = index + 2;
+          const numeroFila = headerIndex + 2 + index;
 
           // 1. Validar campos obligatorios
           if (!producto.empresaTitular.trim()) {
@@ -523,26 +430,20 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             errores.push(`Fila ${numeroFila}: Uno de 'Excepciones' o 'Prohibiciones' debe ser 'no_aplica'`);
           }
 
-          // 4. Validar campos numéricos
-          const camposNumericos = [
-            'liquidosPETAgua', 'liquidosPETOtros', 'liquidosPET', 'liquidosHDPE', 'liquidosPVC', 'liquidosLDPE', 'liquidosPP', 'liquidosPS', 'liquidosOtros',
-            'otrosPET', 'otrosHDPE', 'otrosPVC', 'otrosLDPE', 'otrosPP', 'otrosPS', 'otrosOtros',
-            'construccionPET', 'construccionHDPE', 'construccionPVC', 'construccionLDPE', 'construccionPP', 'construccionPS', 'construccionOtros'
-          ];
-
-          for (const campo of camposNumericos) {
-            let valor = producto[campo];
-            if (valor !== "" && valor !== null && valor !== undefined) {
-              valor = valor.toString().replace(/,/g, ".");
-              if (!decimalRegex.test(valor)) {
-                errores.push(`Fila ${numeroFila}: '${campo}' debe ser un número decimal válido (máx 10 decimales). Valor: ${producto[campo]}`);
-              } else {
-                producto[campo] = valor;
-              }
-            } else {
-              producto[campo] = "0";
-            }
-          }
+          const normalizarGrupo = (grp, nombre) => {
+            Object.keys(grp).forEach(k => {
+              let v = grp[k];
+              if (v === null || v === undefined || v === '') { grp[k] = '0,00'; return; }
+              const s = v.toString().trim();
+              if (!decimalRegexFlexible.test(s)) { errores.push(`Fila ${numeroFila}: '${nombre}.${k}' número inválido (${v})`); return; }
+              const num = parseFloat(s.replace(',', '.'));
+              if (isNaN(num)) { errores.push(`Fila ${numeroFila}: '${nombre}.${k}' no interpretable (${v})`); return; }
+              grp[k] = num.toFixed(2).replace('.', ',');
+            });
+          };
+          normalizarGrupo(producto.liquidos, 'Líquidos');
+          normalizarGrupo(producto.otrosProductos, 'OtrosProductos');
+          normalizarGrupo(producto.construccion, 'Construccion');
 
           // 5. Validar unidades según tipoReporte
           if (tipoReporte === "totalizado") {
@@ -558,35 +459,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             idInformacionF,
             empresaTitular: producto.empresaTitular,
             nombreProducto: producto.nombreProducto,
-            liquidos: {
-              "PET Agua": producto.liquidosPETAgua,
-              "PET Otros": producto.liquidosPETOtros,
-              "PET": producto.liquidosPET,
-              "HDPE": producto.liquidosHDPE,
-              "PVC": producto.liquidosPVC,
-              "LDPE": producto.liquidosLDPE,
-              "PP": producto.liquidosPP,
-              "PS": producto.liquidosPS,
-              "Otros": producto.liquidosOtros
-            },
-            otrosProductos: {
-              "PET": producto.otrosPET,
-              "HDPE": producto.otrosHDPE,
-              "PVC": producto.otrosPVC,
-              "LDPE": producto.otrosLDPE,
-              "PP": producto.otrosPP,
-              "PS": producto.otrosPS,
-              "Otros": producto.otrosOtros
-            },
-            construccion: {
-              "PET": producto.construccionPET,
-              "HDPE": producto.construccionHDPE,
-              "PVC": producto.construccionPVC,
-              "LDPE": producto.construccionLDPE,
-              "PP": producto.construccionPP,
-              "PS": producto.construccionPS,
-              "Otros": producto.construccionOtros
-            },
+            liquidos: producto.liquidos,
+            otrosProductos: producto.otrosProductos,
+            construccion: producto.construccion,
             excepciones: producto.excepciones,
             prohibiciones: producto.prohibiciones,
             unidades: producto.unidades.toString()

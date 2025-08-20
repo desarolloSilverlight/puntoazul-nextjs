@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import { API_BASE_URL } from "../../utils/config";
 
 export default function CardParametros({ color, onNew, onEdit }) {
   const [parametros, setParametros] = useState([]); // Estado para almacenar los usuarios
@@ -9,7 +10,7 @@ export default function CardParametros({ color, onNew, onEdit }) {
   // Función para obtener los usuarios desde el backend
   const fetchParametros = async () => {
     try {
-      const response = await fetch("https://nestbackend.fidare.com/parametros", {
+      const response = await fetch(`${API_BASE_URL}/parametros`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // Si necesitas enviar cookies

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import { API_BASE_URL } from "../../utils/config";
 
 export default function CardSettings({ color, onNew, onEdit }) {
   const [usuarios, setUsuarios] = useState([]); // Estado para almacenar los usuarios
@@ -9,7 +10,7 @@ export default function CardSettings({ color, onNew, onEdit }) {
   // Función para obtener los usuarios desde el backend
   const fetchUsuarios = async () => {
     try {
-      const response = await fetch("https://nestbackend.fidare.com/users/getUsers", {
+      const response = await fetch(`${API_BASE_URL}/users/getUsers`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // Si necesitas enviar cookies
@@ -70,21 +71,10 @@ export default function CardSettings({ color, onNew, onEdit }) {
           <table className="items-center w-full bg-transparent border-collapse">
             <thead>
               <tr>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Nombre
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Identificación
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Perfil
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Acciones
-                </th>
+                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Nombre</th>
+                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Identificación</th>
+                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Correo</th>
+                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -92,13 +82,12 @@ export default function CardSettings({ color, onNew, onEdit }) {
                 <tr key={usuario.idUsuario} className="border-t">
                   <td className="p-2">{usuario.nombre}</td>
                   <td className="p-2">{usuario.identificacion}</td>
-                  <td className="p-2">{usuario.estado}</td>
-                  <td className="p-2">{usuario.perfil}</td>
+                  <td className="p-2">{usuario.email}</td>
                   <td className="p-2">
                     <button
                       className="bg-blueGray-700 active:bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
                       type="button"
-                      onClick={() => onEdit(usuario.idUsuario)} // Cambiar a la vista de edición
+                      onClick={() => onEdit(usuario.idUsuario)}
                     >
                       Editar
                     </button>

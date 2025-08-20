@@ -20,6 +20,7 @@ export default function Sidebar() {
     { nombre: "Usuarios", ruta: "/admin/usuarios", icono: "fas fa-user-circle" },
     { nombre: "Perfiles", ruta: "/admin/perfiles", icono: "fas fa-user-tie" },
     { nombre: "Asociados", ruta: "/admin/asociados", icono: "fas fa-people-arrows" },
+    { nombre: "Vinculados", ruta: "/admin/vinculados", icono: "fas fa-people-arrows" },
     { nombre: "Parametros", ruta: "/admin/parametros", icono: "fas fa-wand-magic" },
   ];
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { API_BASE_URL } from "../../utils/config";
 
 export default function Parametro({ idParametro, onBack }) {
   const [parametro, setParametro] = useState({
@@ -23,7 +24,7 @@ export default function Parametro({ idParametro, onBack }) {
       const fetchParametro = async () => {
         setLoading(true);
         try {
-          const response = await fetch(`https://nestbackend.fidare.com/parametros/${idParametro}`, {
+          const response = await fetch(`${API_BASE_URL}/parametros/${idParametro}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -165,8 +166,8 @@ export default function Parametro({ idParametro, onBack }) {
     try {
       const method = idParametro ? "PUT" : "POST";
       const url = idParametro
-        ? `https://nestbackend.fidare.com/parametros/${idParametro}`
-        : "https://nestbackend.fidare.com/parametros";
+        ? `${API_BASE_URL}/parametros/${idParametro}`
+        : `${API_BASE_URL}/parametros`;
 
       // Crear estructura JSON para el backend
       const tableStructure = {

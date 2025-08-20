@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-// Importa tus formularios
+import { API_BASE_URL } from "../../utils/config";
+// Formularios
 import InformacionB from "../Forms/InformacionB";
 import ProductosB from "../Forms/ProductosB";
 
@@ -8,10 +9,14 @@ export default function CardAsociados({ color }) {
   const [asociados, setAsociados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIdUsuario, setSelectedIdUsuario] = useState(null);
+  const [activeTab, setActiveTab] = useState("informacion"); // Tabs: informacion | productos
+  const [infoLoading, setInfoLoading] = useState(false);
+  const [selectedInfoB, setSelectedInfoB] = useState(null); // Datos de informacion-b del asociado
+  const [infoError, setInfoError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
-    fetch("https://nestbackend.fidare.com/users/perfilUser?nombrePerfil=Asociado", {
+    fetch(`${API_BASE_URL}/users/perfilUser?nombrePerfil=Asociado`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       })
@@ -24,17 +29,104 @@ export default function CardAsociados({ color }) {
       .catch(() => setLoading(false));
   }, []);
 
+  const handleVerAsociado = async (idUsuario) => {
+    setSelectedIdUsuario(idUsuario);
+    setActiveTab("informacion");
+    setInfoLoading(true);
+    setInfoError(null);
+    setSelectedInfoB(null);
+    try {
+      const resp = await fetch(`${API_BASE_URL}/informacion-b/getByIdUsuario/${idUsuario}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (resp.status === 404) {
+        setInfoError("Este asociado aún no ha diligenciado su información.");
+      } else if (!resp.ok) {
+        throw new Error(`Error ${resp.status}`);
+      } else {
+        const data = await resp.json();
+        setSelectedInfoB(data);
+      }
+    } catch (e) {
+      setInfoError("No se pudo cargar la información del asociado.");
+    } finally {
+      setInfoLoading(false);
+    }
+  };
+
+  // Vista detalle con tabs (sin resumen)
   if (selectedIdUsuario) {
     return (
-      <div className="relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded p-6 ">
-        <button
-          className="mb-4 bg-blueGray-600 text-white px-4 py-2 rounded"
-          onClick={() => setSelectedIdUsuario(null)}
-        >
-          Volver a la lista
-        </button>
-        <InformacionB color="light" idUsuario={selectedIdUsuario} />
-        <ProductosB color="light" idUsuario={selectedIdUsuario} />
+      <div className="relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded bg-white">
+        <div className="flex items-center justify-between px-6 pt-4">
+          <h3 className="font-semibold text-lg text-blueGray-700">Detalle Asociado</h3>
+          <button
+            className="bg-blueGray-600 text-white px-4 py-2 rounded"
+            onClick={() => {
+              setSelectedIdUsuario(null);
+              setActiveTab("informacion");
+            }}
+          >
+            ← Volver
+          </button>
+        </div>
+        {/* Tabs */}
+        <div className="px-6 mt-4">
+          <nav className="flex space-x-1 mb-4">
+            <button
+              onClick={() => setActiveTab("informacion")}
+              className={`px-4 py-2 rounded-t-lg font-medium border-b-2 ${
+                activeTab === "informacion"
+                  ? "bg-blueGray-100 text-blueGray-800 border-blue-500"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 border-transparent"
+              }`}
+            >
+              Información Empresa
+            </button>
+            <button
+              onClick={() => setActiveTab("productos")}
+              className={`px-4 py-2 rounded-t-lg font-medium border-b-2 ${
+                activeTab === "productos"
+                  ? "bg-blueGray-100 text-blueGray-800 border-blue-500"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 border-transparent"
+              }`}
+            >
+              Productos
+            </button>
+          </nav>
+        </div>
+        {/* Contenido */}
+        <div className="p-6 pt-0">
+          {activeTab === "informacion" && (
+            infoLoading ? (
+              <div className="p-4 text-center">Cargando información...</div>
+            ) : infoError ? (
+              <div className="p-4 text-center text-red-500 text-sm">{infoError}</div>
+            ) : selectedInfoB ? (
+              <InformacionB
+                color="light"
+                readonly={true}
+                idInformacionB={selectedInfoB.idInformacionB}
+              />
+            ) : (
+              <div className="p-4 text-center text-sm">Sin datos para mostrar.</div>
+            )
+          )}
+          {activeTab === "productos" && (
+            selectedInfoB ? (
+              <ProductosB
+                color="light"
+                readonly={true}
+                idInformacionB={selectedInfoB.idInformacionB}
+              />
+            ) : infoLoading ? (
+              <div className="p-4 text-center">Cargando productos...</div>
+            ) : (
+              <div className="p-4 text-center text-sm">Primero debe existir la Información del asociado.</div>
+            )
+          )}
+        </div>
       </div>
     );
   }
@@ -91,12 +183,12 @@ export default function CardAsociados({ color }) {
                     <td className="p-2">{asociado.nombre}</td>
                     <td className="p-2">{asociado.nit}</td>
                     <td className="p-2">{asociado.celular}</td>
-                    <td className="p-2">{asociado.email}</td>
+          <td className="p-2">{asociado.email}</td>
                     <td className="p-2">
                       <button
                         className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
                         type="button"
-                        onClick={() => setSelectedIdUsuario(asociado.idUsuario)}
+            onClick={() => handleVerAsociado(asociado.idUsuario)}
                       >
                         Ver
                       </button>

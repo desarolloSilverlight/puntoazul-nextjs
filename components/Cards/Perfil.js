@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { API_BASE_URL } from "../../utils/config";
 
 const ACCESOS_DISPONIBLES = [
   "Formulario Linea Base",
@@ -11,6 +12,7 @@ const ACCESOS_DISPONIBLES = [
   "Usuarios",
   "Perfiles",
   "Asociados",
+  "Vinculados",
   "Parametros",
 ];
 
@@ -25,7 +27,7 @@ export default function Perfil({ nombre, onBack }) {
     const fetchAccesosSeleccionados = async () => {
       try {
         console.log("Fetching accesos seleccionados para el perfil:", nombre); // Verifica el nombre del perfil
-        const response = await fetch(`https://nestbackend.fidare.com/users/accesos?idPerfil=${nombre}`, {
+        const response = await fetch(`${API_BASE_URL}/users/accesos?idPerfil=${nombre}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -63,7 +65,7 @@ export default function Perfil({ nombre, onBack }) {
   // Guardar los accesos seleccionados
   const handleSave = async () => {
     try {
-      const response = await fetch(`https://nestbackend.fidare.com/users/accesos?nombre=${nombre}`, {
+      const response = await fetch(`${API_BASE_URL}/users/accesos?nombre=${nombre}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

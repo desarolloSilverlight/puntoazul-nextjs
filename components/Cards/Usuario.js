@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { API_BASE_URL } from "../../utils/config";
 
 export default function Usuario({ idUsuario, onBack }) {
   const [usuario, setUsuario] = useState({
@@ -13,6 +14,7 @@ export default function Usuario({ idUsuario, onBack }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Sin toggle de visualización de contraseña
 
   // Cargar datos del usuario si es edición
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function Usuario({ idUsuario, onBack }) {
       const fetchUsuario = async () => {
         setLoading(true);
         try {
-          const response = await fetch(`https://nestbackend.fidare.com/users/getUsuario?id=${idUsuario}`, {
+          const response = await fetch(`${API_BASE_URL}/users/getUsuario?id=${idUsuario}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
@@ -31,10 +33,10 @@ export default function Usuario({ idUsuario, onBack }) {
           }
 
           const data = await response.json();
-          console.log("Datos del usuario:", data); // Verifica los datos obtenidos
-          // Excluir el campo password de los datos cargados
-          const { password, ...rest } = data;
-          setUsuario(rest); // Cargar solo los datos necesarios
+          const { password: _hashPassword, ...rest } = data; // descartar hash
+          console.log("Datos del usuario:", { ...rest, password: '[omitido]' });
+          // Mantener el campo password vacío; si se deja vacío no se modifica
+          setUsuario(prev => ({ ...prev, ...rest, password: '' }));
         } catch (err) {
           setError(err.message);
         } finally {
@@ -60,12 +62,12 @@ export default function Usuario({ idUsuario, onBack }) {
     try {
       const method = idUsuario ? "PUT" : "POST";
       const url = idUsuario
-        ? `https://nestbackend.fidare.com/users/${idUsuario}`
-        : "https://nestbackend.fidare.com/users";
+        ? `${API_BASE_URL}/users/${idUsuario}`
+        : `${API_BASE_URL}/users`;
 
-        // Excluir el campo password si está vacío
-      const { password, ...rest } = usuario;
-      const payload = password ? { ...rest, password } : rest;
+  // Enviar password solo si el usuario escribió algo nuevo
+  const { password, ...rest } = usuario;
+  const payload = password ? { ...rest, password } : rest;
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -110,32 +112,64 @@ export default function Usuario({ idUsuario, onBack }) {
           <form onSubmit={handleSubmit}>
             {/* Primera fila */}
             <div className="grid grid-cols-2 gap-4 mb-4">
-                <input name="nombre" className="border p-2 w-full" type="text" placeholder="Nombre o razón social" value={usuario.nombre} required onChange={handleChange}/>
-                <input name="email" className="border p-2 w-full" type="email" placeholder="Correo" value={usuario.email} required onChange={handleChange}/>
+              <div className="flex flex-col">
+                <label htmlFor="nombre" className="text-xs font-semibold text-blueGray-600 mb-1">Nombre o razón social</label>
+                <input id="nombre" name="nombre" className="border p-2 w-full" type="text" placeholder="Nombre o razón social" value={usuario.nombre} required onChange={handleChange}/>
+              </div>
+              <div className="flex flex-col">
+                <label htmlFor="email" className="text-xs font-semibold text-blueGray-600 mb-1">Correo electrónico</label>
+                <input id="email" name="email" className="border p-2 w-full" type="email" placeholder="Correo" value={usuario.email} required onChange={handleChange}/>
+              </div>
             </div>
 
             {/* Segunda fila */}
             <div className="grid grid-cols-3 gap-4 mb-4">
-              <input name="celular" className="border p-2 w-full" type="text" placeholder="Celular" value={usuario.celular} onChange={handleChange}/>
-              <select name="estado" className="border p-2 w-full" value={usuario.estado} onChange={handleChange}>
-                <option value="">Seleccione ...</option>
-                <option value="Activo">Activo</option>
-                <option value="Inactivo">Inactivo</option>
-              </select>
-              <select name="perfil" className="border p-2 w-full" value={usuario.perfil} onChange={handleChange}
-              >
-                <option value="">Seleccione ...</option>
-                <option value="Administrador">Administrador</option>
-                <option value="Empleado">Empleado</option>
-                <option value="Asociado">Asociado</option>
-                <option value="Vinculado">Vinculado</option>
-              </select>
+              <div className="flex flex-col">
+                <label htmlFor="celular" className="text-xs font-semibold text-blueGray-600 mb-1">Celular</label>
+                <input id="celular" name="celular" className="border p-2 w-full" type="text" placeholder="Celular" value={usuario.celular} onChange={handleChange}/>
+              </div>
+              <div className="flex flex-col">
+                <label htmlFor="estado" className="text-xs font-semibold text-blueGray-600 mb-1">Estado</label>
+                <select id="estado" name="estado" className="border p-2 w-full" value={usuario.estado} onChange={handleChange}>
+                  <option value="">Seleccione ...</option>
+                  <option value="Activo">Activo</option>
+                  <option value="Inactivo">Inactivo</option>
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label htmlFor="perfil" className="text-xs font-semibold text-blueGray-600 mb-1">Perfil</label>
+                <select id="perfil" name="perfil" className="border p-2 w-full" value={usuario.perfil} onChange={handleChange}>
+                  <option value="">Seleccione ...</option>
+                  <option value="Administrador">Superadministrador</option>
+                  <option value="AdministradorB">Administrador Literal B</option>
+                  <option value="AdministradorF">Administrador Linea Base</option>
+                  <option value="ValidadorB">Validador Literal B</option>
+                  <option value="ValidadorF">Validador Linea Base</option>
+                  <option value="Asociado">Asociado</option>
+                  <option value="Vinculado">Vinculado</option>
+                </select>
+              </div>
             </div>
 
             {/* Tercera fila */}
             <div className="grid grid-cols-2 gap-4 mb-4">
-                <input name="identificacion" className="border p-2 w-full" type="text" placeholder="Identificacion" value={usuario.identificacion} onChange={handleChange}/>
-                <input name="password" className="border p-2 w-full" type="password" placeholder="Contraseña" onChange={handleChange}/>
+              <div className="flex flex-col">
+                <label htmlFor="identificacion" className="text-xs font-semibold text-blueGray-600 mb-1">Identificación</label>
+                <input id="identificacion" name="identificacion" className="border p-2 w-full" type="text" placeholder="Identificacion" value={usuario.identificacion} onChange={handleChange}/>
+              </div>
+              <div className="flex flex-col">
+                <label htmlFor="password" className="text-xs font-semibold text-blueGray-600 mb-1">Contraseña {idUsuario && <span className="font-normal text-blueGray-400">(dejar en blanco si no desea cambiarla)</span>}</label>
+                <input
+                  id="password"
+                  name="password"
+                  className="border p-2 w-full"
+                  type="password"
+                  placeholder={idUsuario ? 'Nueva contraseña (opcional)' : 'Contraseña'}
+                  value={usuario.password || ''}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                />
+              </div>
             </div>
             <button
               type="submit"

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import { API_BASE_URL } from "../../utils/config";
 
 export default function CardPerfiles({ color, onEdit }) {
   const [perfiles, setPerfiles] = useState([]); // Estado para almacenar los perfiles
@@ -9,7 +10,7 @@ export default function CardPerfiles({ color, onEdit }) {
   // Función para obtener los datos del backend
   const fetchPerfiles = async () => {
     try {
-      const response = await fetch("https://nestbackend.fidare.com/users/countByProfile", {
+      const response = await fetch(`${API_BASE_URL}/users/countByProfile`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // Si necesitas enviar cookies

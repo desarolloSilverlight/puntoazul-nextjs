@@ -40,6 +40,9 @@ export default function Reportes() {
   // Estados para el reporte de rangos
   const [datosRangos, setDatosRangos] = useState(null);
   const [cargandoRangos, setCargandoRangos] = useState(false);
+  // Estados para el reporte de facturación
+  const [datosFacturacion, setDatosFacturacion] = useState(null);
+  const [cargandoFacturacion, setCargandoFacturacion] = useState(false);
 
   // useEffect para cargar datos de rangos cuando sea necesario
   useEffect(() => {
@@ -55,6 +58,34 @@ export default function Reportes() {
     };
 
     cargarDatosRangos();
+  }, [datosReporte, literal, reporte, ano]);
+
+  // useEffect para cargar datos de facturación cuando sea necesario
+  useEffect(() => {
+    const cargarFacturacion = async () => {
+      if (!datosReporte || !ano || reporte !== 'facturacion') {
+        setDatosFacturacion(null);
+        return;
+      }
+      setCargandoFacturacion(true);
+      try {
+        if (literal === 'linea_base') {
+          const datos = await procesarFacturacionLineaBase();
+          setDatosFacturacion(datos);
+        } else if (literal === 'literal_b') {
+          const datos = await procesarFacturacionLiteralB();
+          setDatosFacturacion(datos);
+        } else {
+          setDatosFacturacion(null);
+        }
+      } catch (e) {
+        console.error('Error al procesar facturación:', e);
+        setDatosFacturacion(null);
+      } finally {
+        setCargandoFacturacion(false);
+      }
+    };
+    cargarFacturacion();
   }, [datosReporte, literal, reporte, ano]);
 
   // Maneja el cambio del selector de Literal y carga los clientes
@@ -99,18 +130,18 @@ export default function Reportes() {
     setDatosReporte(null); // Limpiar datos de reporte
 
     // Si es toneladas o rangos de línea base, limpiar cliente ya que no se usa
-    if (literal === "linea_base" && (value === "toneladas" || value === "rangos")) {
+  if (literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion")) {
       setCliente(""); // Limpiar cliente para toneladas y rangos
     }
 
-    // Si es grupo o peso de literal B, limpiar cliente ya que no se usa
-    if (literal === "literal_b" && (value === "grupo" || value === "peso")) {
+  // Si es grupo, peso o facturacion de literal B, limpiar cliente ya que no se usa
+  if (literal === "literal_b" && (value === "grupo" || value === "peso" || value === "facturacion")) {
       setCliente(""); // Limpiar cliente para grupo y peso
     }
 
     // Cargar años disponibles para reportes que los requieren
-    if ((literal === "linea_base" && (value === "toneladas" || value === "rangos")) ||
-        (literal === "literal_b" && (value === "grupo" || value === "peso"))) {
+  if ((literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion")) ||
+    (literal === "literal_b" && (value === "grupo" || value === "peso" || value === "facturacion"))) {
       try {
         const endpoint = literal === "linea_base" 
           ? `${API_BASE_URL}/informacion-f/getAnosReporte`
@@ -143,8 +174,8 @@ export default function Reportes() {
     }
     
     // Validar año para reportes que lo requieren
-    if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
-         (literal === "literal_b" && (reporte === "grupo" || reporte === "peso"))) && !ano) {
+  if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
+     (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion"))) && !ano) {
       alert("Por favor selecciona el Año para este reporte");
       return;
     }
@@ -153,7 +184,7 @@ export default function Reportes() {
         // Preparar datos para enviar
         const datosEnvio = {
           literal,
-          reporte: reporte === "rangos" ? "toneladas" : reporte, // Si es rangos, enviar toneladas al backend
+          reporte: (reporte === "rangos" || (literal === 'linea_base' && reporte === 'facturacion')) ? "toneladas" : reporte, // Para rangos y facturación LB, solicitar toneladas
         };
 
         // Determinar endpoint según el literal
@@ -161,8 +192,8 @@ export default function Reportes() {
         if (literal === "linea_base") {
           endpoint = `${API_BASE_URL}/informacion-f/reportes`;
           
-          // Para toneladas y rangos, no enviar cliente (todos los clientes)
-          if (reporte === "toneladas" || reporte === "rangos") {
+          // Para toneladas, rangos y facturación, no enviar cliente (todos los clientes)
+          if (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion") {
             datosEnvio.cliente = null; // Explícitamente null para todos los clientes
             datosEnvio.ano = parseInt(ano);
           } else {
@@ -171,7 +202,7 @@ export default function Reportes() {
           }
         } else if (literal === "literal_b") {
           // Para grupo y peso, usar endpoint específico
-          if (reporte === "grupo" || reporte === "peso") {
+          if (reporte === "grupo" || reporte === "peso" || reporte === "facturacion") {
             endpoint = `${API_BASE_URL}/informacion-b/reporteGrupoPeso`;
             datosEnvio.cliente = null; // Todos los clientes
             datosEnvio.ano = parseInt(ano);
@@ -368,7 +399,7 @@ export default function Reportes() {
       let datosParaExcel = [];
       let encabezados = [];
 
-      if (reporte === 'toneladas' && literal === 'linea_base') {
+  if (reporte === 'toneladas' && literal === 'linea_base') {
         // Reporte de toneladas - comparación por años
         const datosProcesados = procesarDatosToneladas();
         if (datosProcesados) {
@@ -429,6 +460,40 @@ export default function Reportes() {
           empresa.ano || ano,
           parseFloat(empresa.totalPesoFacturacion || 0).toFixed(2)
         ]);
+      } else if (reporte === 'facturacion' && literal === 'literal_b') {
+        // Reporte de facturación por Grupo - Literal B
+        encabezados = ['Grupo', 'Empresas', 'Toneladas', 'Valor Unitario', 'Facturación Total'];
+        if (Array.isArray(datosFacturacion)) {
+          datosParaExcel = datosFacturacion.map(item => [
+            item.grupo,
+            item.empresas,
+            Number(item.toneladas || 0),
+            Number(item.valor || 0),
+            Number(item.facturacion || 0)
+          ]);
+          // Agregar fila TOTAL
+          const totalEmp = datosFacturacion.reduce((a,b)=>a+(b.empresas||0),0);
+          const totalTon = datosFacturacion.reduce((a,b)=>a+(b.toneladas||0),0);
+          const totalFac = datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0);
+          datosParaExcel.push(['TOTAL', totalEmp, totalTon, '-', totalFac]);
+        }
+      } else if (reporte === 'facturacion' && literal === 'linea_base') {
+        // Reporte de facturación por Rango - Línea Base
+        encabezados = ['Rango', 'Empresas', 'Toneladas', 'Valor Unitario', 'Facturación Total'];
+        if (Array.isArray(datosFacturacion)) {
+          datosParaExcel = datosFacturacion.map(item => [
+            item.rango,
+            item.empresas,
+            Number(item.toneladas || 0),
+            Number(item.valor || 0),
+            Number(item.facturacion || 0)
+          ]);
+          // Agregar fila TOTAL
+          const totalEmp = datosFacturacion.reduce((a,b)=>a+(b.empresas||0),0);
+          const totalTon = datosFacturacion.reduce((a,b)=>a+(b.toneladas||0),0);
+          const totalFac = datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0);
+          datosParaExcel.push(['TOTAL', totalEmp, totalTon, '-', totalFac]);
+        }
       } else if (reporte === 'estado') {
         // Reporte de estado (línea base o literal B)
         encabezados = ['Empresa', 'NIT', 'Correo Facturación', 'Estado'];
@@ -569,6 +634,83 @@ export default function Reportes() {
 
   // Función para generar gráficos específicos para cada tipo de reporte
   const generateChart = () => {
+    // Facturación por Grupo - Literal B
+    if (literal === 'literal_b' && reporte === 'facturacion' && Array.isArray(datosFacturacion)) {
+      if (!datosFacturacion.length) return null;
+      const labels = datosFacturacion.map(i => i.grupo);
+      const dataVals = datosFacturacion.map(i => Number(i.facturacion || 0));
+      const data = {
+        labels,
+        datasets: [{
+          label: 'Facturación Total',
+          data: dataVals,
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+        }]
+      };
+      return (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            Facturación por Grupo - Año {ano}
+          </h3>
+          <Bar data={data} options={{
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const value = context.parsed.y || 0;
+                    return `Facturación: ${value.toFixed(2)}`;
+                  }
+                }
+              }
+            },
+            scales: { y: { beginAtZero: true } }
+          }} />
+        </div>
+      );
+    }
+
+    // Facturación por Rango - Línea Base
+    if (literal === 'linea_base' && reporte === 'facturacion' && Array.isArray(datosFacturacion)) {
+      if (!datosFacturacion.length) return null;
+      const labels = datosFacturacion.map(i => i.rango);
+      const dataVals = datosFacturacion.map(i => Number(i.facturacion || 0));
+      const data = {
+        labels,
+        datasets: [{
+          label: 'Facturación Total',
+          data: dataVals,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1,
+        }]
+      };
+      return (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            Facturación por Rango - Año {ano}
+          </h3>
+          <Bar data={data} options={{
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const value = context.parsed.y || 0;
+                    return `Facturación: ${value.toFixed(2)}`;
+                  }
+                }
+              }
+            },
+            scales: { y: { beginAtZero: true } }
+          }} />
+        </div>
+      );
+    }
     // Chart para reportes de línea base - tipo de producto
     if (literal === 'linea_base' && reporte === 'tipo_producto' && datosReporte) {
       const productos = datosReporte.reduce((acc, empresa) => {
@@ -1003,6 +1145,99 @@ export default function Reportes() {
     }
   };
 
+  // Parámetros de facturación: Línea Base (sin grupo)
+  const obtenerParametroFacturacionLB = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/parametros`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+      if (!response.ok) return [];
+      const parametros = await response.json();
+      const param = parametros.find(p => p.nombre === 'Rango Toneladas Linea Base');
+      if (!param) return [];
+      const json = JSON.parse(param.valor);
+      const data = json.data || [];
+      return data.map(r => ({
+        min: parseFloat(r.rangoini ?? r.rango_ini ?? r.RangoIni),
+        max: parseFloat(r.rangofin ?? r.rango_fin ?? r.RangoFin),
+        valor: parseFloat(r.valor ?? r.Valor ?? 0),
+        label: `${r.rangoini ?? r.rango_ini ?? r.RangoIni} - ${r.rangofin ?? r.rango_fin ?? r.RangoFin}`
+      })).filter(x => !isNaN(x.min) && !isNaN(x.max));
+    } catch (e) {
+      console.error('Error al obtener parámetro facturación LB:', e);
+      return [];
+    }
+  };
+
+  // Parámetros de facturación: Literal B (por grupo)
+  const obtenerParametroFacturacionB = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/parametros`, { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+      if (!response.ok) return [];
+      const parametros = await response.json();
+      const param = parametros.find(p => p.nombre === 'Rango Toneladas Literal B');
+      if (!param) return [];
+      const json = JSON.parse(param.valor);
+      const data = json.data || [];
+      return data.map(r => ({
+        grupo: (r.grupo ?? r.Grupo ?? '').toString(),
+        min: parseFloat(r.rango_ini ?? r.rangoini ?? r.RangoIni),
+        max: parseFloat(r.rango_fin ?? r.rangofin ?? r.RangoFin),
+        valor: parseFloat(r.valor ?? r.Valor ?? 0)
+      })).filter(x => x.grupo && !isNaN(x.min) && !isNaN(x.max));
+    } catch (e) {
+      console.error('Error al obtener parámetro facturación B:', e);
+      return [];
+    }
+  };
+
+  // Procesar facturación para Línea Base
+  const procesarFacturacionLineaBase = async () => {
+    if (!datosReporte || !Array.isArray(datosReporte)) return [];
+    const rangos = await obtenerParametroFacturacionLB();
+    if (!rangos.length) return [];
+    const anoStr = ano.toString();
+    const empresas = datosReporte.map(e => {
+      let t = e.anos?.[anoStr]?.toneladas_reportadas ?? 0;
+      if (typeof t === 'string') { t = parseFloat(t.replace(',', '.')) || 0; } else { t = parseFloat(t) || 0; }
+      return { nombre: e.nombre, nit: e.nit, toneladas: t };
+    });
+    const resultado = rangos.map(r => ({ rango: r.label, min: r.min, max: r.max, empresas: 0, toneladas: 0, valor: r.valor, facturacion: 0 }));
+    empresas.forEach(emp => {
+      const r = resultado.find(x => emp.toneladas >= x.min && emp.toneladas <= x.max);
+      if (!r) return;
+      r.empresas += 1;
+      r.toneladas += emp.toneladas;
+      r.facturacion += emp.toneladas * (r.valor || 0);
+    });
+    return resultado;
+  };
+
+  // Procesar facturación para Literal B
+  const procesarFacturacionLiteralB = async () => {
+    if (!datosReporte || !Array.isArray(datosReporte)) return [];
+    const parametros = await obtenerParametroFacturacionB();
+    if (!parametros.length) return [];
+    const grupos = {};
+    datosReporte.forEach(e => {
+      const grupo = e.grupo || 'Sin grupo';
+      const t = parseFloat(e.totalPesoFacturacion ?? 0) || 0;
+      const key = grupo.toString();
+      if (!grupos[key]) grupos[key] = { grupo: key, empresas: 0, toneladas: 0 };
+      grupos[key].empresas += 1;
+      grupos[key].toneladas += t;
+    });
+    const resultado = Object.values(grupos).map(g => {
+      const candidatos = parametros.filter(p => p.grupo === g.grupo);
+      let valor = 0;
+      if (candidatos.length) {
+        const match = candidatos.find(p => g.toneladas >= p.min && g.toneladas <= p.max);
+        valor = match ? (match.valor || 0) : (candidatos[0].valor || 0);
+      }
+      const facturacion = g.toneladas * valor;
+      return { grupo: g.grupo, empresas: g.empresas, toneladas: parseFloat(g.toneladas.toFixed(2)), valor, facturacion: parseFloat(facturacion.toFixed(2)) };
+    });
+    return resultado;
+  };
+
   // Función para procesar datos de rangos de toneladas
   const procesarDatosRangosToneladas = async () => {
     if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) {
@@ -1107,11 +1342,11 @@ export default function Reportes() {
     if (!datosReporte || !datosReporte.length) return null;
     
     // Solo manejar reportes específicos aquí, otros son manejados por generateChart()
-    if (literal === 'literal_b' && (reporte === 'grupo' || reporte === 'peso' || reporte === 'estado')) {
+  if (literal === 'literal_b' && (reporte === 'grupo' || reporte === 'peso' || reporte === 'estado' || reporte === 'facturacion')) {
       return null; // Estos son manejados por generateChart()
     }
     
-    if (literal === 'linea_base' && reporte === 'estado') {
+  if (literal === 'linea_base' && (reporte === 'estado' || reporte === 'facturacion')) {
       return null; // También manejado por generateChart()
     }
     
@@ -1275,12 +1510,14 @@ export default function Reportes() {
       ? [
           { value: "grupo", label: "Grupo" },
           { value: "peso", label: "Peso" },
+          { value: "facturacion", label: "Facturación" },
           { value: "estado", label: "Estado" },
         ]
       : literal === "linea_base"
       ? [
           { value: "toneladas", label: "Toneladas" }, 
           { value: "rangos", label: "Rango Toneladas" },
+          { value: "facturacion", label: "Facturación" },
           { value: "estado", label: "Estado" },
         ]
       : [];
@@ -1291,8 +1528,8 @@ export default function Reportes() {
         <div className="w-full max-w-2xl bg-white rounded shadow-lg p-6">
           <h2 className="text-blueGray-700 text-xl font-semibold mb-6">Reportes</h2>
           <div className={`grid gap-4 p-2 ${
-            ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
-             (literal === "literal_b" && (reporte === "grupo" || reporte === "peso")))
+            ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
+             (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion")))
               ? "grid-cols-4" // Sin cliente: Literal, Reporte, Año, Botón
               : "grid-cols-5" // Con cliente: Literal, Reporte, Cliente, Año (opcional), Botón
           }`}>
@@ -1327,8 +1564,8 @@ export default function Reportes() {
               </select>
             </div>
             {/* Selector Cliente - Solo visible si NO es toneladas/rangos de línea base o grupo/peso de literal B */}
-            {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
-                (literal === "literal_b" && (reporte === "grupo" || reporte === "peso")))) && (
+      {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
+        (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion")))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Cliente</label>
                 <select
@@ -1347,8 +1584,8 @@ export default function Reportes() {
               </div>
             )}
             {/* Selector Año (para reportes que requieren año) */}
-            {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
-              (literal === "literal_b" && (reporte === "grupo" || reporte === "peso"))) && (
+            {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
+              (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion"))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Año</label>
                 <select
@@ -1371,10 +1608,10 @@ export default function Reportes() {
               <button
                 className="bg-blueGray-600 h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none  ease-linear transition-all duration-150"
                 onClick={handleBuscar}
-                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "peso"))) && !ano)}
+                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion"))) && !ano)}
                 title={
-                  ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos")) ||
-                   (literal === "literal_b" && (reporte === "grupo" || reporte === "peso")))
+                  ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
+                   (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion")))
                     ? "Para estos reportes solo se requiere año"
                     : "Complete todos los campos requeridos"
                 }
@@ -2069,6 +2306,94 @@ export default function Reportes() {
                   </div>
                 );
               })()
+            ) : reporte === 'facturacion' && literal === 'literal_b' ? (
+              // Tabla de facturación por Grupo - Literal B
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4 text-center">
+                  Facturación por Grupo - Año {ano}
+                </h3>
+                {cargandoFacturacion ? (
+                  <div className="text-center py-8">Procesando facturación...</div>
+                ) : !datosFacturacion ? (
+                  <div className="text-center py-8 text-red-600">Sin datos para mostrar</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-gray-300">
+                      <thead>
+                        <tr className="bg-blue-100">
+                          <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Grupo</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Empresas</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Toneladas</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Valor Unitario</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Facturación Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {datosFacturacion.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 px-4 py-3 font-medium">{item.grupo}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{item.empresas}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.toneladas).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.valor).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center font-semibold">{Number(item.facturacion).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-yellow-100 font-bold">
+                          <td className="border border-gray-300 px-4 py-3">TOTAL</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.empresas||0),0)}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.toneladas||0),0).toFixed(2)}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">-</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0).toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : reporte === 'facturacion' && literal === 'linea_base' ? (
+              // Tabla de facturación por Rango - Línea Base
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4 text-center">
+                  Facturación por Rango - Año {ano}
+                </h3>
+                {cargandoFacturacion ? (
+                  <div className="text-center py-8">Procesando facturación...</div>
+                ) : !datosFacturacion ? (
+                  <div className="text-center py-8 text-red-600">Sin datos para mostrar</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-gray-300">
+                      <thead>
+                        <tr className="bg-blue-100">
+                          <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Rango</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Empresas</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Toneladas</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Valor Unitario</th>
+                          <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Facturación Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {datosFacturacion.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 px-4 py-3 font-medium">{item.rango}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{item.empresas}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.toneladas).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.valor).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center font-semibold">{Number(item.facturacion).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-yellow-100 font-bold">
+                          <td className="border border-gray-300 px-4 py-3">TOTAL</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.empresas||0),0)}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.toneladas||0),0).toFixed(2)}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">-</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0).toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             ) : reporte === 'estado' && literal === 'literal_b' ? (
               // Tabla especializada para estado de Literal B (similar a línea base)
               (() => {

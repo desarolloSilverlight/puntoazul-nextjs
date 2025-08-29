@@ -4,13 +4,15 @@ import { API_BASE_URL } from "../../utils/config";
 
 const plantillaPorDefecto = {
   "linea_base": {
-    asunto: "Formulario Línea Base - Punto Azul",
-    cuerpo: "Estimado/a,\n\nAdjuntamos el formulario de Línea Base para su revisión y diligenciamiento.\n\nSaludos cordiales,\nEquipo Punto Azul"
+    asunto: "Formulario Línea Base - {NOMBRE}",
+    cuerpo:
+      "Estimado/a {NOMBRE},\n\nLe compartimos el acceso a la plataforma para diligenciar el Formulario Línea Base.\nLink: {LINK}\nUsuario: {EMAIL}\nContraseña: {PASSWORD}\n\nSaludos cordiales,\nEquipo Punto Azul",
   },
   "literal_b": {
-    asunto: "Formulario Literal B - Punto Azul",
-    cuerpo: "Estimado/a,\n\nAdjuntamos el formulario Literal B para su revisión y diligenciamiento.\n\nSaludos cordiales,\nEquipo Punto Azul"
-  }
+    asunto: "Formulario Literal B - {NOMBRE}",
+    cuerpo:
+      "Estimado/a {NOMBRE},\n\nLe compartimos el acceso a la plataforma para diligenciar el Formulario Literal B.\nLink: {LINK}\nUsuario: {EMAIL}\nContraseña: {PASSWORD}\n\nSaludos cordiales,\nEquipo Punto Azul",
+  },
 };
 
 export default function EnviarCorreos() {
@@ -22,6 +24,20 @@ export default function EnviarCorreos() {
   const [loading, setLoading] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState("");
+  const platformLink = "https://gestionliterales.puntoazul.com.co/";
+
+  // Reemplaza variables en plantillas con datos del usuario
+  const renderTemplate = (tpl, u) => {
+    const password = u?.contraseña ?? u?.contrasena ?? u?.password ?? "";
+    const values = {
+      "{NOMBRE}": u?.nombre || "",
+      "{EMAIL}": u?.email || "",
+      "{PASSWORD}": password,
+      "{LINK}": platformLink,
+      "{FORMULARIO}": tipoFormulario === "linea_base" ? "Línea Base" : "Literal B",
+    };
+    return Object.entries(values).reduce((acc, [k, v]) => acc.split(k).join(v), tpl || "");
+  };
 
   // Cargar usuarios según tipo de formulario
   useEffect(() => {
@@ -70,8 +86,8 @@ export default function EnviarCorreos() {
     // Armar mensajes personalizados
     const mensajes = usuariosSeleccionados.map(u => ({
       destinatario: u.email,
-      asunto,
-      cuerpo: `Estimado ${u.nombre},\n\nA continuación le comparto el link para ingresar a nuestra nueva plataforma de gestión de Formulario ${tipoFormulario === "linea_base" ? "Línea Base" : "Literal B"}.\nEl link para ingresar es https://gestionliterales.puntoazul.com.co/ y sus datos de ingreso son:\nUsuario: ${u.email}\nContraseña: ${u.contraseña}`
+      asunto: renderTemplate(asunto, u),
+      cuerpo: renderTemplate(cuerpo, u)
     }));
     // Enviar al backend
     try {
@@ -144,6 +160,7 @@ export default function EnviarCorreos() {
           value={asunto}
           onChange={e => setAsunto(e.target.value)}
         />
+        <p className="text-xs text-gray-500 mt-1">Variables disponibles: {"{NOMBRE}"}, {"{EMAIL}"}</p>
       </div>
       <div className="mb-4">
         <label className="block font-semibold mb-2">Cuerpo del correo:</label>
@@ -152,6 +169,20 @@ export default function EnviarCorreos() {
           value={cuerpo}
           onChange={e => setCuerpo(e.target.value)}
         />
+        <p className="text-xs text-gray-500 mt-1">Variables disponibles: {"{NOMBRE}"}, {"{EMAIL}"}, {"{PASSWORD}"}, {"{LINK}"}, {"{FORMULARIO}"}</p>
+      </div>
+      <div className="mb-4 border rounded p-3 bg-gray-50">
+        <div className="font-semibold mb-1">Vista previa</div>
+        {(() => {
+          const ejemplo = { nombre: "Nombre Ejemplo", email: "correo@ejemplo.com", contraseña: "123456" };
+          const usuarioPreview = usuarios.find(u => seleccionados.includes(u.idUsuario)) || ejemplo;
+          return (
+            <div className="text-sm">
+              <div className="mb-1"><span className="font-semibold">Asunto:</span> {renderTemplate(asunto, usuarioPreview)}</div>
+              <div className="whitespace-pre-wrap"><span className="font-semibold">Cuerpo:</span>{"\n"}{renderTemplate(cuerpo, usuarioPreview)}</div>
+            </div>
+          );
+        })()}
       </div>
       {mensaje && (
         <div className={`mb-4 text-sm ${mensaje.includes("correctamente") ? "text-green-600" : "text-red-600"}`}>{mensaje}</div>

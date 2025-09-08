@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function Navbar() {
   const [username, setUsername] = useState("Admin"); // Valor predeterminado
@@ -43,13 +44,13 @@ export default function Navbar() {
           {/* <ul className="flex-col md:flex-row list-none items-center hidden md:flex">
             <UserDropdown />
           </ul> */}
-          <a
-            className="text-white text-sm uppercase hidden lg:inline-block font-semibold"
-            href="#pablo"
-            onClick={(e) => e.preventDefault()}
+          <Link
+            href="/admin/mi-perfil"
+            className="text-white text-sm uppercase hidden lg:inline-block font-semibold cursor-pointer"
+            title="Mi perfil"
           >
             {username}
-          </a>
+          </Link>
         </div>
       </nav>
       {/* End Navbar */}

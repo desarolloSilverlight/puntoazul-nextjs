@@ -246,7 +246,7 @@ export default function DashboardAsociado() {
               </div>
               <div className="flex items-center text-gray-600">
                 <i className="fas fa-phone mr-3 text-gray-400"></i>
-                <span>+57 3143967808</span>
+                <span>+57 3157829533</span>
               </div>
               <div className="flex items-center text-gray-600">
                 <i className="fas fa-clock mr-3 text-gray-400"></i>

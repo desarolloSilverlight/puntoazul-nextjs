@@ -26,13 +26,18 @@ export default function EnviarCorreos() {
   const [mensaje, setMensaje] = useState("");
   const platformLink = "https://gestionliterales.puntoazul.com.co/";
 
+  // Convierte saltos de línea en <br> para correos HTML
+  const toHtml = (text) => (text || "").replace(/\n/g, "<br/>");
+
   // Reemplaza variables en plantillas con datos del usuario
   const renderTemplate = (tpl, u) => {
     const password = u?.contraseña ?? u?.contrasena ?? u?.password ?? "";
+    const looksHashed = typeof password === "string" && password.startsWith("$2") && password.length >= 55;
     const values = {
       "{NOMBRE}": u?.nombre || "",
       "{EMAIL}": u?.email || "",
-      "{PASSWORD}": password,
+      // Si parece hash (bcrypt), mantenemos el placeholder para que el backend lo reemplace por el password plano
+      "{PASSWORD}": looksHashed ? "{PASSWORD}" : password,
       "{LINK}": platformLink,
       "{FORMULARIO}": tipoFormulario === "linea_base" ? "Línea Base" : "Literal B",
     };
@@ -84,17 +89,31 @@ export default function EnviarCorreos() {
       return;
     }
     // Armar mensajes personalizados
-    const mensajes = usuariosSeleccionados.map(u => ({
-      destinatario: u.email,
-      asunto: renderTemplate(asunto, u),
-      cuerpo: renderTemplate(cuerpo, u)
-    }));
+    const mensajes = usuariosSeleccionados.map(u => {
+      const asuntoFinal = renderTemplate(asunto, u);
+      const cuerpoTexto = renderTemplate(cuerpo, u);
+      const cuerpoHtml = toHtml(cuerpoTexto);
+      const pass = u?.contraseña ?? u?.contrasena ?? u?.password ?? "";
+      const requiereInyeccionPassword = typeof pass === "string" && pass.startsWith("$2") && pass.length >= 55;
+      return {
+        destinatario: u.email,
+        asunto: asuntoFinal,
+        cuerpo: cuerpoTexto,
+        cuerpoHtml, // para preservar saltos si el backend envía HTML
+        idUsuario: u.idUsuario,
+        tipoFormulario,
+        requiereInyeccionPassword,
+      };
+    });
     // Enviar al backend
     try {
-      const resp = await fetch(`${API_BASE_URL}/correos/enviar`, {
+      const modulo = tipoFormulario === "linea_base" ? "informacion-f" : "informacion-b";
+      const urlEnvio = `${API_BASE_URL}/${modulo}/enviarCorreo`;
+      console.log("Enviando correos a:", urlEnvio);
+      const resp = await fetch(urlEnvio, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensajes })
+        body: JSON.stringify({ mensajes, enviarComoHtml: true, incluirPasswordPlano: true })
       });
       if (resp.ok) {
         setMensaje("Correos enviados correctamente.");

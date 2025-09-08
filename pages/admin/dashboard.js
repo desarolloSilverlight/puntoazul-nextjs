@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 
 // layout for page
 import Admin from "layouts/Admin.js";
@@ -11,12 +12,13 @@ import DashboardVinculado from "components/Dashboard/DashboardVinculado.js";
 export default function Dashboard() {
   const [perfil, setPerfil] = useState("");
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   // Obtener el perfil desde localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedPerfil = localStorage.getItem("perfil");
-      setPerfil(storedPerfil || "");
+      setPerfil(storedPerfil);
       setLoading(false);
     }
   }, []);
@@ -37,6 +39,30 @@ export default function Dashboard() {
       case "Administrador":
       case "Empleado":
         return <DashboardAdmin />;
+      case "AdministradorB":
+        return <DashboardAdmin tipo="B" />;
+      case "AdministradorF":
+        return <DashboardAdmin tipo="F" />;
+      case "ValidadorB":
+        // Redirigir a Validar Literal B
+        if (typeof window !== "undefined") router.replace("/admin/validarb");
+        return (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-lightBlue-600 text-lg font-semibold">
+              Redirigiendo a Validación Literal B...
+            </div>
+          </div>
+        );
+      case "ValidadorF":
+        // Redirigir a Validar Línea Base
+        if (typeof window !== "undefined") router.replace("/admin/validarf");
+        return (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-lightBlue-600 text-lg font-semibold">
+              Redirigiendo a Validación Línea Base...
+            </div>
+          </div>
+        );
       case "Asociado":
         return <DashboardAsociado />;
       case "Vinculado":

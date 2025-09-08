@@ -26,7 +26,7 @@ ChartJS.register(
 
 
 
-export default function DashboardAdmin() {
+export default function DashboardAdmin({ tipo }) {
   const [stats, setStats] = useState({
     usuariosRegistrados: { vinculados: 0, asociados: 0, total: 0 },
     estadosFormularios: {
@@ -47,7 +47,7 @@ export default function DashboardAdmin() {
         setLoading(true);
         
         // Obtener usuarios por perfil
-        const [vinculadosResponse, asociadosResponse] = await Promise.all([
+  const [vinculadosResponse, asociadosResponse] = await Promise.all([
           fetch(`${API_BASE_URL}/users/perfilUser?nombrePerfil=Vinculado`),
           fetch(`${API_BASE_URL}/users/perfilUser?nombrePerfil=Asociado`)
         ]);
@@ -61,9 +61,12 @@ export default function DashboardAdmin() {
         const asociados = Array.isArray(asociadosData) ? asociadosData.length : 0;
 
         // Obtener conteos reales de formularios por estado
+        // Si se filtra por tipo, traer solo el necesario; caso contrario, ambos
+        const lineaBasePromise = fetch(`${API_BASE_URL}/informacion-f/count-by-status`);
+        const literalBPromise = fetch(`${API_BASE_URL}/informacion-b/count-by-status`);
         const [lineaBaseResponse, literalBResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/informacion-f/count-by-status`),
-          fetch(`${API_BASE_URL}/informacion-b/count-by-status`)
+          tipo === 'B' ? Promise.resolve({ ok: true, json: async () => ({}) }) : lineaBasePromise,
+          tipo === 'F' ? Promise.resolve({ ok: true, json: async () => ({}) }) : literalBPromise
         ]);
 
         const [lineaBaseData, literalBData] = await Promise.all([
@@ -72,14 +75,14 @@ export default function DashboardAdmin() {
         ]);
         console.log("Datos de formularios:", lineaBaseData, literalBData);
         const estadosFormularios = {
-          lineaBase: {
+          lineaBase: tipo === 'B' ? { iniciados: 0, guardados: 0, pendientes: 0, aprobados: 0, rechazados: 0 } : {
             iniciados: lineaBaseData.iniciados || 0,
             guardados: lineaBaseData.guardados || 0,
             pendientes: lineaBaseData.pendientes || 0,
             aprobados: lineaBaseData.aprobados || 0,
             rechazados: lineaBaseData.rechazados || 0
           },
-          literalB: {
+          literalB: tipo === 'F' ? { iniciados: 0, guardados: 0, pendientes: 0, aprobados: 0, rechazados: 0 } : {
             iniciados: literalBData.iniciados || 0,
             guardados: literalBData.guardados || 0,
             pendientes: literalBData.pendientes || 0,
@@ -90,17 +93,17 @@ export default function DashboardAdmin() {
 
         const pendientesValidacion = estadosFormularios.lineaBase.pendientes + estadosFormularios.literalB.pendientes;
 
-        setStats({
+    setStats({
           usuariosRegistrados: { 
-            vinculados, 
-            asociados, 
-            total: vinculados + asociados 
+            vinculados: tipo === 'B' ? 0 : vinculados, 
+            asociados: tipo === 'F' ? 0 : asociados, 
+            total: (tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados)
           },
           estadosFormularios,
           pendientesValidacion,
           progresoPorAno: [
-            { year: 2024, completados: estadosFormularios.lineaBase.aprobados + estadosFormularios.literalB.aprobados, total: vinculados + asociados },
-            { year: 2023, completados: Math.floor((vinculados + asociados) * 0.85), total: Math.max(1, vinculados + asociados - 5) }
+      { year: 2024, completados: estadosFormularios.lineaBase.aprobados + estadosFormularios.literalB.aprobados, total: (tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados) },
+      { year: 2023, completados: Math.floor(((tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados)) * 0.85), total: Math.max(1, (tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados) - 5) }
           ]
         });
 
@@ -139,7 +142,7 @@ export default function DashboardAdmin() {
   const chartData = {
     labels: ['Iniciados', 'Guardados', 'Pendientes', 'Aprobados', 'Rechazados'],
     datasets: [
-      {
+      ...(tipo === 'B' ? [] : [{
         label: 'Línea Base',
         data: [
           stats.estadosFormularios.lineaBase.iniciados,
@@ -151,8 +154,8 @@ export default function DashboardAdmin() {
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
         borderColor: 'rgba(59, 130, 246, 1)',
         borderWidth: 1
-      },
-      {
+      }]),
+      ...(tipo === 'F' ? [] : [{
         label: 'Literal B',
         data: [
           stats.estadosFormularios.literalB.iniciados,
@@ -164,9 +167,24 @@ export default function DashboardAdmin() {
         backgroundColor: 'rgba(16, 185, 129, 0.8)',
         borderColor: 'rgba(16, 185, 129, 1)',
         borderWidth: 1
-      }
+      }])
     ]
   };
+
+  // Helpers de presentación
+  const safePercent = (num, den) => {
+    const n = Number(num) || 0;
+    const d = Number(den) || 0;
+    if (d <= 0) return 0;
+    return Math.round((n / d) * 100);
+  };
+
+  const aprobadosLB = stats.estadosFormularios.lineaBase.aprobados;
+  const aprobadosB = stats.estadosFormularios.literalB.aprobados;
+  const pendientesLB = stats.estadosFormularios.lineaBase.pendientes;
+  const pendientesB = stats.estadosFormularios.literalB.pendientes;
+  const usuariosV = stats.usuariosRegistrados.vinculados;
+  const usuariosA = stats.usuariosRegistrados.asociados;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -184,30 +202,36 @@ export default function DashboardAdmin() {
             <StatsCard
               title="Total Usuarios"
               value={stats.usuariosRegistrados.total}
-              subtitle={`Vinculados: ${stats.usuariosRegistrados.vinculados} | Asociados: ${stats.usuariosRegistrados.asociados}`}
+              subtitle={`${tipo !== 'B' ? `Vinculados: ${stats.usuariosRegistrados.vinculados}` : ''}${tipo ? ' ' : ' | '}${tipo !== 'F' ? `Asociados: ${stats.usuariosRegistrados.asociados}` : ''}`}
               icon="fas fa-users"
               color="blue"
             />
             
             <StatsCard
               title="Pendientes Validación"
-              value={stats.pendientesValidacion}
-              subtitle={`${stats.estadosFormularios.lineaBase.pendientes} Vinculados | ${stats.estadosFormularios.literalB.pendientes} Asociados`}
+              value={tipo === 'B' ? pendientesB : tipo === 'F' ? pendientesLB : stats.pendientesValidacion}
+              subtitle={tipo === 'B' ? `${pendientesB} Asociados` : tipo === 'F' ? `${pendientesLB} Vinculados` : `${pendientesLB} Vinculados | ${pendientesB} Asociados`}
               icon="fas fa-clock"
               color="orange"
             />
             
             <StatsCard
               title="Formularios Aprobados"
-              value={stats.estadosFormularios.lineaBase.aprobados + stats.estadosFormularios.literalB.aprobados}
-              subtitle={`${stats.estadosFormularios.lineaBase.aprobados} Vinculados | ${stats.estadosFormularios.literalB.aprobados} Asociados`}
+              value={tipo === 'B' ? aprobadosB : tipo === 'F' ? aprobadosLB : (aprobadosLB + aprobadosB)}
+              subtitle={tipo === 'B' ? `${aprobadosB} Asociados` : tipo === 'F' ? `${aprobadosLB} Vinculados` : `${aprobadosLB} Vinculados | ${aprobadosB} Asociados`}
               icon="fas fa-check-circle"
               color="green"
             />
             
             <StatsCard
               title="Cobertura"
-              value={`V: ${Math.round((stats.estadosFormularios.lineaBase.aprobados / stats.usuariosRegistrados.vinculados) * 100)}% | A: ${Math.round((stats.estadosFormularios.literalB.aprobados / stats.usuariosRegistrados.asociados) * 100)}%`}
+              value={
+                tipo === 'B'
+                  ? `A: ${safePercent(aprobadosB, usuariosA)}%`
+                  : tipo === 'F'
+                    ? `V: ${safePercent(aprobadosLB, usuariosV)}%`
+                    : `V: ${safePercent(aprobadosLB, usuariosV)}% | A: ${safePercent(aprobadosB, usuariosA)}%`
+              }
               subtitle="% Completados por tipo"
               icon="fas fa-percentage"
               color="purple"
@@ -216,19 +240,21 @@ export default function DashboardAdmin() {
 
           {/* Estados de Formularios */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {tipo !== 'B' && (
             <FormStatusCard
               title="Formularios Línea Base (Vinculados)"
               states={stats.estadosFormularios.lineaBase}
               totalUsers={stats.usuariosRegistrados.vinculados}
               type="lineaBase"
-            />
+            />)}
             
+            {tipo !== 'F' && (
             <FormStatusCard
               title="Formularios Literal B (Asociados)"
               states={stats.estadosFormularios.literalB}
               totalUsers={stats.usuariosRegistrados.asociados}
               type="literalB"
-            />
+            />)}
           </div>
 
           {/* Gráfico de Estados */}

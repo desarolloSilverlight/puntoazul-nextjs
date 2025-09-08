@@ -44,6 +44,19 @@ export default function Reportes() {
   const [datosFacturacion, setDatosFacturacion] = useState(null);
   const [cargandoFacturacion, setCargandoFacturacion] = useState(false);
 
+  // Helper: formato moneda COP
+  const formatCOP = (val, options = {}) => {
+    const n = Number(val);
+    const safe = isNaN(n) ? 0 : n;
+    return safe.toLocaleString('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+      ...options
+    });
+  };
+
   // useEffect para cargar datos de rangos cuando sea necesario
   useEffect(() => {
     const cargarDatosRangos = async () => {
@@ -505,7 +518,7 @@ export default function Reportes() {
         ]);
       }
 
-      // Crear hoja de datos
+  // Crear hoja de datos
       const hojaDatos = workbook.addWorksheet('Datos');
       
       // Agregar encabezados con estilo
@@ -518,8 +531,21 @@ export default function Reportes() {
       };
 
       // Agregar datos
-      datosParaExcel.forEach(fila => {
-        hojaDatos.addRow(fila);
+      datosParaExcel.forEach((fila, idx) => {
+        const row = hojaDatos.addRow(fila);
+        // Dar formato de moneda a columnas de facturación cuando aplique
+        if (reporte === 'facturacion') {
+          // Columnas: Valor Unitario (4) y Facturación Total (5) para nuestras tablas
+          const colValor = 4;
+          const colFac = 5;
+          const isTotal = typeof row.getCell(1).value === 'string' && row.getCell(1).value.toString().toUpperCase() === 'TOTAL';
+          if (!isTotal) {
+            if (row.getCell(colValor)) row.getCell(colValor).numFmt = '[$COP] #,##0';
+            if (row.getCell(colFac)) row.getCell(colFac).numFmt = '[$COP] #,##0';
+          } else {
+            if (row.getCell(colFac)) row.getCell(colFac).numFmt = '[$COP] #,##0';
+          }
+        }
       });
 
       // Ajustar ancho de columnas
@@ -662,7 +688,7 @@ export default function Reportes() {
                 callbacks: {
                   label: function(context) {
                     const value = context.parsed.y || 0;
-                    return `Facturación: ${value.toFixed(2)}`;
+                    return `Facturación: ${formatCOP(value)}`;
                   }
                 }
               }
@@ -701,7 +727,7 @@ export default function Reportes() {
                 callbacks: {
                   label: function(context) {
                     const value = context.parsed.y || 0;
-                    return `Facturación: ${value.toFixed(2)}`;
+                    return `Facturación: ${formatCOP(value)}`;
                   }
                 }
               }
@@ -1216,25 +1242,39 @@ export default function Reportes() {
     if (!datosReporte || !Array.isArray(datosReporte)) return [];
     const parametros = await obtenerParametroFacturacionB();
     if (!parametros.length) return [];
+
+    // Clasificar cada empresa en un grupo según su peso usando los parámetros
     const grupos = {};
     datosReporte.forEach(e => {
-      const grupo = e.grupo || 'Sin grupo';
-      const t = parseFloat(e.totalPesoFacturacion ?? 0) || 0;
-      const key = grupo.toString();
-      if (!grupos[key]) grupos[key] = { grupo: key, empresas: 0, toneladas: 0 };
-      grupos[key].empresas += 1;
-      grupos[key].toneladas += t;
-    });
-    const resultado = Object.values(grupos).map(g => {
-      const candidatos = parametros.filter(p => p.grupo === g.grupo);
-      let valor = 0;
-      if (candidatos.length) {
-        const match = candidatos.find(p => g.toneladas >= p.min && g.toneladas <= p.max);
-        valor = match ? (match.valor || 0) : (candidatos[0].valor || 0);
+      let t = e.totalPesoFacturacion ?? 0;
+      if (typeof t === 'string') t = parseFloat(t.replace(',', '.')) || 0;
+      else t = parseFloat(t) || 0;
+
+      // Buscar el rango/param que aplica a este peso
+      const param = parametros.find(p => t >= p.min && t <= p.max);
+      const grupoKey = (param?.grupo || 'Sin grupo').toString();
+      const valorUnitario = parseFloat(param?.valor || 0) || 0;
+
+      if (!grupos[grupoKey]) {
+        grupos[grupoKey] = { grupo: grupoKey, empresas: 0, toneladas: 0, valor: valorUnitario };
       }
-      const facturacion = g.toneladas * valor;
-      return { grupo: g.grupo, empresas: g.empresas, toneladas: parseFloat(g.toneladas.toFixed(2)), valor, facturacion: parseFloat(facturacion.toFixed(2)) };
+      grupos[grupoKey].empresas += 1;
+      grupos[grupoKey].toneladas += t;
+      // Si algún param de este grupo trae valor diferente, mantener el primero (asumimos 1 por grupo)
     });
+
+    const resultado = Object.values(grupos).map(g => {
+      const facturacion = g.toneladas * (g.valor || 0);
+      return {
+        grupo: g.grupo,
+        empresas: g.empresas,
+        toneladas: parseFloat(g.toneladas.toFixed(2)),
+        valor: parseFloat((g.valor || 0).toFixed(2)),
+        facturacion: parseFloat(facturacion.toFixed(2))
+      };
+    });
+    // Ordenar por grupo numérico si es posible
+    resultado.sort((a,b) => (parseFloat(a.grupo) || 0) - (parseFloat(b.grupo) || 0));
     return resultado;
   };
 
@@ -2334,8 +2374,8 @@ export default function Reportes() {
                             <td className="border border-gray-300 px-4 py-3 font-medium">{item.grupo}</td>
                             <td className="border border-gray-300 px-4 py-3 text-center">{item.empresas}</td>
                             <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.toneladas).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.valor).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-3 text-center font-semibold">{Number(item.facturacion).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{formatCOP(item.valor)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center font-semibold">{formatCOP(item.facturacion)}</td>
                           </tr>
                         ))}
                         <tr className="bg-yellow-100 font-bold">
@@ -2343,7 +2383,7 @@ export default function Reportes() {
                           <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.empresas||0),0)}</td>
                           <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.toneladas||0),0).toFixed(2)}</td>
                           <td className="border border-gray-300 px-4 py-3 text-center">-</td>
-                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0).toFixed(2)}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{formatCOP(datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0))}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -2378,8 +2418,8 @@ export default function Reportes() {
                             <td className="border border-gray-300 px-4 py-3 font-medium">{item.rango}</td>
                             <td className="border border-gray-300 px-4 py-3 text-center">{item.empresas}</td>
                             <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.toneladas).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-3 text-center">{Number(item.valor).toFixed(2)}</td>
-                            <td className="border border-gray-300 px-4 py-3 text-center font-semibold">{Number(item.facturacion).toFixed(2)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center">{formatCOP(item.valor)}</td>
+                            <td className="border border-gray-300 px-4 py-3 text-center font-semibold">{formatCOP(item.facturacion)}</td>
                           </tr>
                         ))}
                         <tr className="bg-yellow-100 font-bold">
@@ -2387,7 +2427,7 @@ export default function Reportes() {
                           <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.empresas||0),0)}</td>
                           <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.toneladas||0),0).toFixed(2)}</td>
                           <td className="border border-gray-300 px-4 py-3 text-center">-</td>
-                          <td className="border border-gray-300 px-4 py-3 text-center">{datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0).toFixed(2)}</td>
+                          <td className="border border-gray-300 px-4 py-3 text-center">{formatCOP(datosFacturacion.reduce((a,b)=>a+(b.facturacion||0),0))}</td>
                         </tr>
                       </tbody>
                     </table>

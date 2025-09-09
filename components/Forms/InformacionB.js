@@ -221,6 +221,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           return "Guardado";
         });
         setIsDisabled(false); // Permitir edición en estado Guardado
+  // Mantener estado en "Guardado"; el cambio a "Pendiente" solo ocurre desde "Enviar formulario"
       } else if (checkResponse.status === 404) {
         // Si no existen datos, crearlos
         const response = await fetch(`${API_BASE_URL}/informacion-b/createInfo`, {
@@ -246,6 +247,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           return "Guardado";
         });
         setIsDisabled(false); // Permitir edición en estado Guardado
+  // Mantener estado en "Guardado"; el cambio a "Pendiente" solo ocurre desde "Enviar formulario"
       } else {
         throw new Error(`Error ${checkResponse.status}: ${checkResponse.statusText}`);
       }

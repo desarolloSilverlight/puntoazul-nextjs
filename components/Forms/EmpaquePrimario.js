@@ -18,6 +18,32 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({}); // {`${index}-campo`: "mensaje"}
 
+  // Descarga un archivo .txt con el detalle de errores del cargue
+  const descargarErroresTXT = (errores = [], nombreArchivoOriginal = "") => {
+    try {
+      const encabezado = [
+        "Errores de carga - Empaque Primario (Línea Base)",
+        `Archivo: ${nombreArchivoOriginal || "(sin nombre)"}`,
+        `Fecha: ${new Date().toLocaleString()}`,
+        "",
+      ];
+      const lineas = errores.length > 0 ? errores.map((e) => `- ${e}`) : ["(Sin detalles adicionales)"];
+      const contenido = [...encabezado, ...lineas].join("\r\n");
+      const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const base = nombreArchivoOriginal ? nombreArchivoOriginal.replace(/\.[^/.]+$/, "") : "errores_carga_empaque_primario";
+      a.href = url;
+      a.download = `${base}_errores.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("No se pudo descargar el archivo de errores:", e);
+    }
+  };
+
   // Helper para mostrar siempre con máximo dos decimales (sin afectar almacenamiento interno)
   const format2 = (v) => {
     if (v === null || v === undefined || v === "") return "";
@@ -406,13 +432,19 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         // Leer como matriz para detectar si hay fila de nota previa a encabezados
         const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         if (!rawRows || rawRows.length === 0) {
-          alert('El archivo Excel está vacío.');
+          descargarErroresTXT(["El archivo Excel está vacío."], file?.name);
+          alert('El archivo Excel está vacío. Se descargó un .txt con el detalle.');
+          if (event && event.target) event.target.value = '';
           return;
         }
         // Buscar fila que contenga los encabezados (que incluya 'Empresa' y 'Nombre')
         let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('empresa')) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('nombre')));
         if (headerIndex === -1) {
-          alert('No se encontraron encabezados válidos en el Excel (faltan columnas como Empresa titular, Nombre Producto).');
+          descargarErroresTXT([
+            'No se encontraron encabezados válidos en el Excel (faltan columnas como Empresa titular, Nombre Producto).'
+          ], file?.name);
+          alert('Encabezados inválidos. Se descargó un .txt con el detalle.');
+          if (event && event.target) event.target.value = '';
           return;
         }
         const headers = rawRows[headerIndex].map(h => (h || '').toString().trim());
@@ -423,7 +455,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           return obj;
         });
         if (jsonData.length === 0) {
-          alert('No hay filas de datos después de los encabezados.');
+          descargarErroresTXT(['No hay filas de datos después de los encabezados.'], file?.name);
+          alert('No hay filas de datos. Se descargó un .txt con el detalle.');
+          if (event && event.target) event.target.value = '';
           return;
         }
 
@@ -565,7 +599,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         });
 
         if (errores.length > 0) {
-          alert(`Se encontraron los siguientes errores:\n\n${errores.join('\n')}`);
+          descargarErroresTXT(errores, file?.name);
+          alert(`Se encontraron ${errores.length} errores. Se descargó un .txt con el detalle para su corrección.`);
+          if (event && event.target) event.target.value = '';
           return;
         }
 
@@ -581,7 +617,12 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
       } catch (error) {
         console.error('Error al procesar archivo Excel:', error);
-        alert('Error al procesar el archivo Excel. Verifique que el formato sea correcto.');
+        descargarErroresTXT([
+          `Error al procesar el archivo Excel: ${error.message}`,
+          'Verifique que el formato sea correcto.'
+        ], file?.name);
+        alert('Ocurrió un error al procesar el Excel. Se descargó un .txt con el detalle.');
+        if (event && event.target) event.target.value = '';
       }
     };
 

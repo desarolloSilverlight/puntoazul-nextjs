@@ -13,6 +13,7 @@ export default function CardAsociados({ color }) {
   const [infoLoading, setInfoLoading] = useState(false);
   const [selectedInfoB, setSelectedInfoB] = useState(null); // Datos de informacion-b del asociado
   const [infoError, setInfoError] = useState(null);
+  const [estadosByUsuario, setEstadosByUsuario] = useState({}); // { [idUsuario]: { estado, idInformacionB } }
 
   useEffect(() => {
     setLoading(true);
@@ -28,6 +29,42 @@ export default function CardAsociados({ color }) {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  // Al cargar la lista de asociados, intentar obtener el estado del formulario (informacion-b) de cada uno
+  useEffect(() => {
+    const fetchEstados = async () => {
+      if (!Array.isArray(asociados) || asociados.length === 0) return;
+      const resultados = await Promise.all(
+        asociados.map(async (a) => {
+          try {
+            const resp = await fetch(`${API_BASE_URL}/informacion-b/getByIdUsuario/${a.idUsuario}`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            });
+            if (resp.status === 404) {
+              return { idUsuario: a.idUsuario, estado: null, idInformacionB: null };
+            }
+            if (!resp.ok) throw new Error(`Error ${resp.status}`);
+            const data = await resp.json();
+            return {
+              idUsuario: a.idUsuario,
+              estado: data.estado || null,
+              idInformacionB: data.idInformacionB || null,
+            };
+          } catch (e) {
+            console.warn("No se pudo obtener estado para usuario", a.idUsuario, e);
+            return { idUsuario: a.idUsuario, estado: null, idInformacionB: null };
+          }
+        })
+      );
+      const map = resultados.reduce((acc, r) => {
+        acc[r.idUsuario] = { estado: r.estado, idInformacionB: r.idInformacionB };
+        return acc;
+      }, {});
+      setEstadosByUsuario(map);
+    };
+    fetchEstados();
+  }, [asociados]);
 
   const handleVerAsociado = async (idUsuario) => {
     setSelectedIdUsuario(idUsuario);
@@ -47,6 +84,11 @@ export default function CardAsociados({ color }) {
       } else {
         const data = await resp.json();
         setSelectedInfoB(data);
+        // Actualizar el mapa de estados con la información recién obtenida
+        setEstadosByUsuario(prev => ({
+          ...prev,
+          [idUsuario]: { estado: data.estado || null, idInformacionB: data.idInformacionB || null }
+        }));
       }
     } catch (e) {
       setInfoError("No se pudo cargar la información del asociado.");
@@ -55,12 +97,40 @@ export default function CardAsociados({ color }) {
     }
   };
 
+  const EstadoPill = ({ estado }) => {
+    if (!estado) {
+      return <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">Sin información</span>;
+    }
+    const styles = {
+      Iniciado: "bg-gray-100 text-gray-700",
+      Guardado: "bg-gray-100 text-gray-700",
+      Pendiente: "bg-yellow-100 text-yellow-800",
+      Rechazado: "bg-red-100 text-red-800",
+      Aprobado: "bg-green-100 text-green-800",
+      Finalizado: "bg-blue-100 text-blue-800",
+    };
+    const cls = styles[estado] || "bg-gray-100 text-gray-700";
+    return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{estado}</span>;
+  };
+
   // Vista detalle con tabs (sin resumen)
   if (selectedIdUsuario) {
     return (
       <div className="relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded bg-white">
         <div className="flex items-center justify-between px-6 pt-4">
-          <h3 className="font-semibold text-lg text-blueGray-700">Detalle Asociado</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold text-lg text-blueGray-700">Detalle Asociado</h3>
+            {/* Mostrar estado si está disponible */}
+            <div>
+              {infoLoading ? (
+                <span className="text-sm text-blueGray-500">Cargando estado...</span>
+              ) : infoError ? (
+                <EstadoPill estado={null} />
+              ) : selectedInfoB ? (
+                <EstadoPill estado={selectedInfoB.estado} />
+              ) : null}
+            </div>
+          </div>
           <button
             className="bg-blueGray-600 text-white px-4 py-2 rounded"
             onClick={() => {
@@ -172,6 +242,9 @@ export default function CardAsociados({ color }) {
                   Email
                 </th>
                 <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
                   Acciones
                 </th>
               </tr>
@@ -185,6 +258,9 @@ export default function CardAsociados({ color }) {
                     <td className="p-2">{asociado.celular}</td>
           <td className="p-2">{asociado.email}</td>
                     <td className="p-2">
+                      <EstadoPill estado={(estadosByUsuario[asociado.idUsuario] || {}).estado} />
+                    </td>
+                    <td className="p-2">
                       <button
                         className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
                         type="button"
@@ -197,7 +273,7 @@ export default function CardAsociados({ color }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-500">
+                  <td colSpan={6} className="p-4 text-center text-gray-500">
                     No hay asociados para mostrar.
                   </td>
                 </tr>

@@ -97,6 +97,8 @@ export default function FormularioF() {
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
+      // Enviar notificaciones por correo: al asociado (correoFacturacion) y a Punto Azul
+      await enviarCorreosPendiente(idInformacionB);
       
       // Actualizar localStorage y estado local
       localStorage.setItem("estadoInformacionB", "Pendiente");
@@ -106,6 +108,64 @@ export default function FormularioF() {
       window.location.reload(); // Recargar la página para actualizar el estado
     } catch (error) {
       alert(`Error al actualizar estado: ${error.message}`);
+    }
+  };
+
+  // Helper: convierte saltos de línea a <br/> para correos HTML
+  const toHtml = (text) => (text || "").replace(/\n/g, "<br/>");
+
+  // Envía dos correos tras cambiar a "Pendiente":
+  // 1) Al asociado (correoFacturacion) y 2) A literalb@puntoazul.com.co
+  const enviarCorreosPendiente = async (idInformacionB) => {
+    try {
+      // Obtener datos del asociado para conocer correo y datos básicos
+      const infoResp = await fetch(`${API_BASE_URL}/informacion-b/getInformacion/${idInformacionB}`);
+      if (!infoResp.ok) {
+        console.warn("No se pudo obtener información del asociado para correo");
+        return; // No bloquear el flujo si falla
+      }
+      const info = await infoResp.json();
+      const correoAsociado = info.correoFacturacion || info.correo_facturacion || info.email || "";
+      const nombre = info.nombre || info.razonSocial || "Asociado";
+      const nit = info.nit || info.NIT || "";
+
+  const asuntoAsociado = "Cambio estado formulario a pendiente de revision";
+      const cuerpoAsociado = "Felicidades has terminado de diligenciar tu formulario por este medio te notificaremos si hay alguna novedad.";
+
+      const asuntoInterno = "Nuevo formulario Literal B pendiente por revisar";
+      const cuerpoInterno = `Hay un nuevo formulario Literal B pendiente por revisar para ${nombre}${nit ? ` (NIT ${nit})` : ""}.`;
+
+      const mensajes = [];
+      if (correoAsociado) {
+        mensajes.push({
+          destinatario: correoAsociado,
+          asunto: asuntoAsociado,
+          cuerpo: cuerpoAsociado,
+          cuerpoHtml: toHtml(cuerpoAsociado),
+          tipoFormulario: "literal_b",
+        });
+      }
+      mensajes.push({
+        destinatario: "literalb@puntoazul.com.co",
+        asunto: asuntoInterno,
+        cuerpo: cuerpoInterno,
+        cuerpoHtml: toHtml(cuerpoInterno),
+        tipoFormulario: "literal_b",
+      });
+
+      if (mensajes.length === 0) return;
+
+      const urlEnvio = `${API_BASE_URL}/informacion-b/enviarCorreo`;
+      const resp = await fetch(urlEnvio, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensajes, enviarComoHtml: true, incluirPasswordPlano: false })
+      });
+      if (!resp.ok) {
+        console.warn("Fallo al enviar correos de notificación de Pendiente");
+      }
+    } catch (e) {
+      console.warn("Error enviando correos de notificación:", e);
     }
   };
 
@@ -119,13 +179,43 @@ export default function FormularioF() {
     setSelectedFile(e.target.files[0]);
   };
 
+  // Finaliza el formulario cambiando el estado a "Finalizado"
+  const finalizaFormularioB = async () => {
+    const idInformacionB = localStorage.getItem("idInformacionB");
+    try {
+      const response = await fetch(`${API_BASE_URL}/informacion-b/updateEstado/${idInformacionB}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estado: "Finalizado",
+          tendencia: "",
+          motivo: "Proceso completado con carta cargada"
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+
+      // Actualizar localStorage y estado local
+      localStorage.setItem("estadoInformacionB", "Finalizado");
+      setEstadoInformacionB("Finalizado");
+
+      alert("Proceso finalizado correctamente. El reporte está completo.");
+      window.location.reload();
+    } catch (error) {
+      alert(`Error al finalizar formulario: ${error.message}`);
+      throw error;
+    }
+  };
+
   // Subir documento al backend
   const handleUploadCarta = async () => {
     if (!selectedFile) return;
     const idInformacionB = localStorage.getItem("idInformacionB");
     const formData = new FormData();
     formData.append("file", selectedFile);
-    formData.append("ruta", "/public/img/literalB");
     try {
       const response = await fetch(`${API_BASE_URL}/informacion-b/cargaCarta/${idInformacionB}`, {
         method: "POST",
@@ -136,6 +226,8 @@ export default function FormularioF() {
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
       alert("Formulario subido correctamente.");
+      // Cambiar el estado a "Finalizado" automáticamente
+      await finalizaFormularioB();
       setShowModal(false);
       setSelectedFile(null);
     } catch (error) {

@@ -17,6 +17,32 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   const [productos, setProductos] = useState([]); // Estado para los productos
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
   
+  // Descarga un archivo .txt con el detalle de errores
+  const descargarErroresTXT = (errores = [], nombreArchivoOriginal = "") => {
+    try {
+      const encabezado = [
+        "Errores de carga - Productos Literal B",
+        `Archivo: ${nombreArchivoOriginal || "(sin nombre)"}`,
+        `Fecha: ${new Date().toLocaleString()}`,
+        "",
+      ];
+      const lineas = errores.length > 0 ? errores.map((e) => `- ${e}`) : ["(Sin detalles adicionales)"];
+      const contenido = [...encabezado, ...lineas].join("\r\n");
+      const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const base = nombreArchivoOriginal ? nombreArchivoOriginal.replace(/\.[^/.]+$/, "") : "errores_carga";
+      a.href = url;
+      a.download = `${base}_errores.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("No se pudo descargar el archivo de errores:", e);
+    }
+  };
+  
   // Determinar si los campos son editables basado en el estado y readonly
   const isEditable = !readonly && (estado === "Iniciado" || estado === "Guardado" || estado === "Rechazado" || !estado);
 
@@ -185,7 +211,8 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       const result = await response.json();
       console.log("Respuesta de la API:", result); // Ver respuesta en consola
       alert(result.message);
-      window.location.reload();
+  // Mantener estado en "Guardado"; recargar para reflejar cambios
+  window.location.reload();
     } catch (error) {
       console.error("Error al enviar los productos:", error);
       alert(`Error: ${error.message}`); // Mostrar error en una alerta
@@ -409,12 +436,17 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
         // Mostrar errores si los hay
         if (errores.length > 0) {
-          alert(`Se encontraron los siguientes errores:\n\n${errores.join("\n")}\n\nPor favor corrija los errores y vuelva a intentar.`);
+          descargarErroresTXT(errores, file?.name);
+          alert(`Se encontraron ${errores.length} errores. Se descargó un archivo .txt con el detalle para su corrección.`);
+          // Limpiar el input antes de salir para permitir recargar el mismo archivo
+          if (e && e.target) e.target.value = "";
           return;
         }
 
         if (productosValidados.length === 0) {
-          alert("No se encontraron productos válidos en el archivo Excel.");
+          descargarErroresTXT(["No se encontraron productos válidos en el archivo Excel."], file?.name);
+          alert("No se encontraron productos válidos. Se descargó un archivo .txt con el detalle.");
+          if (e && e.target) e.target.value = "";
           return;
         }
 
@@ -431,11 +463,15 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         }
 
       } catch (error) {
-        alert(`Error al procesar el archivo Excel: ${error.message}\n\nAsegúrese de que el archivo tenga el formato correcto.`);
+        descargarErroresTXT([
+          `Error al procesar el archivo Excel: ${error.message}`,
+          "Asegúrese de que el archivo tenga el formato correcto.",
+        ], file?.name);
+        alert("Ocurrió un error al procesar el archivo. Se descargó un archivo .txt con el detalle.");
       }
 
       // Limpiar el input
-      e.target.value = "";
+  e.target.value = "";
     };
 
     reader.readAsArrayBuffer(file);

@@ -112,6 +112,9 @@ export default function FormularioF() {
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
+
+  // Enviar notificaciones por correo: al vinculado (correo_facturacion) y al correo interno indicado
+  await enviarCorreosPendienteF(idInformacionF);
       
       // Actualizar localStorage y estado local
       localStorage.setItem("estadoInformacionF", "Pendiente");
@@ -121,6 +124,65 @@ export default function FormularioF() {
       window.location.reload(); // Recargar la página para actualizar el estado
     } catch (error) {
       alert(`Error al actualizar estado: ${error.message}`);
+    }
+  };
+
+  // Helper: convierte saltos de línea en <br/> para correos HTML
+  const toHtml = (text) => (text || "").replace(/\n/g, "<br/>");
+
+  // Envía dos correos tras cambiar a "Pendiente" en Línea Base (F):
+  // 1) Al vinculado (correo_facturacion) y 2) A a.efectobumeran@puntoazul.com.co
+  const enviarCorreosPendienteF = async (idInformacionF) => {
+    try {
+      // Obtener información completa para extraer correo y detalles
+      const infoResp = await fetch(`${API_BASE_URL}/informacion-f/getInformacion/${idInformacionF}`);
+      if (!infoResp.ok) {
+        console.warn("No se pudo obtener información del vinculado para correo (F)");
+        return; // No bloquear el flujo si falla
+      }
+      const info = await infoResp.json();
+
+      const correoVinculado = info.correo_facturacion || info.correoFacturacion || info.email || "";
+      const nombre = info.nombre || info.empresa || info.razonSocial || info.razon_social || "Vinculado";
+      const nit = info.nit || info.NIT || "";
+
+      const asuntoVinculado = "Cambio estado formulario a pendiente de revision";
+      const cuerpoVinculado = "Felicidades has terminado de diligenciar tu formulario por este medio te notificaremos si hay alguna novedad.";
+
+      const asuntoInterno = "Nuevo formulario Línea Base pendiente por revisar";
+      const cuerpoInterno = `Hay un nuevo formulario Línea Base pendiente por revisar para ${nombre}${nit ? ` (NIT ${nit})` : ""}.`;
+
+      const mensajes = [];
+      if (correoVinculado) {
+        mensajes.push({
+          destinatario: correoVinculado,
+          asunto: asuntoVinculado,
+          cuerpo: cuerpoVinculado,
+          cuerpoHtml: toHtml(cuerpoVinculado),
+          tipoFormulario: "linea_base",
+        });
+      }
+      mensajes.push({
+        destinatario: "a.efectobumeran@puntoazul.com.co",
+        asunto: asuntoInterno,
+        cuerpo: cuerpoInterno,
+        cuerpoHtml: toHtml(cuerpoInterno),
+        tipoFormulario: "linea_base",
+      });
+
+      if (mensajes.length === 0) return;
+
+      const urlEnvio = `${API_BASE_URL}/informacion-f/enviarCorreo`;
+      const resp = await fetch(urlEnvio, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensajes, enviarComoHtml: true, incluirPasswordPlano: false })
+      });
+      if (!resp.ok) {
+        console.warn("Fallo al enviar correos de notificación de Pendiente (F)");
+      }
+    } catch (e) {
+      console.warn("Error enviando correos de notificación (F):", e);
     }
   };
 

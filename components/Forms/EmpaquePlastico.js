@@ -17,6 +17,33 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({});
 
+  // Helper: descarga un TXT con el resumen de errores de carga Excel
+  const descargarErroresTXT = (errores = [], nombreArchivoOriginal = "archivo.xlsx") => {
+    try {
+      const ahora = new Date();
+      const encabezado = [
+        `Archivo procesado: ${nombreArchivoOriginal}`,
+        `Fecha: ${ahora.toLocaleString()}`,
+        `Total de errores: ${errores.length}`,
+        "",
+        "DETALLE:"
+      ].join("\n");
+      const contenido = `${encabezado}\n${errores.join("\n")}`;
+      const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `errores_empaques_plasticos_${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("No se pudo generar el archivo TXT de errores:", e);
+      alert("No se pudo generar el archivo TXT de errores.");
+    }
+  };
+
   // Obtener productos desde el backend al cargar el componente
   // --- Toneladas acumuladas globales ---
   // Definir la función fuera del useEffect para poder reutilizarla
@@ -347,13 +374,34 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        if (!rawRows || rawRows.length===0){ alert('El archivo Excel está vacío.'); return; }
+        if (!rawRows || rawRows.length===0){
+          const errores = ['El archivo Excel está vacío.'];
+          descargarErroresTXT(errores, file.name);
+          alert('Se generó un TXT con los errores encontrados.');
+          event.target.value = '';
+          return;
+        }
         let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c=> typeof c==='string' && c.toLowerCase().includes('empresa')) && r.some(c=> typeof c==='string' && c.toLowerCase().includes('nombre')));
-        if (headerIndex === -1){ alert('No se encontraron encabezados válidos.'); return; }
+        if (headerIndex === -1){
+          const errores = [
+            'No se encontraron encabezados válidos.',
+            'Asegúrese de incluir columnas como Empresa titular, Nombre Producto, Excepciones, Prohibiciones y Unidades, además de las columnas numéricas.'
+          ];
+          descargarErroresTXT(errores, file.name);
+          alert('Se generó un TXT con los errores encontrados.');
+          event.target.value = '';
+          return;
+        }
         const headers = rawRows[headerIndex].map(h => (h||'').toString().trim());
         const dataMatrix = rawRows.slice(headerIndex+1).filter(r => r.some(c=> c!==null && c!==undefined && c!==''));
         const jsonData = dataMatrix.map(r => { const o={}; headers.forEach((h,i)=> o[h]=r[i]); return o; });
-        if (jsonData.length===0){ alert('No hay filas de datos después de encabezados.'); return; }
+        if (jsonData.length===0){
+          const errores = ['No hay filas de datos después de encabezados.'];
+          descargarErroresTXT(errores, file.name);
+          alert('Se generó un TXT con los errores encontrados.');
+          event.target.value = '';
+          return;
+        }
         const mapearColumnas = (row) => {
           const keys = Object.keys(row); const lower = keys.map(k=>k.toLowerCase()); const find=(pred)=> { const i=lower.findIndex(pred); return i>=0? keys[i]: null; };
           const g = (pref, material) => row[find(k=> k.includes(pref) && k.includes(material))] || '0';
@@ -471,7 +519,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         });
 
         if (errores.length > 0) {
-          alert(`Se encontraron los siguientes errores:\n\n${errores.join('\n')}`);
+          descargarErroresTXT(errores, file.name);
+          alert('Se generó un TXT con los errores encontrados.');
+          event.target.value = '';
           return;
         }
 
@@ -487,7 +537,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
       } catch (error) {
         console.error('Error al procesar archivo Excel:', error);
-        alert('Error al procesar el archivo Excel. Verifique que el formato sea correcto.');
+        const errores = [
+          'Error al procesar el archivo Excel. Verifique que el formato sea correcto.',
+          `Detalle: ${error?.message || error}`
+        ];
+        descargarErroresTXT(errores, file?.name || 'archivo.xlsx');
+        alert('Se generó un TXT con el detalle del error.');
+        event.target.value = '';
       }
     };
 

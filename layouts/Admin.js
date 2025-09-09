@@ -19,11 +19,13 @@ export default function Admin({ children, username }) {
 
   // Renderizar el componente HeaderStats según el perfil
   const renderHeaderStats = () => {
-    if (perfil === "Administrador" || perfil === "Empleado") {
+    const p = (perfil || "").toLowerCase();
+    if (p.includes("administrador") || p === "empleado") {
+      // Administrador, AdministradorB, AdministradorF y Empleado usan header de administrador
       return <HeaderStats />;
-    } else if (perfil === "Asociado") {
+    } else if (p.includes("asociado")) {
       return <HeaderStatsB />;
-    } else if (perfil === "Vinculado") {
+    } else if (p.includes("vinculado")) {
       return <HeaderStatsF />;
     } else {
       return null; // Si no hay perfil válido, no renderizar nada

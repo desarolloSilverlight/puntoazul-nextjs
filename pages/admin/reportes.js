@@ -27,6 +27,7 @@ export default function Reportes() {
   const [reporte, setReporte] = useState("");
   const [cliente, setCliente] = useState("");
   const [ano, setAno] = useState(""); // Nuevo estado para año
+  const [perfilUsuario, setPerfilUsuario] = useState(""); // Perfil actual del usuario
   const [clientes, setClientes] = useState([]);
   const [anosDisponibles, setAnosDisponibles] = useState([]); // Nuevo estado para años
   const [tablaDatos, setTablaDatos] = useState([]);
@@ -148,13 +149,13 @@ export default function Reportes() {
     }
 
   // Si es grupo, peso o facturacion de literal B, limpiar cliente ya que no se usa
-  if (literal === "literal_b" && (value === "grupo" || value === "peso" || value === "facturacion")) {
+  if (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion")) {
       setCliente(""); // Limpiar cliente para grupo y peso
     }
 
     // Cargar años disponibles para reportes que los requieren
   if ((literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion")) ||
-    (literal === "literal_b" && (value === "grupo" || value === "peso" || value === "facturacion"))) {
+    (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion"))) {
       try {
         const endpoint = literal === "linea_base" 
           ? `${API_BASE_URL}/informacion-f/getAnosReporte`
@@ -178,6 +179,35 @@ export default function Reportes() {
     }
   };
 
+  // Al cargar la página, leer el perfil y fijar el literal según administradorf/administradorb
+  useEffect(() => {
+    try {
+      const p = (localStorage.getItem("perfil") || "").toLowerCase();
+      setPerfilUsuario(p);
+  if (p.includes("administradorf")) {
+        // Fijar Línea Base y disparar carga asociada
+        handleLiteralChange({ target: { value: "linea_base" } });
+  } else if (p.includes("administradorb")) {
+        // Fijar Literal B y disparar carga asociada
+        handleLiteralChange({ target: { value: "literal_b" } });
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Efecto de refuerzo: si ya conocemos el perfil y el literal no coincide, ajustarlo
+  useEffect(() => {
+    if (!perfilUsuario) return;
+    const p = perfilUsuario.toLowerCase();
+    if (p.includes('administradorf') && literal !== 'linea_base') {
+      handleLiteralChange({ target: { value: 'linea_base' } });
+    }
+    if (p.includes('administradorb') && literal !== 'literal_b') {
+      handleLiteralChange({ target: { value: 'literal_b' } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perfilUsuario]);
+
   // Evento del botón Buscar
   const handleBuscar = async () => {
     // Validar campos requeridos según el tipo de reporte
@@ -188,7 +218,7 @@ export default function Reportes() {
     
     // Validar año para reportes que lo requieren
   if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-     (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion"))) && !ano) {
+     (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion"))) && !ano) {
       alert("Por favor selecciona el Año para este reporte");
       return;
     }
@@ -214,8 +244,109 @@ export default function Reportes() {
             datosEnvio.cliente = cliente || null;
           }
         } else if (literal === "literal_b") {
-          // Para grupo y peso, usar endpoint específico
-          if (reporte === "grupo" || reporte === "peso" || reporte === "facturacion") {
+          // Para variación de grupo, comparar dos años
+          if (reporte === "variacion_grupo") {
+            try {
+              const yearActual = parseInt(ano);
+              const yearPrevio = yearActual - 1;
+              const endpointLB = `${API_BASE_URL}/informacion-b/reporteGrupoPeso`;
+              const bodyActual = JSON.stringify({ literal: 'literal_b', reporte: 'grupo', cliente: null, ano: yearActual });
+              const bodyPrevio = JSON.stringify({ literal: 'literal_b', reporte: 'grupo', cliente: null, ano: yearPrevio });
+
+              const [resPrev, resAct] = await Promise.all([
+                fetch(endpointLB, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: bodyPrevio }),
+                fetch(endpointLB, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: bodyActual })
+              ]);
+
+              const datosPrev = resPrev.ok ? await resPrev.json() : [];
+              const datosAct = resAct.ok ? await resAct.json() : [];
+              const extractEmpresas = (resp) => {
+                if (!resp) return [];
+                if (Array.isArray(resp)) return resp;
+                if (Array.isArray(resp.data)) return resp.data;
+                if (Array.isArray(resp.empresas)) return resp.empresas;
+                if (Array.isArray(resp.result)) return resp.result;
+                return [];
+              };
+              const arrPrev = extractEmpresas(datosPrev);
+              const arrAct = extractEmpresas(datosAct);
+
+              // Obtener orden de grupos desde parámetros
+              const params = await obtenerParametroFacturacionB();
+              // Normalizador de grupo: maneja "Grupo 2"/"grupo 2"/"2.0" -> "2"
+              const normGrupo = (g) => {
+                const s = (g ?? '').toString().trim();
+                if (!s) return '';
+                const lower = s.toLowerCase();
+                let cleaned = lower.replace(/^grupo\s*/i, '').replace(',', '.');
+                let n = Number(cleaned);
+                if (!isNaN(n)) return String(parseInt(n, 10));
+                const m = s.match(/\d+/);
+                if (m) return m[0];
+                return s; // fallback texto
+              };
+              const displayGrupo = (key) => {
+                const k = (key ?? '').toString();
+                return /^\d+$/.test(k) ? `Grupo ${k}` : (k || 'Sin grupo');
+              };
+              // Consolidar grupos desde parámetros y respuestas
+              const setG = new Set([
+                ...params.map(p => normGrupo(p.grupo)),
+                ...arrPrev.map(e => normGrupo(e.grupo)),
+                ...arrAct.map(e => normGrupo(e.grupo))
+              ].filter(Boolean));
+              let gruposOrden = Array.from(setG);
+              // Ordenar numéricamente si son números puros; si no, por string
+              gruposOrden.sort((a, b) => {
+                const an = /^\d+$/.test(a) ? parseInt(a, 10) : NaN;
+                const bn = /^\d+$/.test(b) ? parseInt(b, 10) : NaN;
+                if (!isNaN(an) && !isNaN(bn)) return an - bn;
+                if (!isNaN(an)) return -1;
+                if (!isNaN(bn)) return 1;
+                return a.localeCompare(b, 'es');
+              });
+              const rank = new Map(gruposOrden.map((g,i)=> [g, i]));
+
+              // Mapear por NIT para comparar
+              const keyOf = (e) => (e.nit || e.NIT || e.identificacion || e.usuario_nit || e.documento || e.id || '').toString();
+              const mapPrev = new Map(arrPrev.map(e => [keyOf(e), normGrupo(e.grupo)]));
+              const mapAct = new Map(arrAct.map(e => [keyOf(e), normGrupo(e.grupo)]));
+
+              const rows = gruposOrden.map(g => {
+                const gStr = g; // ya normalizado
+                const idx = rank.get(gStr) ?? 0;
+                // Año previo y actual: conteo en ese grupo
+                const ano1 = arrPrev.filter(e => normGrupo(e.grupo) === gStr).length;
+                const ano2 = arrAct.filter(e => normGrupo(e.grupo) === gStr).length;
+                // Movimientos: considerar solo empresas que estaban en g en el año previo
+                let mantienen = 0, suben = 0, bajan = 0;
+                for (const [nit, gPrev] of mapPrev.entries()) {
+                  if ((gPrev ?? '') !== gStr) continue;
+                  const gAct = mapAct.get(nit);
+                  if (!gAct) continue; // sin dato en año actual
+                  const iPrev = rank.get((gPrev ?? '')) ?? 0;
+                  const iAct = rank.get((gAct ?? ''));
+                  if (iAct === undefined) continue;
+                  if (iAct === iPrev) mantienen++;
+                  else if (iAct > iPrev) suben++;
+                  else if (iAct < iPrev) bajan++;
+                }
+                return { grupo: displayGrupo(gStr), ano1, ano2, seMantienen: mantienen, suben, bajan };
+              });
+
+              setDatosReporte(rows);
+              setTablaDatos(rows);
+              setPaginaActual(1);
+              setBusquedaTabla('');
+              return; // Evitar continuar al fetch estándar
+            } catch (e) {
+              console.error('Error obteniendo variación de grupo:', e);
+              alert('No se pudo calcular la variación de grupo.');
+              return;
+            }
+          }
+          // Para grupo y facturacion, usar endpoint específico
+          if (reporte === "grupo" || reporte === "facturacion") {
             endpoint = `${API_BASE_URL}/informacion-b/reporteGrupoPeso`;
             datosEnvio.cliente = null; // Todos los clientes
             datosEnvio.ano = parseInt(ano);
@@ -464,14 +595,25 @@ export default function Reportes() {
           empresa.ano || ano,
           empresa.grupo || 'Sin grupo'
         ]);
-      } else if (reporte === 'peso' && literal === 'literal_b') {
-        // Reporte de peso
-        encabezados = ['Empresa', 'NIT', 'Año', 'Peso Facturación (Kg)'];
-        datosParaExcel = datosReporte.map(empresa => [
-          empresa.nombre || 'N/A',
-          empresa.nit || 'N/A',
-          empresa.ano || ano,
-          parseFloat(empresa.totalPesoFacturacion || 0).toFixed(2)
+      } else if (reporte === 'variacion_grupo' && literal === 'literal_b') {
+        // Reporte de variación de grupo (comparación año previo vs actual)
+        const yearActual = parseInt(ano);
+        const yearPrev = yearActual - 1;
+        encabezados = [
+          'Grupo',
+          `Año ${yearPrev}`,
+          `Año ${yearActual}`,
+          'Se mantienen',
+          'Suben',
+          'Bajan'
+        ];
+        datosParaExcel = (Array.isArray(datosReporte) ? datosReporte : []).map(r => [
+          r.grupo,
+          r.ano1,
+          r.ano2,
+          r.seMantienen,
+          r.suben,
+          r.bajan
         ]);
       } else if (reporte === 'facturacion' && literal === 'literal_b') {
         // Reporte de facturación por Grupo - Literal B
@@ -559,7 +701,8 @@ export default function Reportes() {
       // Buscar gráficas en diferentes contenedores
       const chartSelectors = [
         '#chart-container',
-        '#dynamic-chart-container', 
+        '#dynamic-chart-container',
+        '#variacion-chart-container',
         '.chart-container'
       ];
       
@@ -1382,7 +1525,7 @@ export default function Reportes() {
     if (!datosReporte || !datosReporte.length) return null;
     
     // Solo manejar reportes específicos aquí, otros son manejados por generateChart()
-  if (literal === 'literal_b' && (reporte === 'grupo' || reporte === 'peso' || reporte === 'estado' || reporte === 'facturacion')) {
+  if (literal === 'literal_b' && (reporte === 'grupo' || reporte === 'variacion_grupo' || reporte === 'estado' || reporte === 'facturacion')) {
       return null; // Estos son manejados por generateChart()
     }
     
@@ -1549,7 +1692,7 @@ export default function Reportes() {
     literal === "literal_b"
       ? [
           { value: "grupo", label: "Grupo" },
-          { value: "peso", label: "Peso" },
+          { value: "variacion_grupo", label: "Variación Grupo" },
           { value: "facturacion", label: "Facturación" },
           { value: "estado", label: "Estado" },
         ]
@@ -1568,8 +1711,8 @@ export default function Reportes() {
         <div className="w-full max-w-2xl bg-white rounded shadow-lg p-6">
           <h2 className="text-blueGray-700 text-xl font-semibold mb-6">Reportes</h2>
           <div className={`grid gap-4 p-2 ${
-            ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-             (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion")))
+            (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
+              (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion"))))
               ? "grid-cols-4" // Sin cliente: Literal, Reporte, Año, Botón
               : "grid-cols-5" // Con cliente: Literal, Reporte, Cliente, Año (opcional), Botón
           }`}>
@@ -1580,6 +1723,8 @@ export default function Reportes() {
                 className="w-full border border-gray-300 rounded p-2"
                 value={literal}
                 onChange={handleLiteralChange}
+                disabled={perfilUsuario.includes('administradorf') || perfilUsuario.includes('administradorb')}
+                title={(perfilUsuario.includes('administradorf') || perfilUsuario.includes('administradorb')) ? 'Bloqueado por perfil' : ''}
               >
                 <option value="">Seleccione...</option>
                 <option value="linea_base">Línea Base</option>
@@ -1605,7 +1750,7 @@ export default function Reportes() {
             </div>
             {/* Selector Cliente - Solo visible si NO es toneladas/rangos de línea base o grupo/peso de literal B */}
       {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-        (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion")))) && (
+        (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion")))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Cliente</label>
                 <select
@@ -1625,7 +1770,7 @@ export default function Reportes() {
             )}
             {/* Selector Año (para reportes que requieren año) */}
             {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-              (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion"))) && (
+              (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion"))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Año</label>
                 <select
@@ -1648,10 +1793,10 @@ export default function Reportes() {
               <button
                 className="bg-blueGray-600 h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none  ease-linear transition-all duration-150"
                 onClick={handleBuscar}
-                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion"))) && !ano)}
+                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion"))) && !ano)}
                 title={
                   ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-                   (literal === "literal_b" && (reporte === "grupo" || reporte === "peso" || reporte === "facturacion")))
+                   (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion")))
                     ? "Para estos reportes solo se requiere año"
                     : "Complete todos los campos requeridos"
                 }
@@ -1672,6 +1817,94 @@ export default function Reportes() {
             </div>
           </div>
           
+          {/* Gráficas (antes de las tablas) */}
+          {datosReporte && Array.isArray(datosReporte) && datosReporte.length > 0 && (
+            <>
+            <div id="chart-container" className="chart-container">
+              {generateChart()}
+            </div>
+            <div id="dynamic-chart-container" className="chart-container">
+              {(() => {
+                const chart = getChartData();
+                if (!chart) return null;
+                
+                // Gráficos duales para rangos
+                if (chart.type === 'dual' && chart.charts) {
+                  return (
+                    <div className="mt-8 space-y-8">
+                      {chart.charts.map((chartConfig, index) => (
+                        <div key={index} className="flex justify-center">
+                          <div style={{ maxWidth: 600, width: '100%' }}>
+                            <h4 className="text-center font-semibold mb-4 text-gray-700">
+                              {chartConfig.title}
+                            </h4>
+                            {chartConfig.type === 'bar' ? (
+                              <Bar data={chartConfig.data} options={chartConfig.options} height={120} />
+                            ) : chartConfig.type === 'line' ? (
+                              <Line data={chartConfig.data} options={chartConfig.options} height={120} />
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+              
+              if (chart.type === 'bar') {
+                return (
+                  <div className="mt-8 flex justify-center">
+                    <div style={{ maxWidth: 350, width: '100%' }}>
+                      <Bar data={chart.data} options={chart.options} height={180} />
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Para otros tipos de gráficos (pie, bar, etc.)
+              if (chart.type === 'pie') {
+                return (
+                  <div className="mt-8 flex justify-center">
+                    <div style={{ maxWidth: 350, width: '100%' }}>
+                      <Pie data={chart.data} options={chart.options} height={180} />
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Progress bar para meta
+              if (reporte === 'meta') {
+                // Ejemplo de datos de avance
+                const metas = [
+                  { nombre: 'Meta 1', avance: 80 },
+                  { nombre: 'Meta 2', avance: 60 },
+                  { nombre: 'Meta 3', avance: 95 },
+                ];
+                return (
+                  <div className="mt-8 space-y-4">
+                    {metas.map((meta, idx) => (
+                      <div key={meta.nombre}>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium text-blueGray-700">{meta.nombre}</span>
+                          <span className="text-sm font-medium text-blueGray-700">{meta.avance}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-4">
+                          <div
+                            className="bg-blue-500 h-4 rounded-full transition-all duration-500"
+                            style={{ width: `${meta.avance}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              
+              return null;
+            })()}
+            </div>
+            </>
+          )}
+
           {/* Tabla de datos del reporte */}
           {datosReporte && Array.isArray(datosReporte) && datosReporte.length > 0 && (
             <>
@@ -2210,138 +2443,63 @@ export default function Reportes() {
                   </div>
                 );
               })()
-            ) : reporte === 'peso' && literal === 'literal_b' ? (
-              // Tabla especializada para reporte de peso de Literal B
+            ) : reporte === 'variacion_grupo' && literal === 'literal_b' ? (
+              // Variación de grupo: tabla resumen y gráfica de barras apiladas
               (() => {
-                const { datos, totalResultados, totalPaginas } = filtrarYPaginarDatos(datosReporte);
-                
+                const rows = Array.isArray(datosReporte) ? datosReporte : [];
                 return (
                   <div className="mt-8">
                     <h3 className="text-lg font-semibold mb-4 text-center">
-                      Reporte por Peso - Literal B - Año {ano}
+                      {ano ? (
+                        <>Variación de Grupo - Comparación {parseInt(ano,10) - 1} vs {ano}</>
+                      ) : 'Variación de Grupo'}
                     </h3>
-                    
-                    {/* Controles de la tabla */}
-                    <div className="mb-4 flex flex-wrap justify-between items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm">Mostrar:</label>
-                        <select
-                          value={filasPorPagina}
-                          onChange={(e) => {setFilasPorPagina(Number(e.target.value)); setPaginaActual(1);}}
-                          className="border border-gray-300 rounded px-2 py-1 text-sm"
-                        >
-                          <option value={5}>5</option>
-                          <option value={10}>10</option>
-                          <option value={25}>25</option>
-                          <option value={50}>50</option>
-                        </select>
-                        <span className="text-sm">resultados</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm">Buscar:</label>
-                        <input
-                          type="text"
-                          value={busquedaTabla}
-                          onChange={handleBusquedaChange}
-                          className="border border-gray-300 rounded px-3 py-1 text-sm"
-                          placeholder="Empresa o NIT..."
-                        />
-                      </div>
+                    <div id="variacion-chart-container" className="mb-8">
+                      <h4 className="text-md font-semibold mb-2 text-center">Movimientos por Grupo</h4>
+                      {(() => {
+                        const labels = rows.map(d => d.grupo);
+                        const data = {
+                          labels,
+                          datasets: [
+                            { label: 'Se mantienen', data: rows.map(d => d.seMantienen), backgroundColor: 'rgba(107, 114, 128, 0.7)' },
+                            { label: 'Suben', data: rows.map(d => d.suben), backgroundColor: 'rgba(34, 197, 94, 0.7)' },
+                            { label: 'Bajan', data: rows.map(d => d.bajan), backgroundColor: 'rgba(239, 68, 68, 0.7)' },
+                          ]
+                        };
+                        return (
+                          <Bar data={data} options={{
+                            responsive: true,
+                            plugins: { legend: { position: 'bottom' } },
+                            scales: { x: { stacked: true }, y: { beginAtZero: true, stacked: true } }
+                          }} />
+                        );
+                      })()}
                     </div>
-
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse border border-gray-300">
                         <thead>
                           <tr className="bg-blue-100">
-                            <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Empresa</th>
-                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
-                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Año</th>
-                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Peso Facturación (Kg)</th>
+                            <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Grupo</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Año {ano ? (parseInt(ano,10) - 1) : ''}</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Año {ano}</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Se mantienen</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Suben</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Bajan</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {datos.map((empresa, index) => (
-                            <tr key={index} className="hover:bg-gray-50">
-                              <td className="border border-gray-300 px-4 py-3 font-medium">
-                                {empresa.nombre || 'N/A'}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-3 text-center">
-                                {empresa.nit || 'N/A'}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-3 text-center">
-                                {empresa.ano || ano}
-                              </td>
-                              <td className="border border-gray-300 px-4 py-3 text-center">
-                                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                                  parseFloat(empresa.totalPesoFacturacion || 0) > 0 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {parseFloat(empresa.totalPesoFacturacion || 0).toFixed(2)}
-                                </span>
-                              </td>
+                          {rows.map((r, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              <td className="border border-gray-300 px-4 py-3 font-medium">{r.grupo}</td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">{r.ano1}</td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">{r.ano2}</td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">{r.seMantienen}</td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">{r.suben}</td>
+                              <td className="border border-gray-300 px-4 py-3 text-center">{r.bajan}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
-
-                    {/* Información de paginación y controles */}
-                    <div className="mt-4 flex flex-wrap justify-between items-center gap-4">
-                      <div className="text-sm text-gray-600">
-                        Mostrando {datos.length === 0 ? 0 : ((paginaActual - 1) * filasPorPagina) + 1} a{' '}
-                        {Math.min(paginaActual * filasPorPagina, totalResultados)} de {totalResultados} resultados
-                      </div>
-                      
-                      {/* Controles de paginación */}
-                      {totalPaginas > 1 && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
-                            disabled={paginaActual === 1}
-                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                          >
-                            Anterior
-                          </button>
-                          
-                          <div className="flex gap-1">
-                            {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-                              let pageNum;
-                              if (totalPaginas <= 5) {
-                                pageNum = i + 1;
-                              } else {
-                                const start = Math.max(1, paginaActual - 2);
-                                const end = Math.min(totalPaginas, start + 4);
-                                pageNum = start + i;
-                                if (pageNum > end) return null;
-                              }
-                              
-                              return (
-                                <button
-                                  key={pageNum}
-                                  onClick={() => setPaginaActual(pageNum)}
-                                  className={`px-3 py-1 border text-sm rounded ${
-                                    paginaActual === pageNum
-                                      ? 'bg-blue-500 text-white border-blue-500'
-                                      : 'border-gray-300 hover:bg-gray-50'
-                                  }`}
-                                >
-                                  {pageNum}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          
-                          <button
-                            onClick={() => setPaginaActual(Math.min(totalPaginas, paginaActual + 1))}
-                            disabled={paginaActual === totalPaginas}
-                            className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                          >
-                            Siguiente
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -2805,91 +2963,7 @@ export default function Reportes() {
               </div>
             )}
             
-            {/* Gráficos específicos para cada tipo de reporte */}
-            <div id="chart-container" className="chart-container">
-              {generateChart()}
-            </div>
             
-            {/* Gráfico dinámico debajo de la tabla */}
-            <div id="dynamic-chart-container" className="chart-container">
-              {(() => {
-                const chart = getChartData();
-                if (!chart) return null;
-                
-                // Gráficos duales para rangos
-                if (chart.type === 'dual' && chart.charts) {
-                  return (
-                    <div className="mt-8 space-y-8">
-                      {chart.charts.map((chartConfig, index) => (
-                        <div key={index} className="flex justify-center">
-                          <div style={{ maxWidth: 600, width: '100%' }}>
-                            <h4 className="text-center font-semibold mb-4 text-gray-700">
-                              {chartConfig.title}
-                            </h4>
-                            {chartConfig.type === 'bar' ? (
-                              <Bar data={chartConfig.data} options={chartConfig.options} height={120} />
-                            ) : chartConfig.type === 'line' ? (
-                              <Line data={chartConfig.data} options={chartConfig.options} height={120} />
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }
-              
-              if (chart.type === 'bar') {
-                return (
-                  <div className="mt-8 flex justify-center">
-                    <div style={{ maxWidth: 350, width: '100%' }}>
-                      <Bar data={chart.data} options={chart.options} height={180} />
-                    </div>
-                  </div>
-                );
-              }
-              
-              // Para otros tipos de gráficos (pie, bar, etc.)
-              if (chart.type === 'pie') {
-                return (
-                  <div className="mt-8 flex justify-center">
-                    <div style={{ maxWidth: 350, width: '100%' }}>
-                      <Pie data={chart.data} options={chart.options} height={180} />
-                    </div>
-                  </div>
-                );
-              }
-              
-              // Progress bar para meta
-              if (reporte === 'meta') {
-                // Ejemplo de datos de avance
-                const metas = [
-                  { nombre: 'Meta 1', avance: 80 },
-                  { nombre: 'Meta 2', avance: 60 },
-                  { nombre: 'Meta 3', avance: 95 },
-                ];
-                return (
-                  <div className="mt-8 space-y-4">
-                    {metas.map((meta, idx) => (
-                      <div key={meta.nombre}>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-sm font-medium text-blueGray-700">{meta.nombre}</span>
-                          <span className="text-sm font-medium text-blueGray-700">{meta.avance}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-4">
-                          <div
-                            className="bg-blue-500 h-4 rounded-full transition-all duration-500"
-                            style={{ width: `${meta.avance}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-              
-              return null;
-            })()}
-            </div>
             </>
           )}
         </div>

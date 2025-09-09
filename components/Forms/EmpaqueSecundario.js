@@ -17,6 +17,31 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({});
+  // Descarga un archivo .txt con el detalle de errores del cargue
+  const descargarErroresTXT = (errores = [], nombreArchivoOriginal = "") => {
+    try {
+      const encabezado = [
+        "Errores de carga - Empaque Secundario (Línea Base)",
+        `Archivo: ${nombreArchivoOriginal || "(sin nombre)"}`,
+        `Fecha: ${new Date().toLocaleString()}`,
+        "",
+      ];
+      const lineas = errores.length > 0 ? errores.map((e) => `- ${e}`) : ["(Sin detalles adicionales)"];
+      const contenido = [...encabezado, ...lineas].join("\r\n");
+      const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const base = nombreArchivoOriginal ? nombreArchivoOriginal.replace(/\.[^/.]+$/, "") : "errores_carga_empaque_secundario";
+      a.href = url;
+      a.download = `${base}_errores.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("No se pudo descargar el archivo de errores:", e);
+    }
+  };
   const data = [
     [ "Empresa titular del Producto", "Texto", "Razón social/Nombre de cada persona natural o jurídica (titular de registro) representada por la empresa vinculada a Soluciones Ambientales Sostenibles Punto Azul"],
     [ "Nombre del Producto", "Texto", "Nombre del producto que esta reportando"],
@@ -386,13 +411,28 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        if (!rawRows || rawRows.length === 0) { alert('El archivo Excel está vacío.'); return; }
+        if (!rawRows || rawRows.length === 0) {
+          descargarErroresTXT(["El archivo Excel está vacío."], file?.name);
+          alert('El archivo Excel está vacío. Se descargó un .txt con el detalle.');
+          if (event && event.target) event.target.value = '';
+          return;
+        }
         let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('empresa')) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('nombre')));
-        if (headerIndex === -1) { alert('No se encontraron encabezados válidos.'); return; }
+        if (headerIndex === -1) {
+          descargarErroresTXT(['No se encontraron encabezados válidos.'], file?.name);
+          alert('No se encontraron encabezados válidos. Se descargó un .txt con el detalle.');
+          if (event && event.target) event.target.value = '';
+          return;
+        }
         const headers = rawRows[headerIndex].map(h => (h || '').toString().trim());
         const dataMatrix = rawRows.slice(headerIndex + 1).filter(r => r.some(c => c !== null && c !== undefined && c !== ''));
         const jsonData = dataMatrix.map(r => { const o = {}; headers.forEach((h,i)=> o[h]=r[i]); return o; });
-        if (jsonData.length === 0) { alert('No hay filas de datos después de los encabezados.'); return; }
+        if (jsonData.length === 0) {
+          descargarErroresTXT(['No hay filas de datos después de los encabezados.'], file?.name);
+          alert('No hay filas de datos después de los encabezados. Se descargó un .txt con el detalle.');
+          if (event && event.target) event.target.value = '';
+          return;
+        }
         const normalizarSiNo = (v) => { if (v === null || v === undefined) return ""; const s = v.toString().trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,''); if (s==='si') return 'Si'; if (s==='no') return 'No'; return v.toString().trim(); };
         const mapearColumnas = (row) => {
           const keys = Object.keys(row); const lower = keys.map(k=>k.toLowerCase()); const findKey = (pred)=> { const i = lower.findIndex(pred); return i>=0? keys[i]: null; };
@@ -529,7 +569,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         });
 
         if (errores.length > 0) {
-          alert(`Se encontraron los siguientes errores:\n\n${errores.join('\n')}`);
+          descargarErroresTXT(errores, file?.name);
+          alert(`Se encontraron ${errores.length} errores. Se descargó un .txt con el detalle para su corrección.`);
+          if (event && event.target) event.target.value = '';
           return;
         }
 
@@ -545,7 +587,12 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
       } catch (error) {
         console.error('Error al procesar archivo Excel:', error);
-        alert('Error al procesar el archivo Excel. Verifique que el formato sea correcto.');
+        descargarErroresTXT([
+          `Error al procesar el archivo Excel: ${error.message}`,
+          'Verifique que el formato sea correcto.'
+        ], file?.name);
+        alert('Ocurrió un error al procesar el archivo Excel. Se descargó un .txt con el detalle.');
+        if (event && event.target) event.target.value = '';
       }
     };
 

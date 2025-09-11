@@ -297,7 +297,7 @@ Punto Azul`
       },
       "RECHAZAR_FONDO": {
         "SE MANTIENE": {
-          asunto: `RECHAZADO - Errores de Fondo - SE MANTIENE`,
+          asunto: `Literal B requiere correcciones.`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Su formulario del Literal B ha sido RECHAZADO por errores de fondo que requieren corrección.
@@ -318,7 +318,7 @@ Saludos cordiales,
 Equipo de Validación Punto Azul`
         },
         "SUBE GRUPO": {
-          asunto: `RECHAZADO - Errores de Fondo - SUBE GRUPO`,
+          asunto: `Literal B requiere correcciones.`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Un gusto saludarle,
@@ -336,7 +336,7 @@ Agradecemos de antemano su atención y quedamos atentos a su respuesta.
 Cordialmente, Punto Azul`
         },
         "BAJA GRUPO": {
-          asunto: `RECHAZADO - Errores de Fondo - BAJA GRUPO`,
+          asunto: `Literal B requiere correcciones.`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Un gusto saludarle,
@@ -362,7 +362,7 @@ Cordialmente, Punto Azul`
       },
       "RECHAZAR_FORMA": {
         "SE MANTIENE": {
-          asunto: `RECHAZADO - Errores de Forma - SE MANTIENE`,
+          asunto: `Literal B requiere correcciones.`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Su formulario del Literal B ha sido RECHAZADO por errores de forma que requieren corrección.
@@ -384,7 +384,7 @@ Saludos cordiales,
 Equipo de Validación Punto Azul`
         },
         "SUBE GRUPO": {
-          asunto: `RECHAZADO - Errores de Forma - SUBE GRUPO`,
+          asunto: `Literal B requiere correcciones.`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Un gusto saludarle,
@@ -408,7 +408,7 @@ Cordialmente,
 Punto Azul`
         },
         "BAJA GRUPO": {
-          asunto: `RECHAZADO - Errores de Forma - BAJA GRUPO`,
+          asunto: `Literal B requiere correcciones.`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Un gusto saludarle,

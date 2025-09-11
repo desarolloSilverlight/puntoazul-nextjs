@@ -149,7 +149,7 @@ export default function FormularioF() {
       const asuntoVinculado = "Cambio estado formulario a pendiente de revision";
       const cuerpoVinculado = "Felicidades has terminado de diligenciar tu formulario por este medio te notificaremos si hay alguna novedad.";
 
-      const asuntoInterno = "Nuevo formulario Línea Base pendiente por revisar";
+      const asuntoInterno = `Nuevo formulario Línea Base pendiente por revisar ${nombre}`;
       const cuerpoInterno = `Hay un nuevo formulario Línea Base pendiente por revisar para ${nombre}${nit ? ` (NIT ${nit})` : ""}.`;
 
       const mensajes = [];
@@ -227,54 +227,33 @@ export default function FormularioF() {
     }
   };
 
-  // Subir documento al backend
+  // Subir documento al backend (alineado con literalb.js: solo archivo -> finaliza)
   const handleUploadCarta = async () => {
     if (!selectedFile) return;
-    
-    // Confirmación antes de subir y finalizar
-    const confirmacion = window.confirm(
-      "¿Está seguro de subir esta carta? Al hacerlo, el proceso se finalizará automáticamente y no podrá hacer más cambios."
-    );
-    
-    if (!confirmacion) return;
-    
     const idInformacionF = localStorage.getItem("idInformacionF");
     const formData = new FormData();
     formData.append("file", selectedFile);
-    formData.append("ruta", "/public/img/literalF");
-    
-    console.log("=== SUBIENDO CARTA Y FINALIZANDO FORMULARIO ===");
-    console.log("ID Información F:", idInformacionF);
-    console.log("Archivo seleccionado:", selectedFile.name);
-    
     try {
-      // 1. Subir el documento
-      console.log("Paso 1: Subiendo documento...");
-      const response = await fetch(`${API_BASE_URL}/informacion-f/cargaCarta/${idInformacionF}`, {
+      // Ajuste: el backend expone /cargaCartaUrl/ con FileInterceptor('file')
+      const response = await fetch(`${API_BASE_URL}/informacion-f/cargaCartaUrl/${idInformacionF}`, {
         method: "POST",
         body: formData,
       });
-      
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
-      
-      console.log("Documento subido exitosamente");
-      alert("Carta subida correctamente.");
-      
-      // 2. Finalizar el formulario automáticamente
-      console.log("Paso 2: Finalizando formulario...");
+      alert("Formulario subido correctamente.");
       await FinalizaFormulario();
-      
-      // 3. Limpiar y cerrar modal
       setShowModal(false);
       setSelectedFile(null);
-      console.log("Proceso completado exitosamente");
-      
     } catch (error) {
-      console.error("Error en el proceso:", error);
-      alert(`Error al subir la carta: ${error.message}`);
+      // Mensaje específico si Multer devuelve Unexpected field
+      if (String(error.message).includes("Unexpected field")) {
+        alert("El backend rechazó el campo 'file'. Verifique que el FileInterceptor use FileInterceptor('file').");
+      } else {
+        alert(`Error al subir el formulario: ${error.message}`);
+      }
     }
   };
 

@@ -132,7 +132,7 @@ export default function FormularioF() {
   const asuntoAsociado = "Cambio estado formulario a pendiente de revision";
       const cuerpoAsociado = "Felicidades has terminado de diligenciar tu formulario por este medio te notificaremos si hay alguna novedad.";
 
-      const asuntoInterno = "Nuevo formulario Literal B pendiente por revisar";
+      const asuntoInterno = `Nuevo formulario Literal B pendiente por revisar ${nombre}`;
       const cuerpoInterno = `Hay un nuevo formulario Literal B pendiente por revisar para ${nombre}${nit ? ` (NIT ${nit})` : ""}.`;
 
       const mensajes = [];

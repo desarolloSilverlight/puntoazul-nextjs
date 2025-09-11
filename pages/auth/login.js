@@ -1,14 +1,25 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
+import Modal from "react-modal";
 import { API_BASE_URL } from "../../utils/config";
 // layout for page
 
 import Auth from "layouts/Auth.js";
 export default function Login() {
+  // Necesario para accesibilidad con react-modal
+  if (typeof window !== "undefined") {
+    Modal.setAppElement("#__next");
+  }
   const [username, setIdentificacion] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  // Forgot password modal state
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSending, setForgotSending] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState("");
+  const [forgotErr, setForgotErr] = useState("");
   const router = useRouter();
 
   const handleLogin = async (e) => {
@@ -42,6 +53,62 @@ export default function Login() {
       });
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setForgotErr("");
+    setForgotMsg("");
+    if (!forgotEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) {
+      setForgotErr("Ingrese un correo válido.");
+      return;
+    }
+    setForgotSending(true);
+    try {
+      const resp = await fetch(`${API_BASE_URL}/auth/request-password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: forgotEmail })
+      });
+      // Intentar leer JSON si existe
+      let data = null;
+      try { data = await resp.json(); } catch {}
+      if (!resp.ok) {
+        throw new Error((data && data.message) || `Error ${resp.status}`);
+      }
+      // Si el backend devuelve el token para que el FE envíe el correo, lo usamos
+      if (data && data.token) {
+        const resetUrl = `${window.location.origin}/auth/reset-password?t=${encodeURIComponent(data.token)}`;
+        const asunto = "Restablecer contraseña de tu cuenta Punto Azul";
+        const cuerpo = `Hola,\n\nRecibimos una solicitud para restablecer tu contraseña. Usa el siguiente enlace para crear una nueva. Este enlace vence en 60 minutos.\n\n${resetUrl}\n\nSi no solicitaste este cambio, ignora este mensaje.\n\nPunto Azul`;
+        try {
+          await fetch(`${API_BASE_URL}/informacion-b/enviarCorreo`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mensajes: [{
+                destinatario: forgotEmail,
+                asunto,
+                cuerpo,
+                cuerpoHtml: cuerpo.replace(/\n/g, "<br/>") ,
+                tipoFormulario: "reset_password"
+              }],
+              enviarComoHtml: true,
+              incluirPasswordPlano: false
+            })
+          });
+        } catch (e) {
+          // No bloquear por fallo de envío desde FE (puede que el backend ya lo haya enviado)
+          console.warn("Fallo al enviar correo de reset desde FE:", e?.message || e);
+        }
+      }
+      setForgotMsg("Si existe un usuario activo con ese correo, se envió un enlace para restablecer la contraseña.");
+    } catch (e) {
+      setForgotErr(e.message || "No se pudo procesar la solicitud.");
+    } finally {
+      setForgotSending(false);
     }
   };
 
@@ -95,6 +162,16 @@ export default function Login() {
                   />
                 </div>
 
+                <div className="text-right -mt-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(true); setForgotEmail(""); setForgotErr(""); setForgotMsg(""); }}
+                    className="text-sm text-lightBlue-600 hover:text-lightBlue-700 underline"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+
                 <div className="text-center mt-6">
                   <button
                     type="submit"
@@ -108,6 +185,45 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Modal Olvidé mi contraseña (react-modal) */}
+      <Modal
+        isOpen={showForgot}
+        onRequestClose={() => { if (!forgotSending) setShowForgot(false); }}
+        className="mx-auto my-32 bg-white p-5 rounded-lg shadow-lg max-w-xl z-40 max-h-460-px overflow-y-auto outline-none"
+        overlayClassName=""
+        contentLabel="Recupera tu contraseña"
+        shouldCloseOnOverlayClick={true}
+      >
+        <h2 className="text-lg font-semibold text-blueGray-700 mb-2">Recupera tu contraseña</h2>
+        <p className="text-sm text-blueGray-500 mb-4">Ingresa tu correo electrónico para enviar un enlace de recuperación.</p>
+        {forgotMsg ? (
+          <div className="space-y-4">
+            <div className="text-green-600 text-sm">{forgotMsg}</div>
+            <div className="flex justify-end">
+              <button className="px-4 py-2 rounded bg-lightBlue-600 text-white" onClick={() => setShowForgot(false)}>Cerrar</button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleForgotSubmit} className="space-y-4">
+            <input
+              type="email"
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              placeholder="Correo electrónico"
+              className="border p-2 rounded w-full"
+              required
+            />
+            {forgotErr && <div className="text-red-600 text-sm">{forgotErr}</div>}
+            <div className="flex justify-end gap-2">
+              <button type="button" className="px-4 py-2 rounded bg-gray-200" onClick={() => setShowForgot(false)} disabled={forgotSending}>Cancelar</button>
+              <button type="submit" className={`px-4 py-2 rounded text-white ${forgotSending ? 'bg-lightBlue-400' : 'bg-lightBlue-600 hover:bg-lightBlue-700'}`} disabled={forgotSending}>
+                {forgotSending ? 'Enviando...' : 'Enviar enlace'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

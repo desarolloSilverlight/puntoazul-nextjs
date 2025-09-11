@@ -19,6 +19,7 @@ export default function EnviarCorreos() {
   const [tipoFormulario, setTipoFormulario] = useState("linea_base");
   const [usuarios, setUsuarios] = useState([]);
   const [seleccionados, setSeleccionados] = useState([]);
+  const [busqueda, setBusqueda] = useState("");
   const [asunto, setAsunto] = useState(plantillaPorDefecto.linea_base.asunto);
   const [cuerpo, setCuerpo] = useState(plantillaPorDefecto.linea_base.cuerpo);
   const [loading, setLoading] = useState(false);
@@ -61,12 +62,28 @@ export default function EnviarCorreos() {
       .catch(() => setLoading(false));
   }, [tipoFormulario]);
 
-  // Seleccionar/deseleccionar todos
+  // Lista filtrada por término de búsqueda (nombre o email)
+  const usuariosFiltrados = usuarios.filter(u => {
+    if (!busqueda.trim()) return true;
+    const term = busqueda.toLowerCase();
+    return (
+      (u.nombre || "").toLowerCase().includes(term) ||
+      (u.email || "").toLowerCase().includes(term)
+    );
+  });
+
+  // Seleccionar/deseleccionar todos (sobre la lista filtrada)
   const handleSelectTodos = (e) => {
     if (e.target.checked) {
-      setSeleccionados(usuarios.map(u => u.idUsuario));
+      setSeleccionados(prev => {
+        const idsFiltrados = usuariosFiltrados.map(u => u.idUsuario);
+        // Unir sin duplicar
+        const set = new Set([ ...prev.filter(id => !idsFiltrados.includes(id)), ...idsFiltrados ]);
+        return Array.from(set);
+      });
     } else {
-      setSeleccionados([]);
+      // Quitar solo los filtrados
+      setSeleccionados(prev => prev.filter(id => !usuariosFiltrados.map(u => u.idUsuario).includes(id)));
     }
   };
 
@@ -146,30 +163,56 @@ export default function EnviarCorreos() {
         {loading ? (
           <div className="p-2 text-gray-500">Cargando usuarios...</div>
         ) : (
-          <div className="border rounded p-2 max-h-64 overflow-y-auto">
-            <div className="mb-2">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={seleccionados.length === usuarios.length && usuarios.length > 0}
-                  onChange={handleSelectTodos}
-                /> Seleccionar todos
-              </label>
+          <>
+            <div className="mb-2 flex gap-2 items-center">
+              <input
+                type="text"
+                placeholder="Buscar por nombre o email..."
+                className="border p-2 rounded flex-1 text-sm"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+              {busqueda && (
+                <button
+                  type="button"
+                  className="text-xs px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                  onClick={() => setBusqueda("")}
+                >Limpiar</button>
+              )}
             </div>
-            {usuarios.map(u => (
-              <div key={u.idUsuario} className="flex items-center mb-1">
-                <input
-                  type="checkbox"
-                  checked={seleccionados.includes(u.idUsuario)}
-                  onChange={() => handleSelectUsuario(u.idUsuario)}
-                />
-                <span className="ml-2 text-sm">{u.nombre} ({u.email})</span>
+            <div className="border rounded p-2 overflow-y-auto max-h-[400px]" style={{ maxHeight: "400px" }}>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-sm">
+                  <input
+                    type="checkbox"
+                    onChange={handleSelectTodos}
+                    checked={
+                      usuariosFiltrados.length > 0 &&
+                      usuariosFiltrados.every(u => seleccionados.includes(u.idUsuario))
+                    }
+                  /> {busqueda ? "Seleccionar visibles" : "Seleccionar todos"}
+                </label>
+                <span className="text-xs text-gray-500">
+                  {usuariosFiltrados.length} / {usuarios.length} mostrados
+                </span>
               </div>
-            ))}
-            {usuarios.length === 0 && (
-              <div className="text-gray-500">No hay usuarios para mostrar.</div>
-            )}
-          </div>
+              {usuariosFiltrados.map(u => (
+                <div key={u.idUsuario} className="flex items-center mb-1">
+                  <input
+                    type="checkbox"
+                    checked={seleccionados.includes(u.idUsuario)}
+                    onChange={() => handleSelectUsuario(u.idUsuario)}
+                  />
+                  <span className="ml-2 text-sm truncate" title={`${u.nombre} (${u.email})`}>
+                    {u.nombre} ({u.email})
+                  </span>
+                </div>
+              ))}
+              {usuariosFiltrados.length === 0 && (
+                <div className="text-gray-500 text-sm">Sin resultados para "{busqueda}".</div>
+              )}
+            </div>
+          </>
         )}
       </div>
       <div className="mb-4">

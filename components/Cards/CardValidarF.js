@@ -302,7 +302,7 @@ Saludos cordiales,
 Equipo de Validación Punto Azul`
       },
       "RECHAZAR": {
-        asunto: `Formulario Rechazado - Literal F Requiere Correcciones`,
+        asunto: `Formulario Linea Base Requiere Correcciones`,
         cuerpo: `Estimado/a ${nombreCliente},
 
 Lamentamos informarte que tu formulario del Literal F ha sido rechazado debido a inconsistencias encontradas durante el proceso de validación.

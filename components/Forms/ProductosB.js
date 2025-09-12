@@ -162,6 +162,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         alert(`Producto ${numeroProducto}: El campo "Nombre Genérico" es obligatorio.`);
         return;
       }
+      // Validar selección de Fabricación (no se permite vacío ni "Seleccione...")
+      if (!producto.fabricacion || !["Local", "Importado"].includes(producto.fabricacion)) {
+        alert(`Producto ${numeroProducto}: Debe seleccionar "Local" o "Importado" en el campo "Fabricación".`);
+        return;
+      }
     }
     
     // Validar que todos los campos numéricos sean enteros
@@ -727,16 +732,19 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     </td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       {isEditable ? (
-                        <select
-                          className="border p-1 w-full"
-                          value={producto.fabricacion || ""}
-                          onChange={(e) => handleChange(index, "fabricacion", e.target.value)}
-                        >
-                          <option value="">Seleccione...</option>
-                          <option value="Local">Local</option>
-                          <option value="Importado">Importado</option>
-                        </select>
-                      ) : (
+                          <select
+                            className={`border p-1 w-full ${!producto.fabricacion ? "border-red-500 ring-1 ring-red-300" : ""}`}
+                            value={producto.fabricacion || ""}
+                            onChange={(e) => handleChange(index, "fabricacion", e.target.value)}
+                            required
+                            aria-invalid={!producto.fabricacion}
+                            title={!producto.fabricacion ? "Seleccione Local o Importado" : undefined}
+                          >
+                            <option value="" disabled>Seleccione...</option>
+                            <option value="Local">Local</option>
+                            <option value="Importado">Importado</option>
+                          </select>
+                        ) : (
                         <div className="w-fit max-w-full p-1 border border-transparent bg-gray-100 cursor-not-allowed">
                           {producto.fabricacion}
                         </div>

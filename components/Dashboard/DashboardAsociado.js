@@ -174,7 +174,7 @@ export default function DashboardAsociado() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className={`text-xl font-semibold ${colorActual.text}`}>
-                Formulario Literal B - Año 2024
+                Formulario Literal B 
               </h2>
               <p className="text-gray-600 mt-1">
                 Reporte anual de medicamentos y dispositivos médicos

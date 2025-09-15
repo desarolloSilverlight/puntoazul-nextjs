@@ -113,8 +113,8 @@ export default function FormularioF() {
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
 
-  // Enviar notificaciones por correo: al vinculado (correo_facturacion) y al correo interno indicado
-  await enviarCorreosPendienteF(idInformacionF);
+      // Enviar notificaciones por correo: al vinculado (correo_facturacion) y al correo interno indicado
+      await enviarCorreosPendienteF(idInformacionF);
       
       // Actualizar localStorage y estado local
       localStorage.setItem("estadoInformacionF", "Pendiente");

@@ -3,6 +3,8 @@ import PropTypes from "prop-types";
 import Modal from "react-modal";
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../../utils/config';
+import { Oval } from 'react-loader-spinner';
+import Backdrop from '@mui/material/Backdrop';
 
 // Necesario para accesibilidad con react-modal
 if (typeof window !== 'undefined') {
@@ -16,6 +18,10 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   let estado = propEstado || localStorage.getItem("estadoInformacionB");
   const [productos, setProductos] = useState([]); // Estado para los productos
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
+  const [isLoading, setIsLoading] = useState(false); // Loader al guardar
+  // Paginación
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
   
   // Descarga un archivo .txt con el detalle de errores
   const descargarErroresTXT = (errores = [], nombreArchivoOriginal = "") => {
@@ -64,8 +70,9 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         }
 
         const data = await response.json();
-        console.log("Productos obtenidos:", data);
-        setProductos(data); // Guardar los productos en el estado
+  console.log("Productos obtenidos:", data);
+  setProductos(data); // Guardar los productos en el estado
+  setCurrentPage(1);
       } catch (error) {
         console.error("Error al obtener los productos:", error);
       }
@@ -75,6 +82,14 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       fetchProductos();
     }
   }, [idInformacionB, propIdUsuario, propIdInformacionB]);
+
+  // Mantener currentPage dentro de rango cuando cambian productos o pageSize
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil((productos?.length || 0) / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [productos, pageSize]);
 
   const agregarProducto = () => {
     setProductos([
@@ -144,6 +159,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+  setIsLoading(true);
     
     // Validar campos obligatorios
     for (let i = 0; i < productos.length; i++) {
@@ -200,27 +216,35 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     if (!isConfirmed) {
       return; // Si el usuario cancela, no se ejecuta la lógica de guardar
     }
-    try {
-      const response = await fetch(`${API_BASE_URL}/informacion-b/createProductos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(productos),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text(); // Obtener respuesta en texto para debug
-        throw new Error(`Error ${response.status}: ${errorText}`);
+    // Enviar por lotes para evitar cargas masivas en una sola petición
+    const postInBatches = async (url, payloadArray, chunkSize = 1000) => {
+      let okCount = 0;
+      for (let i = 0; i < payloadArray.length; i += chunkSize) {
+        const chunk = payloadArray.slice(i, i + chunkSize);
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(chunk),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error(`Lote ${Math.floor(i / chunkSize) + 1}: ${resp.status} ${errText}`);
+        }
+        okCount += chunk.length;
       }
-      console.log("Productos enviados:", productos); // Ver productos en consola
-      const result = await response.json();
-      console.log("Respuesta de la API:", result); // Ver respuesta en consola
-      alert(result.message);
-  // Mantener estado en "Guardado"; recargar para reflejar cambios
-  window.location.reload();
+      return okCount;
+    };
+    try {
+      const total = await postInBatches(`${API_BASE_URL}/informacion-b/createProductos`, productos, 1000);
+      console.log("Productos enviados:", productos);
+      alert(`Se guardaron ${total} registros de Productos (Literal B) en lotes.`);
+      // No recargar la página
     } catch (error) {
       console.error("Error al enviar los productos:", error);
-      alert(`Error: ${error.message}`); // Mostrar error en una alerta
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -463,6 +487,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           // Agregar productos a la tabla existente
           const productosActualizados = [...productos, ...productosValidados];
           setProductos(productosActualizados);
+          setCurrentPage(1);
 
           alert(`Se cargaron exitosamente ${productosValidados.length} productos.\n\nRecuerde guardar los cambios usando el botón "Guardar".`);
         }
@@ -489,6 +514,24 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
     >
+      {/* Loader Backdrop Overlay */}
+      <Backdrop
+        sx={{ color: '#2563eb', zIndex: (theme) => theme.zIndex.modal + 1000 }}
+        open={isLoading}
+      >
+        <div className="flex flex-col items-center">
+          <Oval
+            height={60}
+            width={60}
+            color="#2563eb"
+            secondaryColor="#60a5fa"
+            strokeWidth={5}
+            ariaLabel="oval-loading"
+            visible={true}
+          />
+          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">Guardando información...</span>
+        </div>
+      </Backdrop>
       {/* SECCIÓN II */}
       <div className="p-4">
         <h3 className="text-lg font-semibold flex items-center">
@@ -552,6 +595,20 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           Los campos numericos deben ser numeros enteros o aproximados.
         </div>
         <form onSubmit={handleSubmit}>
+        {/* Controles de paginación: tamaño de página */}
+        <div className="mt-3 flex items-center gap-3 px-4">
+          <label className="text-sm text-gray-600">Filas por página:</label>
+          <select
+            className="border px-2 py-1 rounded"
+            value={pageSize}
+            onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
+          >
+            {[10, 25, 50, 100].map(size => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-500">Total: {productos.length}</span>
+        </div>
         <div className="w-full overflow-x-auto p-4">
             <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
@@ -592,13 +649,20 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 </tr>
               </thead>
               <tbody>
-                {productos.map((producto, index) => (
-                  <tr key={producto.idProductosB} className="border-t text-center">
-                    <td className="p-2">{index+1}</td>
+                {(() => {
+                  const totalItems = productos.length;
+                  const startIdx = (currentPage - 1) * pageSize;
+                  const endIdx = Math.min(totalItems, startIdx + pageSize);
+                  return productos.slice(startIdx, endIdx).map((producto, idx) => {
+                    const index = startIdx + idx;
+                    const gIdx = index;
+                    return (
+                  <tr key={producto.idProductosB || producto.id || gIdx} className="border-t text-center">
+                    <td className="p-2">{gIdx+1}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "razonSocial", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "razonSocial", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.razonSocial}
@@ -607,7 +671,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "marca", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "marca", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.marca}
@@ -616,7 +680,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "nombreGenerico", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "nombreGenerico", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.nombreGenerico}
@@ -625,7 +689,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "numeroRegistros", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "numeroRegistros", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.numeroRegistros}
@@ -634,7 +698,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "codigoEstandarDatos", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "codigoEstandarDatos", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.codigoEstandarDatos}
@@ -643,7 +707,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoEmpaqueComercialRX", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoEmpaqueComercialRX", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoEmpaqueComercialRX}
@@ -652,7 +716,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoTotalComercialRX", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoTotalComercialRX", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoTotalComercialRX}
@@ -661,7 +725,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoEmpaqueComercialOTC", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoEmpaqueComercialOTC", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoEmpaqueComercialOTC}
@@ -670,7 +734,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoTotalComercialOTC", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoTotalComercialOTC", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoTotalComercialOTC}
@@ -679,7 +743,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoEmpaqueInstitucional", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoEmpaqueInstitucional", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoEmpaqueInstitucional}
@@ -688,7 +752,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoTotalInstitucional", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoTotalInstitucional", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoTotalInstitucional}
@@ -697,7 +761,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoEmpaqueIntrahospitalario", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoEmpaqueIntrahospitalario", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoEmpaqueIntrahospitalario}
@@ -706,7 +770,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoTotalIntrahospitalario", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoTotalIntrahospitalario", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoTotalIntrahospitalario}
@@ -715,7 +779,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoEmpaqueMuestrasMedicas", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoEmpaqueMuestrasMedicas", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoEmpaqueMuestrasMedicas}
@@ -724,7 +788,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       <div
                         contentEditable={isEditable}
-                        onBlur={(e) => handleChange(index, "pesoTotalMuestrasMedicas", e.target.textContent || "")}
+                        onBlur={(e) => handleChange(gIdx, "pesoTotalMuestrasMedicas", e.target.textContent || "")}
                         className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                       >
                         {producto.pesoTotalMuestrasMedicas}
@@ -735,7 +799,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                           <select
                             className={`border p-1 w-full ${!producto.fabricacion ? "border-red-500 ring-1 ring-red-300" : ""}`}
                             value={producto.fabricacion || ""}
-                            onChange={(e) => handleChange(index, "fabricacion", e.target.value)}
+                            onChange={(e) => handleChange(gIdx, "fabricacion", e.target.value)}
                             required
                             aria-invalid={!producto.fabricacion}
                             title={!producto.fabricacion ? "Seleccione Local o Importado" : undefined}
@@ -764,7 +828,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                               ? "bg-red-500 hover:bg-red-700 text-white" 
                               : "bg-gray-300 text-gray-500 cursor-not-allowed"
                           }`}
-                          onClick={() => setProductos(productos.filter((_, i) => i !== index))}
+                          onClick={() => setProductos(productos.filter((_, i) => i !== gIdx))}
                           disabled={!isEditable}
                         >
                           Eliminar
@@ -772,10 +836,48 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                       )}
                     </td>
                 </tr>
-              ))}
+                )});
+                })()}
             </tbody>
           </table>
         </div>
+          {/* Paginación inferior */}
+          {productos.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-2">
+              {(() => {
+                const totalItems = productos.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+                return (
+                  <>
+                    <div className="text-sm text-gray-600">
+                      Página {currentPage} de {totalPages} — Mostrando {Math.min(pageSize, totalItems - (currentPage - 1) * pageSize)} de {totalItems}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => {
+                          const tp = Math.max(1, Math.ceil(totalItems / pageSize));
+                          return Math.min(tp, p + 1);
+                        })}
+                        disabled={currentPage >= Math.ceil(totalItems / pageSize)}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
           {!readonly && (
             <button
               type="submit"

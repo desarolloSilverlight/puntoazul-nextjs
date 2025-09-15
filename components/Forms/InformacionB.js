@@ -237,8 +237,24 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         const result = await response.json();
         console.log("Formulario creado:", result);
         alert("Formulario creado correctamente.");
-        localStorage.setItem("idInformacionB", result.data.idInformacionB); // Guardar id en localStorage
-        // Actualizar estado a "Guardado"
+        const newId = result?.data?.idInformacionB || result?.idInformacionB;
+        if (newId) {
+          localStorage.setItem("idInformacionB", newId); // Guardar id en localStorage
+          // Forzar estado "Guardado" en el backend para NO quedar en "Pendiente" por defecto
+          try {
+            const respEstado = await fetch(`${API_BASE_URL}/informacion-b/updateEstado/${newId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ estado: "Guardado", tendencia: "", motivo: "Guardado inicial" })
+            });
+            if (!respEstado.ok) {
+              console.warn("No se pudo establecer estado Guardado en backend tras crear. Continuando...", await respEstado.text());
+            }
+          } catch (e) {
+            console.warn("Fallo al actualizar estado a Guardado tras crear:", e);
+          }
+        }
+        // Actualizar estado local y localStorage a "Guardado"
         localStorage.setItem("estadoInformacionB", "Guardado");
         setEstado(prev => {
           if (prev !== "Guardado") {

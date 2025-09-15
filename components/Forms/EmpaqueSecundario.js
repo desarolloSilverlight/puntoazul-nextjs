@@ -14,6 +14,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   // Solo editable si estado es Guardado o Rechazado Y no está en modo readonly
   const esEditable = !readonly && (estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado");
   const [productos, setProductos] = useState([]);
+  // Paginación
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({});
@@ -95,7 +98,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             p.multimaterial.multimaterial = normalizarSiNo(p.multimaterial.multimaterial);
           }
         });
-        setProductos(productosFormateados);
+  setProductos(productosFormateados);
+  setCurrentPage(1);
       } catch (error) {
         console.error("Error al obtener los empaques secundarios:", error);
       }
@@ -122,6 +126,14 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       fetchToneladasAcumuladas();
     }
   }, [idInformacionF]);
+
+  // Mantener currentPage dentro de rango cuando cambian productos o pageSize
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil((productos?.length || 0) / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [productos, pageSize]);
 
   const agregarProducto = () => {
     setProductos([
@@ -153,7 +165,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const handleChange = (index, field, value) => {
     const nuevosProductos = [...productos];
     if (field.startsWith("multimaterial.")) {
-      const subField = field.split(".")[1];
+            const subField = field.split(".")[1]; // Fixing the condition to check for multimaterial
       nuevosProductos[index].multimaterial = {
         ...nuevosProductos[index].multimaterial,
         [subField]: value
@@ -184,6 +196,26 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       nuevosProductos[index].unidades = '1';
     }
     setProductos(nuevosProductos);
+  };
+
+  // Post por lotes para evitar cargas masivas en una sola petición
+  const postInBatches = async (url, payloadArray, chunkSize = 1000) => {
+    let okCount = 0;
+    for (let i = 0; i < payloadArray.length; i += chunkSize) {
+      const chunk = payloadArray.slice(i, i + chunkSize);
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(chunk),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Lote ${Math.floor(i / chunkSize) + 1}: ${resp.status} ${errText}`);
+      }
+      okCount += chunk.length;
+    }
+    return okCount;
   };
 
   const handleSubmit = async (e) => {
@@ -306,21 +338,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           })
         };
       });
-  const response = await fetch(`${API_BASE_URL}/informacion-f/crearEmpaqueSec`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(productosSerializados),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log("Respuesta de la API:", result);
-      alert(result.message);
+      const total = await postInBatches(`${API_BASE_URL}/informacion-f/crearEmpaqueSec`, productosSerializados, 1000);
+      alert(`Se guardaron ${total} registros de Empaque Secundario en lotes.`);
       await fetchToneladasAcumuladas();
       // No recargar la página
     } catch (error) {
@@ -575,8 +594,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           return;
         }
 
-        // Actualizar estado con productos validados
-        setProductos(productosValidados);
+  // Actualizar estado con productos validados y reiniciar a la primera página
+  setProductos(productosValidados);
+  setCurrentPage(1);
         
         // Mensaje informativo según el tipo de reporte
         let mensaje = `Se cargaron exitosamente ${productosValidados.length} productos desde Excel.`;
@@ -662,6 +682,20 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               </button>
           </div>
         )}
+        {/* Controles de paginación: tamaño de página */}
+        <div className="mt-3 flex items-center gap-3">
+          <label className="text-sm text-gray-600">Filas por página:</label>
+          <select
+            className="border px-2 py-1 rounded"
+            value={pageSize}
+            onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
+          >
+            {[10, 25, 50, 100].map(size => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-500">Total: {productos.length}</span>
+        </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
           Todos los pesos de la tabla deben estar en gramos y sin separador de miles.
         </div>
@@ -684,15 +718,20 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                 </tr>
               </thead>
               <tbody>
-                {productos.map((producto, index) => {
-                return (
-                  <tr key={producto.id} className="border-t text-center">
-                    <td className="p-2">{index + 1}</td>
+                {(() => {
+                  const totalItems = productos.length;
+                  const startIdx = (currentPage - 1) * pageSize;
+                  const endIdx = Math.min(totalItems, startIdx + pageSize);
+                  return productos.slice(startIdx, endIdx).map((producto, idx) => {
+                    const gIdx = startIdx + idx;
+                    return (
+                  <tr key={producto.id || gIdx} className="border-t text-center">
+                    <td className="p-2">{gIdx + 1}</td>
                     <td className="min-w-[100px] p-1 border border-gray-300">
                       {esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "empresaTitular", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "empresaTitular", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {producto.empresaTitular}
@@ -705,7 +744,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       {esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "nombreProducto", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "nombreProducto", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {producto.nombreProducto}
@@ -718,7 +757,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       {esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "papel", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "papel", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {format2(producto.papel)}
@@ -731,7 +770,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       {esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "metalFerrosos", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "metalFerrosos", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {format2(producto.metalFerrosos)}
@@ -744,7 +783,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       {esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "metalNoFerrosos", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "metalNoFerrosos", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {format2(producto.metalNoFerrosos)}
@@ -757,7 +796,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       {esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "carton", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "carton", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {format2(producto.carton)}
@@ -770,7 +809,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       {esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "vidrio", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "vidrio", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {format2(producto.vidrio)}
@@ -784,7 +823,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         <>
                           <select
                             value={producto.multimaterial.multimaterial}
-                            onChange={e => handleChange(index, "multimaterial.multimaterial", e.target.value)}
+                            onChange={e => handleChange(gIdx, "multimaterial.multimaterial", e.target.value)}
                             className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                             disabled={!esEditable}
                           >
@@ -795,7 +834,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           {producto.multimaterial.multimaterial === "Si" && (
                             <select
                               value={producto.multimaterial.tipo}
-                              onChange={e => handleChange(index, "multimaterial.tipo", e.target.value)}
+                              onChange={e => handleChange(gIdx, "multimaterial.tipo", e.target.value)}
                               className="w-full mt-1 p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                               disabled={!esEditable}
                             >
@@ -813,7 +852,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                               className="w-full mt-1 p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Especifique otro tipo"
                               value={producto.multimaterial.otro}
-                              onChange={e => handleChange(index, "multimaterial.otro", e.target.value)}
+                              onChange={e => handleChange(gIdx, "multimaterial.otro", e.target.value)}
                               disabled={!esEditable}
                             />
                           )}
@@ -832,7 +871,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       ) : esEditable ? (
                         <div
                           contentEditable
-                          onBlur={e => handleChange(index, "unidades", e.target.textContent || "")}
+                          onBlur={e => handleChange(gIdx, "unidades", e.target.textContent || "")}
                           className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                         >
                           {producto.unidades}
@@ -845,7 +884,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       <td>
                         <button 
                           className="bg-red-500 text-white px-4 py-1 rounded" 
-                          onClick={e => { e.preventDefault(); setProductos(productos.filter((_, i) => i !== index)); }}
+                          onClick={e => { e.preventDefault(); setProductos(productos.filter((_, i) => i !== gIdx)); }}
                           disabled={!esEditable}
                         >
                           Eliminar
@@ -853,10 +892,48 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       </td>
                     )}
                   </tr>
-                )})}
+                )});
+                })()}
               </tbody>
             </table>
           </div>
+          {/* Paginación inferior */}
+          {productos.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-2">
+              {(() => {
+                const totalItems = productos.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+                return (
+                  <>
+                    <div className="text-sm text-gray-600">
+                      Página {currentPage} de {totalPages} — Mostrando {Math.min(pageSize, totalItems - (currentPage - 1) * pageSize)} de {totalItems}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => {
+                          const tp = Math.max(1, Math.ceil(totalItems / pageSize));
+                          return Math.min(tp, p + 1);
+                        })}
+                        disabled={currentPage >= Math.ceil(totalItems / pageSize)}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
           {!readonly && (
             <button
               type="submit"

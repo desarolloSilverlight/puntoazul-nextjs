@@ -14,6 +14,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   // Solo editable si estado es Guardado o Rechazado Y no está en modo readonly
   const esEditable = !readonly && (estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado");
   const [productos, setProductos] = useState([]);
+  // Paginación
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({}); // {`${index}-campo`: "mensaje"}
@@ -108,7 +111,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             p.multimaterial.multimaterial = normalizarSiNo(p.multimaterial.multimaterial);
           }
         });
-        setProductos(productosFormateados);
+  setProductos(productosFormateados);
+  setCurrentPage(1);
       } catch (error) {
         console.error("Error al obtener los empaques primarios:", error);
       }
@@ -124,23 +128,29 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     }
   }, [idInformacionF]);
 
+  // Mantener currentPage dentro de rango cuando cambian productos o pageSize
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil((productos?.length || 0) / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [productos, pageSize]);
+
   const agregarProducto = () => {
-    setProductos([
-      ...productos,
-      {
-        id: productos.length + 1,
-        idInformacionF,
-        empresaTitular: "",
-        nombreProducto: "",
-        papel: 0,
-        metalFerrosos: 0,
-        metalNoFerrosos: 0,
-        carton: 0,
-        vidrio: 0,
-        multimaterial: { multimaterial: "", tipo: "", otro: "" },
-        unidades: tipoReporte === "totalizado" ? "1" : "",
-      },
-    ]);
+    const nuevo = {
+      id: productos.length + 1,
+      idInformacionF,
+      empresaTitular: "",
+      nombreProducto: "",
+      papel: 0,
+      metalFerrosos: 0,
+      metalNoFerrosos: 0,
+      carton: 0,
+      vidrio: 0,
+      multimaterial: { multimaterial: "", tipo: "", otro: "" },
+      unidades: tipoReporte === "totalizado" ? "1" : "",
+    };
+    setProductos(prev => [...prev, nuevo]);
   };
 
   const handleChange = (index, field, value) => {
@@ -605,8 +615,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           return;
         }
 
-        // Actualizar estado con productos validados
-        setProductos(productosValidados);
+  // Actualizar estado con productos validados y volver a la primera página
+  setProductos(productosValidados);
+  setCurrentPage(1);
         
         // Mensaje informativo según el tipo de reporte
         let mensaje = `Se cargaron exitosamente ${productosValidados.length} productos desde Excel.`;
@@ -742,6 +753,20 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             </button>
           </div>
         )}
+        {/* Controles de paginación: tamaño de página */}
+        <div className="mt-3 flex items-center gap-3">
+          <label className="text-sm text-gray-600">Filas por página:</label>
+          <select
+            className="border px-2 py-1 rounded"
+            value={pageSize}
+            onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
+          >
+            {[10, 25, 50, 100].map(size => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-500">Total: {productos.length}</span>
+        </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
           Todos los pesos de la tabla deben estar en gramos y sin separador de miles.
         </div>
@@ -770,14 +795,22 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                     <td colSpan={readonly ? 10 : 11} className="text-center py-2">No hay productos guardados.</td>
                   </tr>
                 ) : (
-                  productos.map((producto, idx) => (
-                    <tr key={producto.id || idx} className="hover:bg-gray-100 text-center">
-                      <td className="border border-gray-300 px-2 py-1">{idx + 1}</td>
+                  // Renderizar solo la página actual
+                  (() => {
+                    const totalItems = productos.length;
+                    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+                    const startIdx = (currentPage - 1) * pageSize;
+                    const endIdx = Math.min(totalItems, startIdx + pageSize);
+                    return productos.slice(startIdx, endIdx).map((producto, idx) => {
+                      const gIdx = startIdx + idx;
+                      return (
+                        <tr key={producto.id || gIdx} className="hover:bg-gray-100 text-center">
+                          <td className="border border-gray-300 px-2 py-1">{gIdx + 1}</td>
                       <td className="border border-gray-300 px-2 py-1">
                         {esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "empresaTitular", e.target.textContent || "")}
+                            onBlur={e => handleChange(gIdx, "empresaTitular", e.target.textContent || "")}
                             className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                           >
                             {producto.empresaTitular}
@@ -790,7 +823,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         {esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "nombreProducto", e.target.textContent || "")}
+                            onBlur={e => handleChange(gIdx, "nombreProducto", e.target.textContent || "")}
                             className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                           >
                             {producto.nombreProducto}
@@ -803,9 +836,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         {esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "papel", e.target.textContent || "")}
-                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-papel`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
-                            title={erroresCampos[`${idx}-papel`] || ''}
+                            onBlur={e => handleChange(gIdx, "papel", e.target.textContent || "")}
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${gIdx}-papel`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${gIdx}-papel`] || ''}
                           >
                             {format2(producto.papel)}
                           </div>
@@ -817,9 +850,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         {esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "metalFerrosos", e.target.textContent || "")}
-                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-metalFerrosos`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
-                            title={erroresCampos[`${idx}-metalFerrosos`] || ''}
+                            onBlur={e => handleChange(gIdx, "metalFerrosos", e.target.textContent || "")}
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${gIdx}-metalFerrosos`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${gIdx}-metalFerrosos`] || ''}
                           >
                             {format2(producto.metalFerrosos)}
                           </div>
@@ -831,9 +864,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         {esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "metalNoFerrosos", e.target.textContent || "")}
-                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-metalNoFerrosos`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
-                            title={erroresCampos[`${idx}-metalNoFerrosos`] || ''}
+                            onBlur={e => handleChange(gIdx, "metalNoFerrosos", e.target.textContent || "")}
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${gIdx}-metalNoFerrosos`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${gIdx}-metalNoFerrosos`] || ''}
                           >
                             {format2(producto.metalNoFerrosos)}
                           </div>
@@ -845,9 +878,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         {esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "carton", e.target.textContent || "")}
-                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-carton`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
-                            title={erroresCampos[`${idx}-carton`] || ''}
+                            onBlur={e => handleChange(gIdx, "carton", e.target.textContent || "")}
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${gIdx}-carton`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${gIdx}-carton`] || ''}
                           >
                             {format2(producto.carton)}
                           </div>
@@ -859,9 +892,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         {esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "vidrio", e.target.textContent || "")}
-                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${idx}-vidrio`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
-                            title={erroresCampos[`${idx}-vidrio`] || ''}
+                            onBlur={e => handleChange(gIdx, "vidrio", e.target.textContent || "")}
+                            className={`w-fit max-w-full p-1 border ${erroresCampos[`${gIdx}-vidrio`] ? 'border-red-500' : 'border-transparent'} hover:border-gray-400 focus:border-blue-500 focus:outline-none`}
+                            title={erroresCampos[`${gIdx}-vidrio`] || ''}
                           >
                             {format2(producto.vidrio)}
                           </div>
@@ -874,7 +907,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           <>
                             <select
                               value={producto.multimaterial.multimaterial}
-                              onChange={e => handleChange(idx, "multimaterial.multimaterial", e.target.value)}
+                              onChange={e => handleChange(gIdx, "multimaterial.multimaterial", e.target.value)}
                               className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                               disabled={!esEditable}
                             >
@@ -885,7 +918,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                             {producto.multimaterial.multimaterial === "Si" && (
                               <select
                                 value={producto.multimaterial.tipo}
-                                onChange={e => handleChange(idx, "multimaterial.tipo", e.target.value)}
+                                onChange={e => handleChange(gIdx, "multimaterial.tipo", e.target.value)}
                                 className="w-full mt-1 p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 disabled={!esEditable}
                               >
@@ -903,7 +936,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                                 className="w-full mt-1 p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="Especifique otro tipo"
                                 value={producto.multimaterial.otro}
-                                onChange={e => handleChange(idx, "multimaterial.otro", e.target.value)}
+                                onChange={e => handleChange(gIdx, "multimaterial.otro", e.target.value)}
                                 disabled={!esEditable}
                               />
                             )}
@@ -922,7 +955,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         ) : esEditable ? (
                           <div
                             contentEditable
-                            onBlur={e => handleChange(idx, "unidades", e.target.textContent || "")}
+                            onBlur={e => handleChange(gIdx, "unidades", e.target.textContent || "")}
                             className="w-fit max-w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none"
                           >
                             {producto.unidades}
@@ -935,19 +968,64 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                         <td className="border border-gray-300 px-2 py-1">
                           <button
                             className="bg-red-500 text-white px-4 py-1 rounded"
-                            onClick={e => { e.preventDefault(); setProductos(productos.filter((_, i) => i !== idx)); }}
+                            onClick={e => {
+                              e.preventDefault();
+                              setProductos(prev => {
+                                const next = prev.filter((_, i) => i !== gIdx);
+                                return next;
+                              });
+                            }}
                             disabled={!esEditable}
                           >
                             Eliminar
                           </button>
                         </td>
                       )}
-                    </tr>
-                  ))
+                        </tr>
+                      );
+                    });
+                  })()
                 )}
               </tbody>
             </table>
           </div>
+          {/* Paginación inferior */}
+          {productos.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-2">
+              {(() => {
+                const totalItems = productos.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+                return (
+                  <>
+                    <div className="text-sm text-gray-600">
+                      Página {currentPage} de {totalPages} — Mostrando {Math.min(pageSize, totalItems - (currentPage - 1) * pageSize)} de {totalItems}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => {
+                          const tp = Math.max(1, Math.ceil(totalItems / pageSize));
+                          return Math.min(tp, p + 1);
+                        })}
+                        disabled={currentPage >= Math.ceil(totalItems / pageSize)}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
           {!readonly && (
             <button
               type="submit"

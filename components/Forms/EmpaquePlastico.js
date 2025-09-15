@@ -13,6 +13,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   // Solo editable si estado es Guardado o Rechazado Y no está en modo readonly
   const esEditable = !readonly && (estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado");
   const [productos, setProductos] = useState([]);
+  // Paginación
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({});
@@ -90,6 +93,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           prohibiciones: producto.prohibiciones || "",
         }));
         setProductos(productosFormateados);
+        setCurrentPage(1);
       } catch (error) {
         console.error("Error al obtener los empaques plásticos:", error);
       }
@@ -99,6 +103,14 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       fetchToneladasAcumuladas();
     }
   }, [idInformacionF]);
+
+  // Mantener currentPage dentro de rango cuando cambian productos o pageSize
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil((productos?.length || 0) / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [productos, pageSize]);
 
   const agregarProducto = () => {
     setProductos([
@@ -212,6 +224,26 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     setProductos(nuevosProductos);
   };
 
+  // Post por lotes para evitar cargas masivas en una sola petición
+  const postInBatches = async (url, payloadArray, chunkSize = 1000) => {
+    let okCount = 0;
+    for (let i = 0; i < payloadArray.length; i += chunkSize) {
+      const chunk = payloadArray.slice(i, i + chunkSize);
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(chunk),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Lote ${Math.floor(i / chunkSize) + 1}: ${resp.status} ${errText}`);
+      }
+      okCount += chunk.length;
+    }
+    return okCount;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -295,21 +327,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       };
     });
     try {
-      const response = await fetch(`${API_BASE_URL}/informacion-f/crearEmpaquePlastico`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(productosSerializados),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log("Respuesta de la API:", result);
-      alert(result.message);
+      const total = await postInBatches(`${API_BASE_URL}/informacion-f/crearEmpaquePlastico`, productosSerializados, 1000);
+      alert(`Se guardaron ${total} registros de Empaque Plástico en lotes.`);
       await fetchToneladasAcumuladas();
       // No recargar la página
     } catch (error) {
@@ -525,8 +544,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           return;
         }
 
-        // Actualizar estado con productos validados
-        setProductos(productosValidados);
+  // Actualizar estado con productos validados y reiniciar a la primera página
+  setProductos(productosValidados);
+  setCurrentPage(1);
         
         // Mensaje informativo según el tipo de reporte
         let mensaje = `Se cargaron exitosamente ${productosValidados.length} productos desde Excel.`;
@@ -626,6 +646,20 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               </button>
           </div>
         )}
+        {/* Controles de paginación: tamaño de página */}
+        <div className="mt-3 flex items-center gap-3">
+          <label className="text-sm text-gray-600">Filas por página:</label>
+          <select
+            className="border px-2 py-1 rounded"
+            value={pageSize}
+            onChange={e => { setPageSize(parseInt(e.target.value)); setCurrentPage(1); }}
+          >
+            {[10, 25, 50, 100].map(size => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-500">Total: {productos.length}</span>
+        </div>
         <div className="text-red-500 text-center mt-3 font-semibold">
           Todos los pesos de la tabla deben estar en gramos y sin separador de miles.
         </div>
@@ -664,7 +698,12 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                 </tr>
               </thead>
               <tbody>
-                {productos.map((producto, index) => {
+                {(() => {
+                  const totalItems = productos.length;
+                  const startIdx = (currentPage - 1) * pageSize;
+                  const endIdx = Math.min(totalItems, startIdx + pageSize);
+                  return productos.slice(startIdx, endIdx).map((producto, idx) => {
+                    const index = startIdx + idx;
                   // Parsear los campos que vienen como string JSON
                   // Usar siempre el valor local (mayúsculas) si existe, si no, fallback al backend
                   const liquidos = typeof producto.liquidos === "string" ? JSON.parse(producto.liquidos || "{}") : (producto.liquidos || {});
@@ -821,10 +860,48 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                       )}
                     </tr>
                   );
-                })}
+                });
+                })()}
               </tbody>
             </table>
           </div>
+          {/* Paginación inferior */}
+          {productos.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-2">
+              {(() => {
+                const totalItems = productos.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+                return (
+                  <>
+                    <div className="text-sm text-gray-600">
+                      Página {currentPage} de {totalPages} — Mostrando {Math.min(pageSize, totalItems - (currentPage - 1) * pageSize)} de {totalItems}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1 border rounded disabled:opacity-50"
+                        onClick={() => setCurrentPage(p => {
+                          const tp = Math.max(1, Math.ceil(totalItems / pageSize));
+                          return Math.min(tp, p + 1);
+                        })}
+                        disabled={currentPage >= Math.ceil(totalItems / pageSize)}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
           {!readonly && (
             <button
               type="submit"

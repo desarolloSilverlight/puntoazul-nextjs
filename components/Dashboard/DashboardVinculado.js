@@ -174,7 +174,7 @@ export default function DashboardVinculado() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className={`text-xl font-semibold ${colorActual.text}`}>
-                Formulario Línea Base - Año 2025
+                Formulario Línea Base 
               </h2>
               <p className="text-gray-600 mt-1">
                 Reporte de línea base de medicamentos y dispositivos médicos

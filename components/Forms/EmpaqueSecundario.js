@@ -20,6 +20,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({});
+  const [uploadProgress, setUploadProgress] = useState({ total: 0, done: 0 });
   // Descarga un archivo .txt con el detalle de errores del cargue
   const descargarErroresTXT = (errores = [], nombreArchivoOriginal = "") => {
     try {
@@ -198,25 +199,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     setProductos(nuevosProductos);
   };
 
-  // Post por lotes para evitar cargas masivas en una sola petición
-  const postInBatches = async (url, payloadArray, chunkSize = 1000) => {
-    let okCount = 0;
-    for (let i = 0; i < payloadArray.length; i += chunkSize) {
-      const chunk = payloadArray.slice(i, i + chunkSize);
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(chunk),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text();
-        throw new Error(`Lote ${Math.floor(i / chunkSize) + 1}: ${resp.status} ${errText}`);
-      }
-      okCount += chunk.length;
-    }
-    return okCount;
-  };
+  // sin postInBatches: usamos metadata importId/batchIndex/batchCount y control de progreso
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -324,29 +307,72 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           return String(v);
         };
         return {
-          ...p,
+          idInformacionF: p.idInformacionF,
+          empresa: p.empresaTitular,
+          nombre_producto: p.nombreProducto,
           papel: normalizar(p.papel),
-          metalFerrosos: normalizar(p.metalFerrosos),
-          metalNoFerrosos: normalizar(p.metalNoFerrosos),
+          metal_ferrosos: normalizar(p.metalFerrosos),
+          metal_no_ferrososs: normalizar(p.metalNoFerrosos),
           carton: normalizar(p.carton),
-          vidrio: normalizar(p.vidrio),
-          unidades: p.unidades ? String(p.unidades) : '0',
+          vidrios: normalizar(p.vidrio),
           multimaterial: JSON.stringify({
             multimaterial: p.multimaterial.multimaterial,
             tipo: p.multimaterial.tipo,
             otro: p.multimaterial.otro
-          })
+          }),
+          unidades: p.unidades ? String(p.unidades) : '0'
         };
       });
-      const total = await postInBatches(`${API_BASE_URL}/informacion-f/crearEmpaqueSec`, productosSerializados, 1000);
-      alert(`Se guardaron ${total} registros de Empaque Secundario en lotes.`);
+
+      const chunkSize = 200;
+      const chunks = [];
+      for (let i = 0; i < productosSerializados.length; i += chunkSize) {
+        chunks.push(productosSerializados.slice(i, i + chunkSize));
+      }
+      const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const totalChunks = chunks.length;
+      const concurrency = 2;
+      setUploadProgress({ total: totalChunks, done: 0 });
+
+      let enviados = 0;
+      const uploadChunk = async (index) => {
+        const chunk = chunks[index];
+        const isFirst = index === 0;
+        const url = `${API_BASE_URL}/informacion-f/crearEmpaqueSec?importId=${encodeURIComponent(importId)}&batchIndex=${index}&batchCount=${totalChunks}&mode=${isFirst ? 'replace' : 'append'}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(chunk),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Lote ${index + 1}/${totalChunks}: Error ${response.status}: ${errorText}`);
+        }
+        enviados += chunk.length;
+        setUploadProgress((p) => ({ total: p.total, done: p.done + 1 }));
+      };
+
+      if (totalChunks > 0) {
+        await uploadChunk(0);
+      }
+      let nextIndex = 1;
+      const workers = Array.from({ length: Math.min(concurrency, totalChunks) }, async () => {
+        while (true) {
+          const current = nextIndex++;
+          if (current >= totalChunks) break;
+          await uploadChunk(current);
+        }
+      });
+      await Promise.all(workers);
+      alert(`Se guardaron ${enviados} registros de Empaque Secundario en ${totalChunks} lote(s).`);
       await fetchToneladasAcumuladas();
-      // No recargar la página
     } catch (error) {
       console.error("Error al enviar los empaques secundarios:", error);
       alert(`Error: ${error.message}`);
     } finally {
       setIsLoading(false);
+      setUploadProgress({ total: 0, done: 0 });
     }
   };
 
@@ -642,7 +668,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             ariaLabel="oval-loading"
             visible={true}
           />
-          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">Guardando información...</span>
+          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">Guardando información... {uploadProgress.total > 0 ? `(${uploadProgress.done}/${uploadProgress.total} lotes)` : ''}</span>
         </div>
       </Backdrop>
       

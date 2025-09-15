@@ -19,6 +19,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   const [productos, setProductos] = useState([]); // Estado para los productos
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
   const [isLoading, setIsLoading] = useState(false); // Loader al guardar
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 }); // Progreso de lotes
   // Paginación
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -159,7 +160,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  setIsLoading(true);
+    setIsLoading(true);
     
     // Validar campos obligatorios
     for (let i = 0; i < productos.length; i++) {
@@ -216,35 +217,78 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     if (!isConfirmed) {
       return; // Si el usuario cancela, no se ejecuta la lógica de guardar
     }
-    // Enviar por lotes para evitar cargas masivas en una sola petición
-    const postInBatches = async (url, payloadArray, chunkSize = 1000) => {
-      let okCount = 0;
-      for (let i = 0; i < payloadArray.length; i += chunkSize) {
-        const chunk = payloadArray.slice(i, i + chunkSize);
+    // Preparar payload alineado y batching con metadatos
+    try {
+      const payload = productos.map((p) => ({
+        idInformacionB,
+        razonSocial: p.razonSocial,
+        marca: p.marca,
+        nombreGenerico: p.nombreGenerico,
+        numeroRegistros: p.numeroRegistros,
+        codigoEstandarDatos: p.codigoEstandarDatos,
+        pesoEmpaqueComercialRX: p.pesoEmpaqueComercialRX,
+        pesoTotalComercialRX: p.pesoTotalComercialRX,
+        pesoEmpaqueComercialOTC: p.pesoEmpaqueComercialOTC,
+        pesoTotalComercialOTC: p.pesoTotalComercialOTC,
+        pesoEmpaqueInstitucional: p.pesoEmpaqueInstitucional,
+        pesoTotalInstitucional: p.pesoTotalInstitucional,
+        pesoEmpaqueIntrahospitalario: p.pesoEmpaqueIntrahospitalario,
+        pesoTotalIntrahospitalario: p.pesoTotalIntrahospitalario,
+        pesoEmpaqueMuestrasMedicas: p.pesoEmpaqueMuestrasMedicas,
+        pesoTotalMuestrasMedicas: p.pesoTotalMuestrasMedicas,
+        fabricacion: p.fabricacion,
+        totalPesoEmpaques: p.totalPesoEmpaques,
+        totalPesoProducto: p.totalPesoProducto,
+      }));
+
+      const chunkSize = 200;
+      const concurrency = 2;
+      const totalBatches = Math.ceil(payload.length / chunkSize);
+      const importId = `${idInformacionB || 'no-id'}-${Date.now()}`;
+      setUploadProgress({ done: 0, total: totalBatches });
+
+      const postBatch = async (batch, batchIndex, mode) => {
+        const url = `${API_BASE_URL}/informacion-b/createProductos?importId=${encodeURIComponent(importId)}&batchIndex=${batchIndex}&batchCount=${totalBatches}&mode=${mode}`;
         const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(chunk),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(batch),
         });
         if (!resp.ok) {
           const errText = await resp.text();
-          throw new Error(`Lote ${Math.floor(i / chunkSize) + 1}: ${resp.status} ${errText}`);
+          throw new Error(`Lote ${batchIndex + 1}/${totalBatches}: ${resp.status} ${errText}`);
         }
-        okCount += chunk.length;
+      };
+
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        const isFirst = i === 0;
+        const batches = [];
+        for (let j = i; j < Math.min(i + chunkSize * concurrency, payload.length); j += chunkSize) {
+          const idx = Math.floor(j / chunkSize);
+          const batch = payload.slice(j, j + chunkSize);
+          const mode = idx === 0 ? 'replace' : 'append';
+          if (isFirst) {
+            await postBatch(batch, idx, mode);
+            setUploadProgress((p) => ({ done: p.done + 1, total: totalBatches }));
+          } else {
+            batches.push(postBatch(batch, idx, mode).then(() => {
+              setUploadProgress((p) => ({ done: p.done + 1, total: totalBatches }));
+            }));
+          }
+        }
+        if (!isFirst) {
+          await Promise.all(batches);
+        }
       }
-      return okCount;
-    };
-    try {
-      const total = await postInBatches(`${API_BASE_URL}/informacion-b/createProductos`, productos, 1000);
-      console.log("Productos enviados:", productos);
-      alert(`Se guardaron ${total} registros de Productos (Literal B) en lotes.`);
-      // No recargar la página
+
+      alert(`Se guardaron ${payload.length} registros de Productos (Literal B) en lotes.`);
     } catch (error) {
-      console.error("Error al enviar los productos:", error);
+      console.error('Error al enviar los productos:', error);
       alert(`Error: ${error.message}`);
     } finally {
       setIsLoading(false);
+      setUploadProgress({ done: 0, total: 0 });
     }
   };
 
@@ -529,7 +573,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
             ariaLabel="oval-loading"
             visible={true}
           />
-          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">Guardando información...</span>
+          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
+            {uploadProgress.total > 0
+              ? `Guardando información... (${uploadProgress.done}/${uploadProgress.total} lotes)`
+              : 'Guardando información...'}
+          </span>
         </div>
       </Backdrop>
       {/* SECCIÓN II */}

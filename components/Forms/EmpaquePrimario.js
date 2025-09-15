@@ -20,6 +20,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const [isOpen, setIsOpen] = useState(false);
   const [toneladasAcumuladasGlobal, setToneladasAcumuladasGlobal] = useState(0);
   const [erroresCampos, setErroresCampos] = useState({}); // {`${index}-campo`: "mensaje"}
+  const [uploadProgress, setUploadProgress] = useState({ total: 0, done: 0 });
 
   // Descarga un archivo .txt con el detalle de errores del cargue
   const descargarErroresTXT = (errores = [], nombreArchivoOriginal = "") => {
@@ -300,43 +301,76 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             }
           return String(v);
         };
+        // No incluir 'id' para evitar conflictos en INSERT; mantener orden y claves estables
         return {
-          ...p,
+          idInformacionF: p.idInformacionF,
+          empresa: p.empresaTitular,
+          nombre_producto: p.nombreProducto,
           papel: normalizar(p.papel),
-          metalFerrosos: normalizar(p.metalFerrosos),
-          metalNoFerrosos: normalizar(p.metalNoFerrosos),
+          metal_ferrosos: normalizar(p.metalFerrosos),
+          metal_no_ferrososs: normalizar(p.metalNoFerrosos),
           carton: normalizar(p.carton),
-          vidrio: normalizar(p.vidrio),
-          unidades: p.unidades ? String(p.unidades) : '0',
+          vidrios: normalizar(p.vidrio),
           multimaterial: JSON.stringify({
             multimaterial: p.multimaterial.multimaterial,
             tipo: p.multimaterial.tipo,
             otro: p.multimaterial.otro
-          })
+          }),
+          unidades: p.unidades ? String(p.unidades) : '0'
         };
       });
-      const response = await fetch(`${API_BASE_URL}/informacion-f/crearEmpaquePri`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(productosSerializados),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error ${response.status}: ${errorText}`);
+      // Enviar en lotes con paralelismo limitado y metadatos para evitar reemplazos
+  const chunkSize = 200; // reducido para evitar 413
+      const chunks = [];
+      for (let i = 0; i < productosSerializados.length; i += chunkSize) {
+        chunks.push(productosSerializados.slice(i, i + chunkSize));
       }
+      const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      const totalChunks = chunks.length;
+  const concurrency = 2; // menor paralelismo para reducir presión
+      setUploadProgress({ total: totalChunks, done: 0 });
 
-      const result = await response.json();
-      console.log("Respuesta de la API:", result);
-      alert(result.message);
+      let enviados = 0;
+      let nextIndex = 0;
+      const uploadChunk = async (index) => {
+        const chunk = chunks[index];
+        const isFirst = index === 0;
+        const url = `${API_BASE_URL}/informacion-f/crearEmpaquePri?importId=${encodeURIComponent(importId)}&batchIndex=${index}&batchCount=${totalChunks}&mode=${isFirst ? 'replace' : 'append'}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(chunk),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Lote ${index + 1}/${totalChunks}: Error ${response.status}: ${errorText}`);
+        }
+        enviados += chunk.length;
+        setUploadProgress((p) => ({ total: p.total, done: p.done + 1 }));
+      };
+      // Subir el primer lote de forma secuencial para garantizar el 'replace'
+      if (totalChunks > 0) {
+        await uploadChunk(0);
+        nextIndex = 1;
+      }
+      const workers = Array.from({ length: Math.min(concurrency, totalChunks) }, async () => {
+        while (true) {
+          const current = nextIndex++;
+          if (current >= totalChunks) break;
+          await uploadChunk(current);
+        }
+      });
+      await Promise.all(workers);
+      alert(`Se guardaron ${enviados} registros correctamente en ${totalChunks} lote(s).`);
       await fetchToneladasAcumuladas();
       // No recargar la página
     } catch (error) {
       console.error("Error al enviar los empaques primarios:", error);
       alert(`Error: ${error.message}`);
     } finally {
-      setIsLoading(false);
+  setIsLoading(false);
+  setUploadProgress({ total: 0, done: 0 });
     }
   };
 
@@ -502,7 +536,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         };
 
         // Validar y procesar datos
-        const productosValidados = [];
+  const productosValidados = [];
         const errores = [];
         const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
         const decimalRegex = /^\d+(\.\d{1,10})?$/;
@@ -584,6 +618,14 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               console.warn(`Fila ${numeroFila}: Las unidades fueron ajustadas a 1 porque el tipo de reporte es totalizado. Valor original: ${producto.unidades}`);
             }
             producto.unidades = "1";
+          } else {
+            // No totalizado: unidades deben ser enteras (sin coma ni punto)
+            const unidadesStr = producto.unidades != null ? producto.unidades.toString().trim() : "";
+            if (!/^\d+$/.test(unidadesStr)) {
+              errores.push(`Fila ${numeroFila}: 'Unidades' debe ser un número entero sin separadores ni decimales. Valor: ${producto.unidades}`);
+            } else {
+              producto.unidades = unidadesStr;
+            }
           }
 
           // Formatear producto para el estado
@@ -664,7 +706,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             ariaLabel="oval-loading"
             visible={true}
           />
-          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">Guardando información...</span>
+          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
+            Guardando información... {uploadProgress.total > 0 ? `(${uploadProgress.done}/${uploadProgress.total} lotes)` : ''}
+          </span>
         </div>
       </Backdrop>
       

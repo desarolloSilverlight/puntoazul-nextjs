@@ -60,11 +60,20 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   // Mover fetchToneladasAcumuladas fuera de los hooks para que esté disponible globalmente
   const fetchToneladasAcumuladas = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/informacion-f/getToneladasAcumuladas/${idInformacionF}`);
+      const url = `${API_BASE_URL}/informacion-f/getToneladasAcumuladas/${idInformacionF}`;
+      console.log('getToneladasAcumuladas URL:', url, 'idInformacionF:', idInformacionF);
+      const response = await fetch(url);
+      console.log('getToneladasAcumuladas status:', response.status);
+      const rawBody = await response.clone().text();
+      console.log('getToneladasAcumuladas raw body:', rawBody);
       if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
       const data = await response.json();
-      setToneladasAcumuladasGlobal(Number(data.toneladas) || 0);
-    } catch {
+      console.log('getToneladasAcumuladas parsed data:', data);
+      const valor = Number(data.toneladas) || 0;
+      console.log('getToneladasAcumuladas valor a setear:', valor);
+      setToneladasAcumuladasGlobal(valor);
+    } catch (err) {
+      console.error('getToneladasAcumuladas error:', err);
       setToneladasAcumuladasGlobal(0);
     }
   };

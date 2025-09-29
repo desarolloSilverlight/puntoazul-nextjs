@@ -241,14 +241,89 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         totalPesoProducto: p.totalPesoProducto,
       }));
 
-      const chunkSize = 200;
-      const concurrency = 2;
-      const totalBatches = Math.ceil(payload.length / chunkSize);
+      // --- Chunking dinámico adaptado al límite de paquete del servidor ---
+      const resolveServerPacketLimit = () => {
+        const stored = parseInt(localStorage.getItem('serverMaxPacketBytes'), 10);
+        if (!isNaN(stored) && stored > 0) {
+          console.info('[ProductosB] Usando serverMaxPacketBytes de localStorage =', stored);
+          return stored;
+        }
+        console.warn('[ProductosB] Usando límite por defecto 2048 bytes. Si aumentó max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", "8000000") (ejemplo) y vuelva a guardar.');
+        return 2048;
+      };
+      const SERVER_MAX_PACKET_BYTES = resolveServerPacketLimit();
+      const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70);
+      const TARGET_MAX_BYTES = Math.max(SAFE_TARGET, 1000);
+
+      // Calcular promedio bytes/fila
+      const SAMPLE_COUNT = Math.min(20, payload.length);
+      let avgBytesPerRow = 0;
+      if (SAMPLE_COUNT > 0) {
+        let total = 0;
+        for (let i = 0; i < SAMPLE_COUNT; i++) {
+          total += new TextEncoder().encode(JSON.stringify(payload[i])).length;
+        }
+        avgBytesPerRow = total / SAMPLE_COUNT;
+      }
+      let rowsPerChunk = 120;
+      if (avgBytesPerRow > 0) {
+        rowsPerChunk = Math.floor(TARGET_MAX_BYTES / avgBytesPerRow);
+        if (SERVER_MAX_PACKET_BYTES <= 4096) {
+          rowsPerChunk = Math.max(1, Math.min(50, rowsPerChunk));
+        } else {
+          rowsPerChunk = Math.max(50, Math.min(500, rowsPerChunk));
+        }
+      }
+      if (avgBytesPerRow > SAFE_TARGET) {
+        console.warn('[ProductosB] Una fila (' + avgBytesPerRow + ' bytes) excede SAFE_TARGET=' + SAFE_TARGET + ' -> forzando 1 por chunk');
+        rowsPerChunk = 1;
+      }
+      // Chunks preliminares
+      const prelim = [];
+      for (let i = 0; i < payload.length; i += rowsPerChunk) {
+        prelim.push(payload.slice(i, i + rowsPerChunk));
+      }
+      // Refinar por tamaño
+      const refined = [];
+      for (const ch of prelim) {
+        const size = new TextEncoder().encode(JSON.stringify(ch)).length;
+        if (size <= TARGET_MAX_BYTES) {
+          refined.push(ch);
+        } else {
+          let start = 0;
+          let estimate = Math.max(1, Math.floor(ch.length * (TARGET_MAX_BYTES / size)));
+          while (start < ch.length) {
+            let subSize = Math.min(estimate, ch.length - start);
+            while (subSize > 0) {
+              const tentative = ch.slice(start, start + subSize);
+              const tBytes = new TextEncoder().encode(JSON.stringify(tentative)).length;
+              if (tBytes <= TARGET_MAX_BYTES || tentative.length === 1) {
+                refined.push(tentative);
+                start += tentative.length;
+                break;
+              }
+              subSize = Math.floor(subSize / 2);
+            }
+            if (subSize === 0) { // fallback
+              refined.push([ch[start]]);
+              start += 1;
+            }
+          }
+        }
+      }
+      const chunks = refined;
+      console.log('[ProductosB] avgBytesPerRow=', avgBytesPerRow.toFixed(2), 'rowsPerChunk=', rowsPerChunk, 'prelim=', prelim.length, 'final=', chunks.length, 'TARGET_MAX_BYTES=', TARGET_MAX_BYTES, 'SERVER_MAX_PACKET_BYTES=', SERVER_MAX_PACKET_BYTES);
+      chunks.forEach((c,i)=>{
+        const b = new TextEncoder().encode(JSON.stringify(c)).length;
+        console.log(`[ProductosB] Chunk ${i+1}/${chunks.length} bytes=${b}`);
+      });
       const importId = `${idInformacionB || 'no-id'}-${Date.now()}`;
-      setUploadProgress({ done: 0, total: totalBatches });
+      const totalChunks = chunks.length;
+      const concurrency = 2;
+      setUploadProgress({ done: 0, total: totalChunks });
 
       const postBatch = async (batch, batchIndex, mode) => {
-        const url = `${API_BASE_URL}/informacion-b/createProductos?importId=${encodeURIComponent(importId)}&batchIndex=${batchIndex}&batchCount=${totalBatches}&mode=${mode}`;
+        const url = `${API_BASE_URL}/informacion-b/createProductos?importId=${encodeURIComponent(importId)}&batchIndex=${batchIndex}&batchCount=${totalChunks}&mode=${mode}`;
         const resp = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -257,32 +332,29 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         });
         if (!resp.ok) {
           const errText = await resp.text();
-          throw new Error(`Lote ${batchIndex + 1}/${totalBatches}: ${resp.status} ${errText}`);
+          throw new Error(`Lote ${batchIndex + 1}/${totalChunks}: ${resp.status} ${errText}`);
         }
+        setUploadProgress(p => ({ done: p.done + 1, total: p.total }));
       };
 
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const isFirst = i === 0;
-        const batches = [];
-        for (let j = i; j < Math.min(i + chunkSize * concurrency, payload.length); j += chunkSize) {
-          const idx = Math.floor(j / chunkSize);
-          const batch = payload.slice(j, j + chunkSize);
-          const mode = idx === 0 ? 'replace' : 'append';
-          if (isFirst) {
-            await postBatch(batch, idx, mode);
-            setUploadProgress((p) => ({ done: p.done + 1, total: totalBatches }));
-          } else {
-            batches.push(postBatch(batch, idx, mode).then(() => {
-              setUploadProgress((p) => ({ done: p.done + 1, total: totalBatches }));
-            }));
-          }
-        }
-        if (!isFirst) {
-          await Promise.all(batches);
-        }
+      // Subir secuencial el primer chunk (replace) y luego concurrente
+      if (totalChunks > 0) {
+        await postBatch(chunks[0], 0, 'replace');
       }
+      let nextIndex = 1;
+      const workers = Array.from({ length: Math.min(concurrency, totalChunks) }, async () => {
+        while (true) {
+          const current = nextIndex++;
+          if (current >= totalChunks) break;
+            await postBatch(chunks[current], current, 'append');
+        }
+      });
+      await Promise.all(workers);
 
-      alert(`Se guardaron ${payload.length} registros de Productos (Literal B) en lotes.`);
+      alert(`Se guardaron ${payload.length} registros de Productos (Literal B) en ${totalChunks} lote(s).`);
+      if (SERVER_MAX_PACKET_BYTES === 2048 && payload.length > 50) {
+        console.info("[ProductosB] Sugerencia: incremente max_allowed_packet en MySQL y luego ejecute localStorage.setItem('serverMaxPacketBytes','8000000') para aumentar el rendimiento de carga.");
+      }
     } catch (error) {
       console.error('Error al enviar los productos:', error);
       alert(`Error: ${error.message}`);

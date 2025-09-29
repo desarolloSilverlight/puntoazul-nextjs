@@ -57,6 +57,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     [ "Unidades del Producto puestas en el mercado durante el año reportado", "Número", "Total de empaques puestos en el mercado del Producto indicado en la fila correspondiente, durante el año reportado. En la cuantificación se debe tener en cuenta la relación con el producto (Ej.: una unidad de empaque contiene 24 unidades de producto, el reporte que se debe hacer es la unidad de empaque que se puso en el mercado."],
   ];
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencional a idInformacionF y tipoReporte
   useEffect(() => {
   const fetchProductos = async () => {
       try {
@@ -122,18 +123,22 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       setToneladasAcumuladasGlobal(0);
     }
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencional a idInformacionF
   useEffect(() => {
     if (idInformacionF) {
       fetchToneladasAcumuladas();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idInformacionF]);
 
   // Mantener currentPage dentro de rango cuando cambian productos o pageSize
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recalcular paginación
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil((productos?.length || 0) / pageSize));
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productos, pageSize]);
 
   const agregarProducto = () => {
@@ -290,14 +295,14 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         setIsLoading(false);
         return;
       }
-      if (/[,\.]/.test(producto.unidades)) {
+  if (/[,.]/.test(producto.unidades)) {
         alert(`En la fila ${i + 1}, 'Unidades' debe ser un número entero sin separadores.`);
         setIsLoading(false);
         return;
       }
     }
     try {
-      const productosSerializados = productos.map(p => {
+      const productosSerializados = productos.map((p, idx) => {
         const normalizar = v => {
           if (v === null || v === undefined || v === "") return "0";
           if (typeof v === 'string') {
@@ -306,15 +311,15 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           }
           return String(v);
         };
-        return {
+        const fila = {
           idInformacionF: p.idInformacionF,
           empresa: p.empresaTitular,
           nombre_producto: p.nombreProducto,
           papel: normalizar(p.papel),
-          metal_ferrosos: normalizar(p.metalFerrosos),
-          metal_no_ferrososs: normalizar(p.metalNoFerrosos),
+          metalFerrosos: normalizar(p.metalFerrosos),
+          metalNoFerrosos: normalizar(p.metalNoFerrosos),
           carton: normalizar(p.carton),
-          vidrios: normalizar(p.vidrio),
+          vidrio: normalizar(p.vidrio),
           multimaterial: JSON.stringify({
             multimaterial: p.multimaterial.multimaterial,
             tipo: p.multimaterial.tipo,
@@ -322,37 +327,106 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           }),
           unidades: p.unidades ? String(p.unidades) : '0'
         };
+        if (idx === 0) {
+          console.log('[EmpaqueSecundario] Mapeo camelCase aplicado (ejemplo primera fila):', fila);
+        }
+        return fila;
       });
 
-      const chunkSize = 200;
-      const chunks = [];
-      for (let i = 0; i < productosSerializados.length; i += chunkSize) {
-        chunks.push(productosSerializados.slice(i, i + chunkSize));
+      // --- Nuevo chunking dinámico micro-adaptativo (similar a EmpaquePrimario) ---
+      const resolveServerPacketLimit = () => {
+        const stored = parseInt(localStorage.getItem('serverMaxPacketBytes'), 10);
+        if (!isNaN(stored) && stored > 0) {
+          console.info('[EmpaqueSecundario] Usando serverMaxPacketBytes de localStorage =', stored);
+          return stored;
+        }
+        console.warn('[EmpaqueSecundario] Límite por defecto 2048 bytes. Tras subir max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", "8000000") por ejemplo.');
+        return 2048;
+      };
+      const SERVER_MAX_PACKET_BYTES = resolveServerPacketLimit();
+      const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70);
+      const TARGET_MAX_BYTES = Math.max(SAFE_TARGET, 1000);
+      const SAMPLE_COUNT = Math.min(20, productosSerializados.length);
+      let avgBytesPorFila = 0;
+      if (SAMPLE_COUNT > 0) {
+        let total = 0;
+        for (let i = 0; i < SAMPLE_COUNT; i++) {
+          total += new TextEncoder().encode(JSON.stringify(productosSerializados[i])).length;
+        }
+        avgBytesPorFila = total / SAMPLE_COUNT;
       }
+      let rowsPerChunk = 120;
+      if (avgBytesPorFila > 0) {
+        rowsPerChunk = Math.floor(TARGET_MAX_BYTES / avgBytesPorFila);
+        if (SERVER_MAX_PACKET_BYTES <= 4096) {
+          rowsPerChunk = Math.max(1, Math.min(50, rowsPerChunk));
+        } else {
+          rowsPerChunk = Math.max(50, Math.min(400, rowsPerChunk));
+        }
+      }
+      if (avgBytesPorFila > SAFE_TARGET) {
+        console.warn('[EmpaqueSecundario] Una fila ('+avgBytesPorFila+' bytes) > SAFE_TARGET='+SAFE_TARGET+' -> forzando 1 fila por chunk');
+        rowsPerChunk = 1;
+      }
+      const prelim = [];
+      for (let i = 0; i < productosSerializados.length; i += rowsPerChunk) {
+        prelim.push(productosSerializados.slice(i, i + rowsPerChunk));
+      }
+      const refined = [];
+      for (const ch of prelim) {
+        const size = new TextEncoder().encode(JSON.stringify(ch)).length;
+        if (size <= TARGET_MAX_BYTES) {
+          refined.push(ch);
+        } else {
+          let start = 0;
+          let estimate = Math.max(1, Math.floor(ch.length * (TARGET_MAX_BYTES / size)));
+          while (start < ch.length) {
+            let subSize = Math.min(estimate, ch.length - start);
+            while (subSize > 0) {
+              const tentative = ch.slice(start, start + subSize);
+              const tBytes = new TextEncoder().encode(JSON.stringify(tentative)).length;
+              if (tBytes <= TARGET_MAX_BYTES || tentative.length === 1) {
+                refined.push(tentative);
+                start += tentative.length;
+                break;
+              }
+              subSize = Math.floor(subSize / 2);
+            }
+            if (subSize === 0) {
+              refined.push([ch[start]]);
+              start += 1;
+            }
+          }
+        }
+      }
+      const chunks = refined;
+      console.log('[EmpaqueSecundario] avgBytesPorFila=', avgBytesPorFila.toFixed(2), 'rowsPerChunk=', rowsPerChunk, 'prelim=', prelim.length, 'final=', chunks.length, 'TARGET_MAX_BYTES=', TARGET_MAX_BYTES, 'SERVER_MAX_PACKET_BYTES=', SERVER_MAX_PACKET_BYTES);
+      chunks.forEach((c,i)=>{
+        const b = new TextEncoder().encode(JSON.stringify(c)).length;
+        console.log(`[EmpaqueSecundario] Chunk ${i+1}/${chunks.length} bytes=${b}`);
+      });
       const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
       const totalChunks = chunks.length;
       const concurrency = 2;
       setUploadProgress({ total: totalChunks, done: 0 });
-
       let enviados = 0;
       const uploadChunk = async (index) => {
         const chunk = chunks[index];
         const isFirst = index === 0;
         const url = `${API_BASE_URL}/informacion-f/crearEmpaqueSec?importId=${encodeURIComponent(importId)}&batchIndex=${index}&batchCount=${totalChunks}&mode=${isFirst ? 'replace' : 'append'}`;
         const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(chunk),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(chunk)
         });
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(`Lote ${index + 1}/${totalChunks}: Error ${response.status}: ${errorText}`);
         }
         enviados += chunk.length;
-        setUploadProgress((p) => ({ total: p.total, done: p.done + 1 }));
+        setUploadProgress(p => ({ total: p.total, done: p.done + 1 }));
       };
-
       if (totalChunks > 0) {
         await uploadChunk(0);
       }
@@ -367,6 +441,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       await Promise.all(workers);
       alert(`Se guardaron ${enviados} registros de Empaque Secundario en ${totalChunks} lote(s).`);
       await fetchToneladasAcumuladas();
+      if (SERVER_MAX_PACKET_BYTES === 2048 && productosSerializados.length > 50) {
+        console.info("[EmpaqueSecundario] Sugerencia: incremente max_allowed_packet y luego ejecute localStorage.setItem('serverMaxPacketBytes','8000000') para mejorar rendimiento.");
+      }
     } catch (error) {
       console.error("Error al enviar los empaques secundarios:", error);
       alert(`Error: ${error.message}`);
@@ -501,7 +578,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const errores = [];
   const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
   // Aceptar números con coma o punto (hasta 10 decimales en archivo) para luego normalizar a coma con 2 decimales
-  const decimalRegexFlexible = /^\d+(?:[\.,]\d{1,10})?$/;
+  const decimalRegexFlexible = /^\d+(?:[.,]\d{1,10})?$/;
 
         jsonData.forEach((row, index) => {
           const producto = mapearColumnas(row);
@@ -523,7 +600,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             errores.push(`Fila ${numeroFila}: 'Multimaterial' debe ser 'Si' o 'No'`);
           }
 
-          // 3. Validar y normalizar campos numéricos (acepta punto o coma, guarda con coma y dos decimales)
+          // 3. Validar y normalizar campos numéricos (acepta punto o coma). No forzar dos decimales para reducir payload; se conserva tal cual salvo normalización de separador.
           for (const campo of camposNumericos) {
             let valor = producto[campo];
             if (valor === null || valor === undefined || valor === "") {
@@ -535,13 +612,18 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               errores.push(`Fila ${numeroFila}: '${campo}' debe ser un número válido (usar punto o coma). Valor: ${producto[campo]}`);
               continue;
             }
-            // Reemplazar coma por punto para parsear, luego formatear a 2 decimales y devolver con coma
             const num = parseFloat(valor.replace(',', '.'));
             if (isNaN(num)) {
               errores.push(`Fila ${numeroFila}: '${campo}' no se pudo interpretar como número. Valor: ${producto[campo]}`);
               continue;
             }
-            producto[campo] = num.toFixed(2).replace('.', ',');
+            // Mantener precisión original (hasta 10 decimales) pero usando coma y recortando ceros finales
+            let normalized = valor.replace('.', ',');
+            // Eliminar ceros de más: "12,3400" -> "12,34"; "5,000"->"5"
+            if (/,/.test(normalized)) {
+              normalized = normalized.replace(/0+$/,'').replace(/,$/,'');
+            }
+            producto[campo] = normalized;
           }
 
           // 4. Validar que al menos un material sea mayor a 0

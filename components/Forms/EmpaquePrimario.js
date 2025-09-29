@@ -301,25 +301,26 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     }
     try {
       // Serializar multimaterial y normalizar números (convertir coma a punto para backend)
-      const productosSerializados = productos.map(p => {
+      const productosSerializados = productos.map((p, idx) => {
         const normalizar = v => {
           if (v === null || v === undefined || v === "") return "0";
-            if (typeof v === 'string') {
-              if (v.includes('.')) throw new Error('Formato con punto detectado en números (no permitido).');
-              return v.replace(',', '.');
-            }
+          if (typeof v === 'string') {
+            if (v.includes('.')) throw new Error('Formato con punto detectado en números (no permitido).');
+            return v.replace(',', '.');
+          }
           return String(v);
         };
-        // No incluir 'id' para evitar conflictos en INSERT; mantener orden y claves estables
-        return {
+        // IMPORTANTE: Ajuste de nombres de claves para que el backend (service) que usa item.metalFerrosos, item.metalNoFerrosos, item.vidrio los reciba correctamente.
+        // Antes enviábamos metal_ferrosos, metal_no_ferrososs y vidrios -> backend los leía como undefined y guardaba 0.
+        const fila = {
           idInformacionF: p.idInformacionF,
           empresa: p.empresaTitular,
-          nombre_producto: p.nombreProducto,
+            nombre_producto: p.nombreProducto,
           papel: normalizar(p.papel),
-          metal_ferrosos: normalizar(p.metalFerrosos),
-          metal_no_ferrososs: normalizar(p.metalNoFerrosos),
+          metalFerrosos: normalizar(p.metalFerrosos),
+          metalNoFerrosos: normalizar(p.metalNoFerrosos),
           carton: normalizar(p.carton),
-          vidrios: normalizar(p.vidrio),
+          vidrio: normalizar(p.vidrio),
           multimaterial: JSON.stringify({
             multimaterial: p.multimaterial.multimaterial,
             tipo: p.multimaterial.tipo,
@@ -327,13 +328,89 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           }),
           unidades: p.unidades ? String(p.unidades) : '0'
         };
+        if (idx === 0) {
+          console.log('[EmpaquePrimario] Mapeo camelCase aplicado (ejemplo primera fila):', fila);
+        }
+        return fila;
       });
-      // Enviar en lotes con paralelismo limitado y metadatos para evitar reemplazos
-  const chunkSize = 200; // reducido para evitar 413
-      const chunks = [];
-      for (let i = 0; i < productosSerializados.length; i += chunkSize) {
-        chunks.push(productosSerializados.slice(i, i + chunkSize));
+      // Opción 2: Chunking dinámico basado en tamaño promedio de fila para no exceder ~2MB por request.
+  // Ajuste especial: el servidor reporta max_allowed_packet = 2048 bytes (2KB) -> extremadamente bajo.
+  // Implementamos un modo de contingencia: si una fila se acerca al límite, enviamos 1 fila por request.
+  const SERVER_MAX_PACKET_BYTES = 2048; // valor reportado
+  const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70); // 70% del límite para overhead (headers/query internals)
+  // Si se eleva max_allowed_packet en el servidor, se puede redefinir TARGET_MAX_BYTES a un valor mayor.
+  const TARGET_MAX_BYTES = Math.max( SAFE_TARGET, 1_000 ); // asegurar al menos 1000 bytes para cálculos; aquí ~1433 si 2048
+      const SAMPLE_COUNT = Math.min(20, productosSerializados.length);
+      let avgBytesPorFila = 0;
+      if (SAMPLE_COUNT > 0) {
+        let totalSampleBytes = 0;
+        for (let i = 0; i < SAMPLE_COUNT; i++) {
+          const rowStr = JSON.stringify(productosSerializados[i]);
+          totalSampleBytes += new TextEncoder().encode(rowStr).length;
+        }
+        avgBytesPorFila = totalSampleBytes / SAMPLE_COUNT;
       }
+      // Fallback si por alguna razón avgBytesPorFila sale 0 (sin productos o error): usar 150 por defecto
+  let rowsPerChunk = 150; // valor base antes de recalcular
+      if (avgBytesPorFila > 0) {
+        rowsPerChunk = Math.floor(TARGET_MAX_BYTES / avgBytesPorFila);
+        // Rango adaptado: si el paquete es extremadamente pequeño, permitir bajar hasta 1.
+        if (SERVER_MAX_PACKET_BYTES <= 4096) {
+          rowsPerChunk = Math.max(1, Math.min(50, rowsPerChunk));
+        } else {
+          rowsPerChunk = Math.max(50, Math.min(300, rowsPerChunk));
+        }
+      }
+      // Fallback adicional: si una sola fila ya excede el SAFE_TARGET, forzar 1 por chunk.
+      if (avgBytesPorFila > SAFE_TARGET) {
+        console.warn('[EmpaquePrimario] Una fila ('+avgBytesPorFila+' bytes) excede SAFE_TARGET='+SAFE_TARGET+' -> forzando micro-chunks de 1 fila');
+        rowsPerChunk = 1;
+      }
+      const preliminaryChunks = [];
+      for (let i = 0; i < productosSerializados.length; i += rowsPerChunk) {
+        preliminaryChunks.push(productosSerializados.slice(i, i + rowsPerChunk));
+      }
+      // Refinar: si algún chunk supera el umbral duro (TARGET_MAX_BYTES), subdividirlo dinámicamente.
+      const refinedChunks = [];
+      for (const ch of preliminaryChunks) {
+        let json = JSON.stringify(ch);
+        let size = new TextEncoder().encode(json).length;
+        if (size <= TARGET_MAX_BYTES) {
+          refinedChunks.push(ch);
+        } else {
+          // Subdividir adaptativamente hasta cumplir límite.
+            let subStart = 0;
+            // Estimar subChunkSize inicial proporcional
+            let estimatedSubSize = Math.max(1, Math.floor(ch.length * (TARGET_MAX_BYTES / size)));
+            while (subStart < ch.length) {
+              let subChunkSize = Math.min(estimatedSubSize, ch.length - subStart);
+              // Reducir hasta que entre
+              while (subChunkSize > 0) {
+                const tentative = ch.slice(subStart, subStart + subChunkSize);
+                const tJson = JSON.stringify(tentative);
+                const tBytes = new TextEncoder().encode(tJson).length;
+                if (tBytes <= TARGET_MAX_BYTES || tentative.length === 1) {
+                  refinedChunks.push(tentative);
+                  subStart += tentative.length;
+                  break;
+                }
+                subChunkSize = Math.floor(subChunkSize / 2);
+              }
+              if (subChunkSize === 0) {
+                // fallback de seguridad
+                refinedChunks.push([ch[subStart]]);
+                subStart += 1;
+              }
+            }
+        }
+      }
+      const chunks = refinedChunks;
+      // Log detallado de tamaños de cada chunk
+  console.log('[EmpaquePrimario] avgBytesPorFila=', avgBytesPorFila.toFixed(2), 'rowsPerChunkEstimado=', rowsPerChunk, 'chunksPreSplit=', preliminaryChunks.length, 'chunksFinal=', chunks.length, 'TARGET_MAX_BYTES=', TARGET_MAX_BYTES, 'SERVER_MAX_PACKET_BYTES=', SERVER_MAX_PACKET_BYTES);
+      chunks.forEach((c, i) => {
+        const size = new TextEncoder().encode(JSON.stringify(c)).length;
+        console.log(`[EmpaquePrimario] Chunk ${i+1}/${chunks.length} bytes=${size}`);
+      });
       const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
       const totalChunks = chunks.length;
   const concurrency = 2; // menor paralelismo para reducir presión
@@ -422,7 +499,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     datosEjemplo.forEach(r => sheetEjemplos.addRow(r));
     sheetEjemplos.columns.forEach(col => { col.width = 26; });
 
-    let fila = sheetEjemplos.addRow([]).number; // fila en blanco
+  sheetEjemplos.addRow([]); // fila en blanco
     const instrucciones = [
       'INSTRUCCIONES IMPORTANTES:',
       '',
@@ -851,7 +928,6 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                   // Renderizar solo la página actual
                   (() => {
                     const totalItems = productos.length;
-                    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
                     const startIdx = (currentPage - 1) * pageSize;
                     const endIdx = Math.min(totalItems, startIdx + pageSize);
                     return productos.slice(startIdx, endIdx).map((producto, idx) => {

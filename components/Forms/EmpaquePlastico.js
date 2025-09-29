@@ -61,6 +61,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       setToneladasAcumuladasGlobal(0);
     }
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencionalmente limitada a idInformacionF
   useEffect(() => {
     const fetchProductos = async () => {
       try {
@@ -106,6 +107,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   }, [idInformacionF]);
 
   // Mantener currentPage dentro de rango cuando cambian productos o pageSize
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recalcular páginas solo cuando cambian productos o pageSize
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil((productos?.length || 0) / pageSize));
     if (currentPage > totalPages) {
@@ -157,13 +159,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     ]);
   };
 
-  // Helper formato dos decimales
-  const format2 = (v) => {
-    if (v === null || v === undefined || v === "") return "";
-    const num = parseFloat(v.toString().replace(',', '.'));
-    if (isNaN(num)) return v;
-    return num.toFixed(2).replace('.', ',');
-  };
+  // (format2 eliminado para reducir peso y porque no se usa en render ahora)
 
   const handleChange = (index, field, value) => {
     const nuevosProductos = [...productos];
@@ -315,16 +311,90 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       };
     });
     try {
-      const chunkSize = 200;
-      const chunks = [];
-      for (let i = 0; i < productosSerializados.length; i += chunkSize) {
-        chunks.push(productosSerializados.slice(i, i + chunkSize));
+      // --- Chunking dinámico basado en tamaño promedio de fila y límite de paquete MySQL extremadamente bajo ---
+      // Permite override del límite del servidor colocando en consola:
+      // localStorage.setItem('serverMaxPacketBytes', '8192'); // Ejemplo tras aumentar max_allowed_packet
+      const resolveServerPacketLimit = () => {
+        const stored = parseInt(localStorage.getItem('serverMaxPacketBytes'), 10);
+        if (!isNaN(stored) && stored > 0) {
+          console.info('[EmpaquePlastico] Usando serverMaxPacketBytes de localStorage =', stored);
+          return stored;
+        }
+        console.warn('[EmpaquePlastico] Usando límite por defecto 2048 bytes. Si ya incrementó max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", NUEVO_VALOR) y vuelva a guardar para aprovechar más rendimiento.');
+        return 2048; // valor por defecto asumido
+      };
+      const SERVER_MAX_PACKET_BYTES = resolveServerPacketLimit();
+      const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70); // 70% para overhead
+      const TARGET_MAX_BYTES = Math.max(SAFE_TARGET, 1000); // garantizar mínimo razonable
+
+      // Calcular tamaño promedio por fila (sample hasta 20)
+      const SAMPLE_COUNT = Math.min(20, productosSerializados.length);
+      let avgBytesPorFila = 0;
+      if (SAMPLE_COUNT > 0) {
+        let total = 0;
+        for (let i = 0; i < SAMPLE_COUNT; i++) {
+          total += new TextEncoder().encode(JSON.stringify(productosSerializados[i])).length;
+        }
+        avgBytesPorFila = total / SAMPLE_COUNT;
       }
+      let rowsPerChunk = 100; // base provisional
+      if (avgBytesPorFila > 0) {
+        rowsPerChunk = Math.floor(TARGET_MAX_BYTES / avgBytesPorFila);
+        if (SERVER_MAX_PACKET_BYTES <= 4096) {
+          rowsPerChunk = Math.max(1, Math.min(40, rowsPerChunk));
+        } else {
+          rowsPerChunk = Math.max(40, Math.min(400, rowsPerChunk));
+        }
+      }
+      if (avgBytesPorFila > SAFE_TARGET) {
+        console.warn('[EmpaquePlastico] Una fila (' + avgBytesPorFila + ' bytes) > SAFE_TARGET=' + SAFE_TARGET + ' -> forzando chunks de 1');
+        rowsPerChunk = 1;
+      }
+      // Construir chunks preliminares
+      const prelim = [];
+      for (let i = 0; i < productosSerializados.length; i += rowsPerChunk) {
+        prelim.push(productosSerializados.slice(i, i + rowsPerChunk));
+      }
+      // Refinar para asegurar límite
+      const refined = [];
+      for (const ch of prelim) {
+        const size = new TextEncoder().encode(JSON.stringify(ch)).length;
+        if (size <= TARGET_MAX_BYTES) {
+          refined.push(ch);
+        } else {
+          // subdividir adaptativamente
+          let start = 0;
+            let estimated = Math.max(1, Math.floor(ch.length * (TARGET_MAX_BYTES / size)));
+            while (start < ch.length) {
+              let subSize = Math.min(estimated, ch.length - start);
+              while (subSize > 0) {
+                const tentative = ch.slice(start, start + subSize);
+                const tBytes = new TextEncoder().encode(JSON.stringify(tentative)).length;
+                if (tBytes <= TARGET_MAX_BYTES || tentative.length === 1) {
+                  refined.push(tentative);
+                  start += tentative.length;
+                  break;
+                }
+                subSize = Math.floor(subSize / 2);
+              }
+              if (subSize === 0) { // fallback de seguridad
+                refined.push([ch[start]]);
+                start += 1;
+              }
+            }
+        }
+      }
+      const chunks = refined;
+      console.log('[EmpaquePlastico] avgBytesPorFila=', avgBytesPorFila.toFixed(2), 'rowsPerChunkEstimado=', rowsPerChunk, 'chunksPrelim=', prelim.length, 'chunksFinal=', chunks.length, 'TARGET_MAX_BYTES=', TARGET_MAX_BYTES, 'SERVER_MAX_PACKET_BYTES=', SERVER_MAX_PACKET_BYTES);
+      chunks.forEach((c,i)=>{
+        const b = new TextEncoder().encode(JSON.stringify(c)).length;
+        console.log(`[EmpaquePlastico] Chunk ${i+1}/${chunks.length} bytes=${b}`);
+      });
+
       const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
       const totalChunks = chunks.length;
-      const concurrency = 2;
+      const concurrency = 2; // mantener bajo para no saturar
       setUploadProgress({ total: totalChunks, done: 0 });
-
       let enviados = 0;
       const uploadChunk = async (index) => {
         const chunk = chunks[index];
@@ -341,9 +411,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           throw new Error(`Lote ${index + 1}/${totalChunks}: ${resp.status} ${errText}`);
         }
         enviados += chunk.length;
-        setUploadProgress((p) => ({ total: p.total, done: p.done + 1 }));
+        setUploadProgress(p => ({ total: p.total, done: p.done + 1 }));
       };
-
       if (totalChunks > 0) {
         await uploadChunk(0);
       }
@@ -358,6 +427,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       await Promise.all(workers);
       alert(`Se guardaron ${enviados} registros de Empaque Plástico en ${totalChunks} lote(s).`);
       await fetchToneladasAcumuladas();
+      if (SERVER_MAX_PACKET_BYTES === 2048 && productosSerializados.length > 50) {
+        console.info("[EmpaquePlastico] Sugerencia: Suba max_allowed_packet en MySQL (ej. 8MB) y luego ejecute localStorage.setItem('serverMaxPacketBytes', '8000000') para acelerar el guardado.");
+      }
     } catch (error) {
       console.error("Error al enviar los empaques plásticos:", error);
       alert(`Error: ${error.message}`);
@@ -490,7 +562,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           };
         };
         const productosValidados = []; const errores = [];
-        const decimalRegexFlexible = /^\d+(?:[\.,]\d{1,10})?$/;
+  const decimalRegexFlexible = /^\d+(?:[.,]\d{1,10})?$/;
         const tipoReporte = localStorage.getItem('tipoReporte');
 
         // Opciones válidas

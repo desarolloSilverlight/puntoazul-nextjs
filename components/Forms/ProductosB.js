@@ -595,18 +595,22 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           return;
         }
 
-        // Preguntar si quiere agregar o reemplazar
-        const mensaje = `Se encontraron ${productosValidados.length} productos válidos.\n\n¿Desea agregarlos a la tabla actual?\n\n- Aceptar: Agregar productos\n- Cancelar: No cargar`;
-        const proceder = window.confirm(mensaje);
-
-        if (proceder) {
-          // Agregar productos a la tabla existente
-          const productosActualizados = [...productos, ...productosValidados];
-          setProductos(productosActualizados);
-          setCurrentPage(1);
-
-          alert(`Se cargaron exitosamente ${productosValidados.length} productos.\n\nRecuerde guardar los cambios usando el botón "Guardar".`);
+        // Reemplazar siempre la tabla actual por el contenido del Excel (comportamiento solicitado)
+        const mensaje = `Se encontraron ${productosValidados.length} productos válidos en el archivo.\n\nEsta acción REEMPLAZARÁ los ${productos.length} registro(s) actualmente visibles por los del archivo.\n\n¿Desea continuar?`;
+        const confirmarReemplazo = window.confirm(mensaje);
+        if (!confirmarReemplazo) {
+          if (e && e.target) e.target.value = ""; // permitir recargar el mismo archivo
+          return;
         }
+
+        // Normalizar IDs consecutivos desde 1
+        const productosReemplazados = productosValidados.map((p, idx) => ({
+          ...p,
+          id: idx + 1,
+        }));
+        setProductos(productosReemplazados);
+        setCurrentPage(1);
+        alert(`Se reemplazó la tabla con ${productosValidados.length} productos del archivo.\n\nRecuerde presionar "Guardar" para persistir los cambios.`);
 
       } catch (error) {
         descargarErroresTXT([

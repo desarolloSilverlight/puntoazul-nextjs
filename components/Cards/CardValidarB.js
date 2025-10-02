@@ -11,6 +11,8 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  // Acción interna del email (APROBAR | RECHAZAR_FONDO | RECHAZAR_FORMA)
+  const [emailAction, setEmailAction] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
   const [productos, setProductos] = useState(propsProductos || []);
@@ -447,6 +449,7 @@ Punto Azul`
     const plantilla = generarPlantillaEmail("APROBAR", tendencia, informacionB.nombre || "Cliente");
     setEmailSubject(plantilla.asunto);
     setEmailBody(plantilla.cuerpo);
+    setEmailAction("APROBAR");
     setShowEmailModal(true);
   };
 
@@ -456,6 +459,7 @@ Punto Azul`
     const plantilla = generarPlantillaEmail("RECHAZAR_FONDO", tendencia, informacionB.nombre || "Cliente");
     setEmailSubject(plantilla.asunto);
     setEmailBody(plantilla.cuerpo);
+    setEmailAction("RECHAZAR_FONDO");
     setShowEmailModal(true);
   };
 
@@ -465,6 +469,7 @@ Punto Azul`
     const plantilla = generarPlantillaEmail("RECHAZAR_FORMA", tendencia, informacionB.nombre || "Cliente");
     setEmailSubject(plantilla.asunto);
     setEmailBody(plantilla.cuerpo);
+    setEmailAction("RECHAZAR_FORMA");
     setShowEmailModal(true);
   };
 
@@ -491,19 +496,26 @@ Equipo Punto Azul`);
     const correoDestino = productos[0].idInformacionB.correoFacturacion;
     let nuevoEstado, motivo;
     
-    // Determinar estado y motivo basado en el asunto del email
-    if (emailSubject.includes("APROBADO")) {
+    // Determinar estado y motivo basado en la acción interna y no en el asunto
+    if (!emailAction) {
+      alert("No se pudo determinar la acción del email (acción interna vacía)");
+      return;
+    }
+
+    if (emailAction === "APROBAR") {
       nuevoEstado = "Aprobado";
       motivo = "Aprobado";
-    } else if (emailSubject.includes("Errores de Fondo")) {
+    } else if (emailAction === "RECHAZAR_FONDO") {
       nuevoEstado = "Rechazado";
+      // Mantener detalle específico aunque el asunto sea genérico
       motivo = "Errores de Fondo";
-    } else if (emailSubject.includes("Errores de Forma")) {
+    } else if (emailAction === "RECHAZAR_FORMA") {
       nuevoEstado = "Rechazado";
       motivo = "Errores de Forma";
     } else {
-      alert("No se pudo determinar la acción del email");
-      return;
+      // Cualquier otro caso de rechazo se trata como genérico
+      nuevoEstado = "Rechazado";
+      motivo = "Rechazado";
     }
 
     try {

@@ -160,13 +160,12 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // Validar campos obligatorios
+
+    // 1. Validar campos obligatorios (sin activar loader todavía)
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
       const numeroProducto = i + 1;
-      
+
       if (!producto.razonSocial || producto.razonSocial.trim() === "") {
         alert(`Producto ${numeroProducto}: El campo "Razón Social" es obligatorio.`);
         return;
@@ -179,15 +178,14 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         alert(`Producto ${numeroProducto}: El campo "Nombre Genérico" es obligatorio.`);
         return;
       }
-      // Validar selección de Fabricación (no se permite vacío ni "Seleccione...")
+      // Validar selección de Fabricación
       if (!producto.fabricacion || !["Local", "Importado"].includes(producto.fabricacion)) {
         alert(`Producto ${numeroProducto}: Debe seleccionar "Local" o "Importado" en el campo "Fabricación".`);
         return;
       }
     }
-    
-    // Validar que todos los campos numéricos sean enteros
-    // Campos numéricos ingresados manualmente (los totales se calculan y no se validan contra input directo)
+
+    // 2. Validar campos numéricos: solo enteros >= 0. No se aceptan decimales (punto o coma)
     const camposNumericos = [
       "pesoEmpaqueComercialRX",
       "pesoTotalComercialRX",
@@ -200,24 +198,41 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       "pesoEmpaqueMuestrasMedicas",
       "pesoTotalMuestrasMedicas"
     ];
-    for (const producto of productos) {
+
+    for (let i = 0; i < productos.length; i++) {
+      const producto = productos[i];
+      const numeroProducto = i + 1;
       for (const campo of camposNumericos) {
-        const valor = producto[campo];
-        if (valor && valor !== "N/A") {
-          const num = Number(valor);
-          if (!Number.isInteger(num) || num < 0) {
-            alert(`El campo "${campo}" debe ser un número entero mayor o igual a 0. Valor ingresado: ${valor}`);
-            return;
-          }
+        let raw = producto[campo];
+        if (raw === undefined || raw === null || raw === "" || raw === "N/A") continue; // permitir vacío/N/A previo a validación global
+        if (typeof raw === 'number') raw = raw.toString();
+        const valor = String(raw).trim();
+
+        // Rechazar comas o puntos (decimales)
+        if (valor.includes(',') || valor.includes('.')) {
+          alert(`Producto ${numeroProducto}: El campo "${campo}" no acepta valores decimales. Ingrese solo números enteros (>= 0). Valor ingresado: ${valor}`);
+          return;
+        }
+        if (!/^\d+$/.test(valor)) {
+          alert(`Producto ${numeroProducto}: El campo "${campo}" debe contener solo dígitos (0-9). Valor ingresado: ${valor}`);
+          return;
+        }
+        const num = Number(valor);
+        if (num < 0) {
+          alert(`Producto ${numeroProducto}: El campo "${campo}" debe ser >= 0. Valor ingresado: ${valor}`);
+          return;
         }
       }
     }
-    // Mostrar un alert de confirmación
+
+    // 3. Confirmación del usuario
     const isConfirmed = window.confirm("¿Estás seguro de que los datos ingresados son correctos?");
-    if (!isConfirmed) {
-      return; // Si el usuario cancela, no se ejecuta la lógica de guardar
-    }
-    // Preparar payload alineado y batching con metadatos
+    if (!isConfirmed) return;
+
+    // 4. Activar loader SOLO después de pasar validaciones
+    setIsLoading(true);
+
+    // 5. Preparar payload y enviar
     try {
       const payload = productos.map((p) => ({
         idInformacionB,

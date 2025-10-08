@@ -57,6 +57,14 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     return num.toFixed(2).replace('.', ',');
   };
 
+  // Fuerza internamente a 2 decimales (coma) salvo vacío
+  const toTwoDecimalsOrEmpty = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    const num = parseFloat(v.toString().replace(',', '.'));
+    if (isNaN(num)) return "";
+    return num.toFixed(2).replace('.', ',');
+  };
+
   // Mover fetchToneladasAcumuladas fuera de los hooks para que esté disponible globalmente
   const fetchToneladasAcumuladas = async () => {
     try {
@@ -105,11 +113,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           idInformacionF: producto.idInformacionF,
           empresaTitular: producto.empresa || "",
           nombreProducto: producto.nombre_producto || "",
-          papel: producto.papel || "",
-          metalFerrosos: producto.metal_ferrosos || "",
-          metalNoFerrosos: producto.metal_no_ferrososs || "",
-          carton: producto.carton || "",
-          vidrio: producto.vidrios || "",
+          papel: toTwoDecimalsOrEmpty(producto.papel),
+          metalFerrosos: toTwoDecimalsOrEmpty(producto.metal_ferrosos),
+          metalNoFerrosos: toTwoDecimalsOrEmpty(producto.metal_no_ferrososs),
+          carton: toTwoDecimalsOrEmpty(producto.carton),
+          vidrio: toTwoDecimalsOrEmpty(producto.vidrios),
           multimaterial: typeof producto.multimaterial === 'string'
             ? (() => { try { return JSON.parse(producto.multimaterial); } catch { return { multimaterial: "", tipo: "", otro: "" }; } })()
             : (producto.multimaterial && typeof producto.multimaterial === 'object' ? producto.multimaterial : { multimaterial: "", tipo: "", otro: "" }),
@@ -132,6 +140,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     }
   }, [idInformacionF, tipoReporte]);
 
+  // Nota: fetchToneladasAcumuladas es estable y no depende de props/estado variables fuera de idInformacionF
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencional solo idInformacionF
   useEffect(() => {
     if (idInformacionF) {
       fetchToneladasAcumuladas();
@@ -139,6 +149,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   }, [idInformacionF]);
 
   // Mantener currentPage dentro de rango cuando cambian productos o pageSize
+  // Nota: currentPage se corrige dentro de este efecto según productos/pageSize; añadirlo causaría doble ajuste
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencias intencionales
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil((productos?.length || 0) / pageSize));
     if (currentPage > totalPages) {
@@ -293,7 +305,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         setIsLoading(false);
         return;
       }
-      if (/[,\.]/.test(producto.unidades)) {
+      if (/[,.]/.test(producto.unidades)) {
         alert(`En la fila ${i + 1}, 'Unidades' debe ser un número entero sin separadores.`);
         setIsLoading(false);
         return;
@@ -303,12 +315,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       // Serializar multimaterial y normalizar números (convertir coma a punto para backend)
       const productosSerializados = productos.map((p, idx) => {
         const normalizar = v => {
-          if (v === null || v === undefined || v === "") return "0";
-          if (typeof v === 'string') {
-            if (v.includes('.')) throw new Error('Formato con punto detectado en números (no permitido).');
-            return v.replace(',', '.');
-          }
-          return String(v);
+          if (v === null || v === undefined || v === "") return "0.00";
+          const asStr = v.toString().replace(',', '.');
+          const num = parseFloat(asStr);
+          if (isNaN(num)) return "0.00";
+          return num.toFixed(2);
         };
         // IMPORTANTE: Ajuste de nombres de claves para que el backend (service) que usa item.metalFerrosos, item.metalNoFerrosos, item.vidrio los reciba correctamente.
         // Antes enviábamos metal_ferrosos, metal_no_ferrososs y vidrios -> backend los leía como undefined y guardaba 0.
@@ -625,7 +636,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const productosValidados = [];
         const errores = [];
         const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
-        const decimalRegex = /^\d+(\.\d{1,10})?$/;
+  const decimalRegexFlexible = /^\d+(?:[.,]\d+)?$/; // permite cualquier cantidad para luego redondear
 
         jsonData.forEach((row, index) => {
           const producto = mapearColumnas(row);
@@ -647,23 +658,28 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             errores.push(`Fila ${numeroFila}: 'Multimaterial' debe ser 'Si' o 'No'`);
           }
 
-          // 3. Validar campos numéricos
+          // 3. Validar y normalizar campos numéricos (redondear a 2 decimales)
           for (const campo of camposNumericos) {
             let valor = producto[campo];
-            if (valor !== "" && valor !== null && valor !== undefined) {
-              valor = valor.toString().replace(/,/g, ".");
-              if (!decimalRegex.test(valor)) {
-                errores.push(`Fila ${numeroFila}: '${campo}' debe ser un número decimal válido (máx 10 decimales). Valor: ${producto[campo]}`);
-              } else {
-                producto[campo] = valor;
-              }
-            } else {
-              producto[campo] = "0";
+            if (valor === null || valor === undefined || valor === "") {
+              producto[campo] = "0,00";
+              continue;
             }
+            valor = valor.toString().trim();
+            if (!decimalRegexFlexible.test(valor)) {
+              errores.push(`Fila ${numeroFila}: '${campo}' debe ser un número válido. Valor: ${producto[campo]}`);
+              continue;
+            }
+            const num = parseFloat(valor.replace(',', '.'));
+            if (isNaN(num)) {
+              errores.push(`Fila ${numeroFila}: '${campo}' no se pudo interpretar como número. Valor: ${producto[campo]}`);
+              continue;
+            }
+            producto[campo] = num.toFixed(2).replace('.', ',');
           }
 
           // 4. Validar que al menos un material sea mayor a 0
-          const sumaMateriales = camposNumericos.map(campo => Number(producto[campo]) || 0);
+          const sumaMateriales = camposNumericos.map(campo => parseFloat(producto[campo].toString().replace(',', '.')) || 0);
           if (sumaMateriales.every(val => val === 0)) {
             errores.push(`Fila ${numeroFila}: Al menos uno de los materiales debe ser mayor a 0`);
           }

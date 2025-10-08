@@ -296,7 +296,7 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
         asunto: `Formulario Aprobado - Literal F Validado`,
         cuerpo: `Estimado/a ${nombreCliente},
 
-Me complace informarte que, tras la validación del Literal F, confirmamos que la Línea Base de la empresa ${nombreCliente} fue de ${totalBase} ton, para los materiales de Papel, Metal, Vidrio y Cartón el total fue de ${totalBase} ton y para los plásticos el total fue de ${totalPlasticos} ton. El formato correspondiente ya ha sido validado y adjunto encontrarás una carta de confirmación de datos que necesitamos que tu empresa firme. (ver adjunto)
+Me complace informarte que, tras la validación del Literal F, confirmamos que la Línea Base de la empresa ${nombreCliente} fue de ${totalBase+totalPlasticos} ton, para los materiales de Papel, Metal, Vidrio y Cartón el total fue de ${totalBase} ton y para los plásticos el total fue de ${totalPlasticos} ton. El formato correspondiente ya ha sido validado y adjunto encontrarás una carta de confirmación de datos que necesitamos que tu empresa firme. (ver adjunto)
 
 Saludos cordiales,
 Equipo de Validación Punto Azul`

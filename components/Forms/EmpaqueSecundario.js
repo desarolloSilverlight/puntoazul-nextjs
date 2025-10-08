@@ -85,11 +85,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           idInformacionF: producto.idInformacionF,
           empresaTitular: producto.empresa || "",
           nombreProducto: producto.nombre_producto || "",
-          papel: producto.papel || "",
-          metalFerrosos: producto.metal_ferrosos || "",
-          metalNoFerrosos: producto.metal_no_ferrososs || "",
-          carton: producto.carton || "",
-          vidrio: producto.vidrios || "",
+          papel: toTwoDecimalsOrEmpty(producto.papel),
+          metalFerrosos: toTwoDecimalsOrEmpty(producto.metal_ferrosos),
+          metalNoFerrosos: toTwoDecimalsOrEmpty(producto.metal_no_ferrososs),
+          carton: toTwoDecimalsOrEmpty(producto.carton),
+          vidrio: toTwoDecimalsOrEmpty(producto.vidrios),
           multimaterial: typeof producto.multimaterial === 'string'
             ? (() => { try { return JSON.parse(producto.multimaterial); } catch { return { multimaterial: "", tipo: "", otro: "" }; } })()
             : (producto.multimaterial && typeof producto.multimaterial === 'object' ? producto.multimaterial : { multimaterial: "", tipo: "", otro: "" }),
@@ -165,6 +165,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     if (v === null || v === undefined || v === "") return "";
     const num = parseFloat(v.toString().replace(',', '.'));
     if (isNaN(num)) return v;
+    return num.toFixed(2).replace('.', ',');
+  };
+
+  const toTwoDecimalsOrEmpty = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    const num = parseFloat(v.toString().replace(',', '.'));
+    if (isNaN(num)) return "";
     return num.toFixed(2).replace('.', ',');
   };
 
@@ -304,12 +311,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     try {
       const productosSerializados = productos.map((p, idx) => {
         const normalizar = v => {
-          if (v === null || v === undefined || v === "") return "0";
-          if (typeof v === 'string') {
-            if (v.includes('.')) throw new Error('Formato con punto detectado en números (no permitido).');
-            return v.replace(',', '.');
-          }
-          return String(v);
+          if (v === null || v === undefined || v === "") return "0.00";
+          const asStr = v.toString().replace(',', '.');
+          const num = parseFloat(asStr);
+          if (isNaN(num)) return "0.00";
+          return num.toFixed(2);
         };
         const fila = {
           idInformacionF: p.idInformacionF,
@@ -578,7 +584,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   const errores = [];
   const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
   // Aceptar números con coma o punto (hasta 10 decimales en archivo) para luego normalizar a coma con 2 decimales
-  const decimalRegexFlexible = /^\d+(?:[.,]\d{1,10})?$/;
+  const decimalRegexFlexible = /^\d+(?:[.,]\d+)?$/; // permitir para luego redondear
 
         jsonData.forEach((row, index) => {
           const producto = mapearColumnas(row);
@@ -600,7 +606,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             errores.push(`Fila ${numeroFila}: 'Multimaterial' debe ser 'Si' o 'No'`);
           }
 
-          // 3. Validar y normalizar campos numéricos (acepta punto o coma). No forzar dos decimales para reducir payload; se conserva tal cual salvo normalización de separador.
+          // 3. Validar y normalizar campos numéricos (redondear a 2 decimales)
           for (const campo of camposNumericos) {
             let valor = producto[campo];
             if (valor === null || valor === undefined || valor === "") {
@@ -617,13 +623,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               errores.push(`Fila ${numeroFila}: '${campo}' no se pudo interpretar como número. Valor: ${producto[campo]}`);
               continue;
             }
-            // Mantener precisión original (hasta 10 decimales) pero usando coma y recortando ceros finales
-            let normalized = valor.replace('.', ',');
-            // Eliminar ceros de más: "12,3400" -> "12,34"; "5,000"->"5"
-            if (/,/.test(normalized)) {
-              normalized = normalized.replace(/0+$/,'').replace(/,$/,'');
-            }
-            producto[campo] = normalized;
+            producto[campo] = num.toFixed(2).replace('.', ',');
           }
 
           // 4. Validar que al menos un material sea mayor a 0

@@ -808,9 +808,28 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             ariaLabel="oval-loading"
             visible={true}
           />
-          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
-            Guardando información... {uploadProgress.total > 0 ? `(${uploadProgress.done}/${uploadProgress.total} lotes)` : ''}
-          </span>
+
+          {/* Texto del progreso */}
+          {(() => {
+            const percentage = uploadProgress.total > 0
+              ? Math.round((uploadProgress.done / uploadProgress.total) * 100)
+              : 0;
+            return (
+              <>
+                <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
+                  Guardando información... {uploadProgress.total > 0 ? `${percentage}%` : ''}
+                </span>
+
+                {/* Barra de progreso */}
+                <div className="w-64 h-2 bg-gray-200 rounded-full mt-3 overflow-hidden">
+                  <div
+                    className="h-2 bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${percentage}%` }}
+                  ></div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </Backdrop>
       
@@ -922,17 +941,17 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
                 <tr className="bg-gray-200">
-                  <th className="border border-gray-300 px-2 py-1">No.</th>
-                  <th className="border border-gray-300 px-2 py-1">Empresa titular</th>
-                  <th className="border border-gray-300 px-2 py-1">Nombre Producto</th>
-                  <th className="border border-gray-300 px-2 py-1">Papel (g)</th>
-                  <th className="border border-gray-300 px-2 py-1">Metal Ferrosos (g)</th>
-                  <th className="border border-gray-300 px-2 py-1">Metal No Ferrosos (g)</th>
-                  <th className="border border-gray-300 px-2 py-1">Cartón (g)</th>
-                  <th className="border border-gray-300 px-2 py-1">Vidrio (g)</th>
-                  <th className="border border-gray-300 px-2 py-1">Multimaterial</th>
-                  <th className="border border-gray-300 px-2 py-1">Unidades</th>
-                  {!readonly && <th className="border border-gray-300 px-2 py-1">Acciones</th>}
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">No.</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Empresa titular</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Nombre Producto</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Papel (g)</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal Ferrosos (g)</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal No Ferrosos (g)</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón (g)</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio (g)</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades</th>
+                  {!readonly && <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1172,13 +1191,27 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             </div>
           )}
           {!readonly && (
-            <button
-              type="submit"
-              className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
-              disabled={!esEditable}
-            >
-              Guardar
-            </button>
+            <div className="flex items-center justify-between mt-3">
+              <button
+                type="submit"
+                className={`px-4 py-2 rounded ${
+                  esEditable
+                    ? "bg-lightBlue-600 hover:bg-lightBlue-700 text-white"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+                disabled={!esEditable}
+              >
+                Guardar
+              </button>
+
+              <button
+                type="button"
+                onClick={agregarProducto}
+                className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded"
+              >
+                Agregar Producto
+              </button>
+            </div>
           )}
         </form>
       </div>

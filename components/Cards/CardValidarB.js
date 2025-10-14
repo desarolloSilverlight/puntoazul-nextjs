@@ -247,7 +247,7 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
     const plantillas = {
       "APROBAR": {
         "SE MANTIENE": {
-          asunto: `APROBADO - Formulario Validado - SE MANTIENE`,
+          asunto: `APROBADO - Formulario Validado`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Agradecemos el envío oportuno del Literal B, su compromiso nos ayuda a continuar cumpliendo al 100% con la Resolución 371 de 2009.
@@ -261,7 +261,7 @@ Agradecemos de antemano su atención y quedamos atentos a su respuesta.
 Cordialmente, Punto Azul`
         },
         "SUBE GRUPO": {
-          asunto: `APROBADO - Formulario Validado - SUBE GRUPO`,
+          asunto: `APROBADO - Formulario Validado`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Un gusto saludarle,
@@ -277,7 +277,7 @@ Agradecemos de antemano su atención y quedamos atentos a su respuesta.
 Cordialmente, Punto Azul`
         },
         "BAJA GRUPO": {
-          asunto: `APROBADO - Formulario Validado - BAJA GRUPO`,
+          asunto: `APROBADO - Formulario Validado`,
           cuerpo: `Estimado/a ${nombreCliente},
 
 Un gusto saludarle,

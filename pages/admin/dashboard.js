@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Modal from "react-modal";
 import { useRouter } from "next/router";
 import { API_BASE_URL } from "../../utils/config";
 
@@ -21,6 +22,33 @@ export default function Dashboard() {
   const [savingPass, setSavingPass] = useState(false);
   const router = useRouter();
 
+  if (typeof window !== "undefined") {
+    Modal.setAppElement("#__next");
+  }
+
+  // 🔥 Cargar animación personalizada solo en cliente
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const style = document.createElement("style");
+      style.innerHTML = `
+      @keyframes crazy-jump {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        10% { transform: translate(-150px, -100px) rotate(-15deg); }
+        25% { transform: translate(200px, 120px) rotate(10deg); }
+        40% { transform: translate(-180px, 150px) rotate(20deg); }
+        60% { transform: translate(150px, -130px) rotate(-25deg); }
+        80% { transform: translate(-120px, 80px) rotate(15deg); }
+        100% { transform: translate(0, 0) rotate(0deg); }
+      }
+
+      .animate-crazy-jump {
+        animation: crazy-jump 5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+      }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   // Obtener el perfil desde localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -36,10 +64,10 @@ export default function Dashboard() {
     const id = localStorage.getItem("id");
     if (!id) {
       setLoadingUser(false);
-      // Si no hay sesión, redirigir a login
       router.replace("/auth/login");
       return;
     }
+
     const fetchUser = async () => {
       try {
         const resp = await fetch(`${API_BASE_URL}/users/getUsuario?id=${id}`, {
@@ -49,12 +77,10 @@ export default function Dashboard() {
         });
         if (!resp.ok) throw new Error(`Error ${resp.status}`);
         const data = await resp.json();
-        // Aceptar 1 o "1" como verdadero
         if (data && (data.changePass === 1 || data.changePass === "1")) {
           setShowChangePass(true);
         }
       } catch (e) {
-        // Si falla la carga, permitir continuar sin bloquear
         console.warn("No se pudo verificar changePass:", e?.message || e);
       } finally {
         setLoadingUser(false);
@@ -107,56 +133,76 @@ export default function Dashboard() {
     );
   }
 
-  // Si requiere cambio de contraseña, mostrar modal bloqueante y no renderizar dashboard ni redirecciones
+  // 🚨 Modal bloqueante de cambio de contraseña
   if (showChangePass) {
     return (
-      <div className="relative min-h-screen">
-        {/* Overlay */}
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-40" />
-        {/* Modal */}
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold mb-2 text-blueGray-700">Cambio de contraseña requerido</h2>
-            <p className="text-sm text-blueGray-500 mb-4">
-              Por seguridad, debes actualizar tu contraseña antes de continuar.
-            </p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1">Nueva contraseña</label>
-                <input
-                  type="password"
-                  className="border rounded w-full p-2"
-                  value={newPass}
-                  onChange={(e) => setNewPass(e.target.value)}
-                  autoComplete="new-password"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Confirmar contraseña</label>
-                <input
-                  type="password"
-                  className="border rounded w-full p-2"
-                  value={confirmPass}
-                  onChange={(e) => setConfirmPass(e.target.value)}
-                  autoComplete="new-password"
-                />
-              </div>
-              {passError && <div className="text-red-600 text-sm">{passError}</div>}
-              <button
-                onClick={handleSaveNewPassword}
-                disabled={savingPass}
-                className={`w-full mt-2 px-4 py-2 rounded text-white bg-lightBlue-600 hover:bg-lightBlue-700 ${savingPass ? "opacity-60 cursor-not-allowed" : ""}`}
-              >
-                {savingPass ? "Guardando..." : "Guardar contraseña"}
-              </button>
+      <Modal
+        isOpen={showChangePass}
+        shouldCloseOnOverlayClick={false}
+        shouldCloseOnEsc={false}
+        style={{
+          overlay: {
+            backgroundColor: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(6px)",
+            zIndex: 1000,
+          },
+          content: {
+            inset: "50% auto auto 50%",
+            transform: "translate(-50%, -50%)",
+            background: "white",
+            borderRadius: "12px",
+            padding: "24px",
+            maxWidth: "420px",
+            width: "90%",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+          },
+        }}
+      >
+        <div className="animate-crazy-jump">
+          <h2 className="text-xl font-bold mb-2 text-blueGray-700 text-center">
+            Cambio de contraseña requerido
+          </h2>
+          <p className="text-sm text-blueGray-500 mb-4 text-center">
+            Por seguridad, debes actualizar tu contraseña antes de continuar.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold mb-1">Nueva contraseña</label>
+              <input
+                type="password"
+                className="border rounded w-full p-2"
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+                autoComplete="new-password"
+              />
             </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1">Confirmar contraseña</label>
+              <input
+                type="password"
+                className="border rounded w-full p-2"
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            {passError && <div className="text-red-600 text-sm">{passError}</div>}
+            <button
+              onClick={handleSaveNewPassword}
+              disabled={savingPass}
+              className={`w-full mt-2 px-4 py-2 rounded text-white bg-lightBlue-600 hover:bg-lightBlue-700 ${
+                savingPass ? "opacity-60 cursor-not-allowed" : ""
+              }`}
+            >
+              {savingPass ? "Guardando..." : "Guardar contraseña"}
+            </button>
           </div>
         </div>
-      </div>
+      </Modal>
     );
   }
 
-  // Renderizar dashboard según el perfil
+  // Renderizar dashboard según perfil
   const renderDashboard = () => {
     switch (perfil) {
       case "Administrador":
@@ -167,7 +213,6 @@ export default function Dashboard() {
       case "AdministradorF":
         return <DashboardAdmin tipo="F" />;
       case "ValidadorB":
-        // Redirigir a Validar Literal B
         if (typeof window !== "undefined") router.replace("/admin/validarb");
         return (
           <div className="flex items-center justify-center min-h-screen">
@@ -177,7 +222,6 @@ export default function Dashboard() {
           </div>
         );
       case "ValidadorF":
-        // Redirigir a Validar Línea Base
         if (typeof window !== "undefined") router.replace("/admin/validarf");
         return (
           <div className="flex items-center justify-center min-h-screen">

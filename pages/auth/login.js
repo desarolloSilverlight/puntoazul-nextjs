@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import Modal from "react-modal";
 import { API_BASE_URL } from "../../utils/config";
+import { Eye, EyeOff } from "lucide-react";
 // layout for page
 
 import Auth from "layouts/Auth.js";
@@ -14,6 +15,7 @@ export default function Login() {
   const [username, setIdentificacion] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   // Forgot password modal state
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
@@ -149,17 +151,30 @@ export default function Login() {
                   />
                 </div>
 
-                <div className="relative w-full mb-3">
+                <div className="w-full">
                   <label className="block uppercase text-blueGray-600 text-xs font-bold mb-2">
                     Contraseña
                   </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
-                    required
-                  />
+
+                  <div className="relative w-full flex items-center">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Ingrese su contraseña"
+                      className="w-full bg-white border border-gray-300 rounded-lg py-2.5 pl-4 pr-10 text-sm text-blueGray-600 placeholder-blueGray-300 shadow focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                      required
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 flex items-center justify-center translate-y-[1px] text-gray-500 hover:text-gray-700 focus:outline-none"
+                      style={{ top: '22%', right: '10px' }}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="text-right -mt-2 mb-4">

@@ -223,128 +223,152 @@ export default function TablaRetornabilidad({ color, readonly = false, idInforma
             <table className="w-full table-auto border-separate border-spacing-x-2 border border-gray-300">
               <thead>
                 <tr className="bg-gray-200">
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Parámetro</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total (ton) Año base</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Papel</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plástico Rígidos</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plástico Flexibles</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metales Ferrosos</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metales No Ferrosos</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial 1</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial n</th>
-                  <th rowSpan={1} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Descripción del procedimiento</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Parámetro</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso total (ton) Año base</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Papel</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plástico Rígidos</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plástico Flexibles</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metales Ferrosos</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metales No Ferrosos</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial 1</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial n</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Descripción del procedimiento</th>
                 </tr>
               </thead>
+
               <tbody>
                 {datos.parametros && Object.entries(datos.parametros).map(([key, parametro]) => (
                   <tr key={key} className="border-t text-center">
                     <td className="p-2">{parametro}</td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.pesoTotal[key] || ""}
-                        onChange={e => handleChange(key, "pesoTotal", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "pesoTotal", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.pesoTotal[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.papel[key] || ""}
-                        onChange={e => handleChange(key, "papel", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "papel", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.papel[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.carton[key] || ""}
-                        onChange={e => handleChange(key, "carton", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "carton", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.carton[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.plasticoRigidos[key] || ""}
-                        onChange={e => handleChange(key, "plasticoRigidos", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "plasticoRigidos", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.plasticoRigidos[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.plasticoFlexibles[key] || ""}
-                        onChange={e => handleChange(key, "plasticoFlexibles", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "plasticoFlexibles", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.plasticoFlexibles[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.vidrio[key] || ""}
-                        onChange={e => handleChange(key, "vidrio", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "vidrio", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.vidrio[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.metalesFerrosos[key] || ""}
-                        onChange={e => handleChange(key, "metalesFerrosos", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "metalesFerrosos", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.metalesFerrosos[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.metalesNoFerrosos[key] || ""}
-                        onChange={e => handleChange(key, "metalesNoFerrosos", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "metalesNoFerrosos", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.metalesNoFerrosos[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.multimaterial1[key] || ""}
-                        onChange={e => handleChange(key, "multimaterial1", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "multimaterial1", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.multimaterial1[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.multimaterialn[key] || ""}
-                        onChange={e => handleChange(key, "multimaterialn", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "multimaterialn", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.multimaterialn[key] || ""}
+                      </div>
                     </td>
+
                     <td className="min-w-[100px] p-1 border border-gray-300">
-                      <input
-                        type="text"
-                        value={datos.descripcion[key] || ""}
-                        onChange={e => handleChange(key, "descripcion", e.target.value)}
-                        disabled={!esEditable}
-                        className="w-full p-1 border border-gray-300 rounded"
-                      />
+                      <div
+                        contentEditable={esEditable}
+                        suppressContentEditableWarning
+                        onBlur={e => handleChange(key, "descripcion", e.target.textContent || "")}
+                        className="w-full p-1 border border-transparent hover:border-gray-400 focus:border-blue-500 focus:outline-none whitespace-pre-wrap break-words rounded"
+                      >
+                        {datos.descripcion[key] || ""}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
           {!readonly && (
             <button
               type="submit"

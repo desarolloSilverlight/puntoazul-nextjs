@@ -326,7 +326,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const fila = {
           idInformacionF: p.idInformacionF,
           empresa: p.empresaTitular,
-            nombre_producto: p.nombreProducto,
+          nombre_producto: p.nombreProducto,
           papel: normalizar(p.papel),
           metalFerrosos: normalizar(p.metalFerrosos),
           metalNoFerrosos: normalizar(p.metalNoFerrosos),
@@ -949,6 +949,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                   <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Metal No Ferrosos (g)</th>
                   <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Cartón (g)</th>
                   <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Vidrio (g)</th>
+                  <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total (g)</th>
                   <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Multimaterial</th>
                   <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades</th>
                   {!readonly && <th className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Acciones</th>}
@@ -957,7 +958,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               <tbody>
                 {productos.length === 0 ? (
                   <tr>
-                    <td colSpan={readonly ? 10 : 11} className="text-center py-2">No hay productos guardados.</td>
+                    <td colSpan={readonly ? 11 : 12} className="text-center py-2">No hay productos guardados.</td>
                   </tr>
                 ) : (
                   // Renderizar solo la página actual
@@ -1066,6 +1067,18 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           <div className="p-1">{format2(producto.vidrio)}</div>
                         )}
                       </td>
+                      {/* Total fila (g) */}
+                      <td className="border border-gray-300 px-2 py-1">
+                        {(() => {
+                          const toNum = (v) => {
+                            if (v === null || v === undefined || v === "") return 0;
+                            const n = parseFloat(v.toString().replace(',', '.'));
+                            return isNaN(n) ? 0 : n;
+                          };
+                          const totalFila = toNum(producto.papel) + toNum(producto.metalFerrosos) + toNum(producto.metalNoFerrosos) + toNum(producto.carton) + toNum(producto.vidrio);
+                          return format2(totalFila);
+                        })()}
+                      </td>
                       <td className="border border-gray-300 px-2 py-1">
                         {esEditable ? (
                           <>
@@ -1151,6 +1164,50 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                   })()
                 )}
               </tbody>
+              {/* Totales sobre TODOS los registros (no por página) */}
+              {productos.length > 0 && (
+                (() => {
+                  const toNum = (v) => {
+                    if (v === null || v === undefined || v === "") return 0;
+                    const n = parseFloat(v.toString().replace(',', '.'));
+                    return isNaN(n) ? 0 : n;
+                  };
+                  const toInt = (v) => {
+                    const s = (v ?? '').toString().trim();
+                    const n = parseInt(s, 10);
+                    return isNaN(n) ? 0 : n;
+                  };
+                  const sum = (key) => productos.reduce((acc, p) => acc + toNum(p[key]), 0);
+                  const totalPapel = sum('papel');
+                  const totalMetalFerrosos = sum('metalFerrosos');
+                  const totalMetalNoFerrosos = sum('metalNoFerrosos');
+                  const totalCarton = sum('carton');
+                  const totalVidrio = sum('vidrio');
+                  const totalMateriales = totalPapel + totalMetalFerrosos + totalMetalNoFerrosos + totalCarton + totalVidrio;
+                  const totalUnidades = productos.reduce((acc, p) => acc + toInt(p.unidades), 0);
+                  const fmt = (n) => format2(n);
+                  return (
+                    <tr className="bg-gray-50 font-semibold text-center">
+                      {/* No. + Empresa + Nombre */}
+                      <td className="border border-gray-300 px-2 py-1 text-right" colSpan={3}>Totales</td>
+                      {/* Numéricos */}
+                      <td className="border border-gray-300 px-2 py-1">{fmt(totalPapel)}</td>
+                      <td className="border border-gray-300 px-2 py-1">{fmt(totalMetalFerrosos)}</td>
+                      <td className="border border-gray-300 px-2 py-1">{fmt(totalMetalNoFerrosos)}</td>
+                      <td className="border border-gray-300 px-2 py-1">{fmt(totalCarton)}</td>
+                      <td className="border border-gray-300 px-2 py-1">{fmt(totalVidrio)}</td>
+                      {/* Total (g) de materiales */}
+                      <td className="border border-gray-300 px-2 py-1">{fmt(totalMateriales)}</td>
+                      {/* Multimaterial */}
+                      <td className="border border-gray-300 px-2 py-1"></td>
+                      {/* Unidades */}
+                      <td className="border border-gray-300 px-2 py-1">{totalUnidades}</td>
+                      {/* Acciones (si aplica) */}
+                      {!readonly && <td className="border border-gray-300 px-2 py-1"></td>}
+                    </tr>
+                  );
+                })()
+              )}
             </table>
           </div>
           {/* Paginación inferior */}

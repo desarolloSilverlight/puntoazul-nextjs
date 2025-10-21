@@ -796,6 +796,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                   <th colSpan="9" className="text-center min-w-[160px] px-3 py-0.5 text-xs leading-snug font-semibold bg-gray-100 border border-gray-300 rounded-sm">Líquidos</th>
                   <th colSpan="7" className="text-center min-w-[160px] px-3 py-0.5 text-xs leading-snug font-semibold bg-gray-100 border border-gray-300 rounded-sm">Otros Productos Plásticos</th>
                   <th colSpan="7" className="text-center min-w-[160px] px-3 py-0.5 text-xs leading-snug font-semibold bg-gray-100 border border-gray-300 rounded-sm">Plásticos de Construcción</th>
+                  <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total (g)</th>
                   <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Excepciones Ley 2232</th>
                   <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Prohibiciones Ley 2232</th>
                   <th rowSpan="2" className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Unidades Puestas en el mercado</th>
@@ -909,6 +910,23 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                           )}
                         </td>
                       ))}
+                      {/* Total fila (g) */}
+                      <td className="min-w-[100px] p-1 border border-gray-300">
+                        {(() => {
+                          const toNum = (v) => {
+                            if (v === null || v === undefined || v === '') return 0;
+                            const n = parseFloat(v.toString().replace(',', '.'));
+                            return isNaN(n) ? 0 : n;
+                          };
+                          const sumObj = (obj) => Object.values(obj || {}).reduce((a, val) => a + toNum(val), 0);
+                          const liq = typeof producto.liquidos === 'string' ? JSON.parse(producto.liquidos || '{}') : (producto.liquidos || {});
+                          const otr = typeof producto.otrosProductos === 'string' ? JSON.parse(producto.otrosProductos || '{}') : (producto.otrosProductos || {});
+                          const cons = typeof producto.construccion === 'string' ? JSON.parse(producto.construccion || '{}') : (producto.construccion || {});
+                          const totalFila = sumObj(liq) + sumObj(otr) + sumObj(cons);
+                          const fmt = (n) => (Number.isFinite(n) ? n.toFixed(2).replace('.', ',') : '0,00');
+                          return fmt(totalFila);
+                        })()}
+                      </td>
                       <td className="min-w-[100px] p-1 border border-gray-300">
                         <select
                           className="border p-1 w-full"
@@ -985,6 +1003,60 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                 });
                 })()}
               </tbody>
+              {/* Totales sobre TODOS los registros (no por página) */}
+              {productos.length > 0 && (
+                (() => {
+                  const liquidosKeys = ["PET Agua","PET Otros","PET","HDPE","PVC","LDPE","PP","PS","Otros"];
+                  const otrosKeys = ["PET","HDPE","PVC","LDPE","PP","PS","Otros"];
+                  const toNum = (v) => {
+                    if (v === null || v === undefined || v === '') return 0;
+                    const n = parseFloat(v.toString().replace(',', '.'));
+                    return isNaN(n) ? 0 : n;
+                  };
+                  const totalUnidades = productos.reduce((acc, p) => {
+                    const s = (p.unidades ?? '').toString().trim();
+                    const n = parseInt(s, 10);
+                    return acc + (isNaN(n) ? 0 : n);
+                  }, 0);
+                  const sumGrupo = (key, grupoName) => productos.reduce((acc, p) => {
+                    const g = typeof p[grupoName] === 'string' ? (()=>{ try { return JSON.parse(p[grupoName]); } catch { return {}; } })() : (p[grupoName] || {});
+                    return acc + toNum(g[key]);
+                  }, 0);
+                  const fmt = (n) => (Number.isFinite(n) ? n.toFixed(2).replace('.', ',') : '0,00');
+                  return (
+                    <tr className="bg-gray-50 font-semibold text-center">
+                      {/* No. + Empresa + Nombre */}
+                      <td className="border border-gray-300 px-2 py-1 text-right" colSpan={3}>Totales</td>
+                      {/* Líquidos */}
+                      {liquidosKeys.map(k => (
+                        <td key={`t-liq-${k}`} className="border border-gray-300 px-2 py-1">{fmt(sumGrupo(k,'liquidos'))}</td>
+                      ))}
+                      {/* Otros Productos */}
+                      {otrosKeys.map(k => (
+                        <td key={`t-otros-${k}`} className="border border-gray-300 px-2 py-1">{fmt(sumGrupo(k,'otrosProductos'))}</td>
+                      ))}
+                      {/* Construcción */}
+                      {otrosKeys.map(k => (
+                        <td key={`t-cons-${k}`} className="border border-gray-300 px-2 py-1">{fmt(sumGrupo(k,'construccion'))}</td>
+                      ))}
+                      {/* Total (g) de materiales */}
+                      {(() => {
+                        const totalLiquidos = ["PET Agua","PET Otros","PET","HDPE","PVC","LDPE","PP","PS","Otros"].reduce((acc,k)=> acc + sumGrupo(k,'liquidos'), 0);
+                        const totalOtros = ["PET","HDPE","PVC","LDPE","PP","PS","Otros"].reduce((acc,k)=> acc + sumGrupo(k,'otrosProductos'), 0);
+                        const totalConstruccion = ["PET","HDPE","PVC","LDPE","PP","PS","Otros"].reduce((acc,k)=> acc + sumGrupo(k,'construccion'), 0);
+                        const grand = totalLiquidos + totalOtros + totalConstruccion;
+                        return (<td className="border border-gray-300 px-2 py-1">{fmt(grand)}</td>);
+                      })()}
+                      {/* Excepciones / Prohibiciones / Unidades */}
+                      <td className="border border-gray-300 px-2 py-1"></td>
+                      <td className="border border-gray-300 px-2 py-1"></td>
+                      <td className="border border-gray-300 px-2 py-1">{totalUnidades}</td>
+                      {/* Acciones (si aplica) */}
+                      {!readonly && <td className="border border-gray-300 px-2 py-1"></td>}
+                    </tr>
+                  );
+                })()
+              )}
             </table>
           </div>
           {/* Paginación inferior */}

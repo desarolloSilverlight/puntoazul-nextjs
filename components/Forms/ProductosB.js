@@ -178,10 +178,29 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         alert(`Producto ${numeroProducto}: El campo "Nombre Genérico" es obligatorio.`);
         return;
       }
-      // Validar selección de Fabricación
-      if (!producto.fabricacion || !["Local", "Importado"].includes(producto.fabricacion)) {
-        alert(`Producto ${numeroProducto}: Debe seleccionar "Local" o "Importado" en el campo "Fabricación".`);
+      if (!producto.numeroRegistros || String(producto.numeroRegistros).trim() === "") {
+        alert(`Producto ${numeroProducto}: El campo "Número de Registros" es obligatorio.`);
         return;
+      }
+      if (!producto.codigoEstandarDatos || String(producto.codigoEstandarDatos).trim() === "") {
+        alert(`Producto ${numeroProducto}: El campo "Código Estándar de Datos" es obligatorio.`);
+        return;
+      }
+      // Validar selección de Fabricación
+      {
+        const fabRaw = (producto.fabricacion ?? "").toString().trim();
+        if (!fabRaw) {
+          alert(`Producto ${numeroProducto}: Debe diligenciar la "Fabricación" (Local o Importado).`);
+          return;
+        }
+        const fabLower = fabRaw.toLowerCase();
+        const fabNorm = fabLower === 'local' ? 'Local' : (fabLower === 'importado' ? 'Importado' : null);
+        if (!fabNorm) {
+          alert(`Producto ${numeroProducto}: "Fabricación" debe ser Local o Importado (se acepta sin importar mayúsculas/minúsculas).`);
+          return;
+        }
+        // Normalizar en memoria para el envío
+        productos[i].fabricacion = fabNorm;
       }
     }
 
@@ -234,7 +253,10 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
     // 5. Preparar payload y enviar
     try {
-      const payload = productos.map((p) => ({
+      const payload = productos.map((p) => {
+        const fabLower = (p.fabricacion ?? '').toString().trim().toLowerCase();
+        const fabricacionNorm = fabLower === 'local' ? 'Local' : (fabLower === 'importado' ? 'Importado' : '');
+        return ({
         idInformacionB,
         razonSocial: p.razonSocial,
         marca: p.marca,
@@ -251,10 +273,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         pesoTotalIntrahospitalario: p.pesoTotalIntrahospitalario,
         pesoEmpaqueMuestrasMedicas: p.pesoEmpaqueMuestrasMedicas,
         pesoTotalMuestrasMedicas: p.pesoTotalMuestrasMedicas,
-        fabricacion: p.fabricacion,
+        fabricacion: fabricacionNorm,
         totalPesoEmpaques: p.totalPesoEmpaques,
         totalPesoProducto: p.totalPesoProducto,
-      }));
+      });
+      });
 
       // --- Chunking dinámico adaptado al límite de paquete del servidor ---
       const resolveServerPacketLimit = () => {
@@ -498,7 +521,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           const nombreGenerico = row["Nombre Genérico"] || row["nombreGenerico"] || "";
           const numeroRegistros = row["Número de Registros"] || row["numeroRegistros"] || "";
           const codigoEstandar = row["Código Estándar de Datos"] || row["codigoEstandarDatos"] || "";
-          const fabricacion = row["Fabricación"] || row["fabricacion"] || "";
+          let fabricacion = row["Fabricación"] || row["fabricacion"] || "";
 
           // Campos numéricos
           const pesoEmpaqueComercialRX = row["Peso Empaque Comercial RX (kg)"] || row["pesoEmpaqueComercialRX"] || 0;
@@ -523,6 +546,12 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           }
           if (!nombreGenerico || nombreGenerico.trim() === "") {
             erroresFila.push("Nombre Genérico es requerido");
+          }
+          if (!numeroRegistros || numeroRegistros.toString().trim() === "") {
+            erroresFila.push("Número de Registros es requerido");
+          }
+          if (!codigoEstandar || codigoEstandar.toString().trim() === "") {
+            erroresFila.push("Código Estándar de Datos es requerido");
           }
 
           // Validaciones de campos numéricos
@@ -549,11 +578,17 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
             }
           });
 
-          // Verificar fabricación (dropdown)
-          const fabricacionValida = ["Local", "Importado"];
-          if (fabricacion && !fabricacionValida.includes(fabricacion)) {
+          // Verificar fabricación (obligatorio, case-insensitive) y normalizar a 'Local' | 'Importado'
+          const fabRaw = (fabricacion ?? '').toString().trim();
+          if (!fabRaw) {
+            erroresFila.push("Fabricación es requerida (Local o Importado)");
+          }
+          const fabLower = fabRaw.toLowerCase();
+          const fabNorm = fabLower === 'local' ? 'Local' : (fabLower === 'importado' ? 'Importado' : null);
+          if (fabRaw && !fabNorm) {
             erroresFila.push(`Fabricación debe ser "Local" o "Importado"`);
           }
+          fabricacion = fabNorm || fabricacion; // dejar normalizado si es válido
 
           if (erroresFila.length > 0) {
             errores.push(`Fila ${rowNumber}: ${erroresFila.join(", ")}`);
@@ -587,7 +622,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
               pesoTotalIntrahospitalario: parseFloat(pesoTotalIntrahospitalario),
               pesoEmpaqueMuestrasMedicas: parseFloat(pesoEmpaqueMuestrasMedicas),
               pesoTotalMuestrasMedicas: parseFloat(pesoTotalMuestrasMedicas),
-              fabricacion: fabricacion || "Local",
+              fabricacion: fabricacion, // ya normalizado y obligatorio
               totalPesoEmpaques: totalPesoEmpaques,
               totalPesoProducto: totalPesoProducto
             });
@@ -1014,6 +1049,60 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 )});
                 })()}
             </tbody>
+              {/* Totales sobre TODOS los registros (no por página) */}
+              {productos.length > 0 && (
+                (() => {
+                  const num = (v) => {
+                    if (v === null || v === undefined) return 0;
+                    if (v === 'N/A') return 0;
+                    const n = Number(v);
+                    return Number.isFinite(n) ? n : 0;
+                  };
+                  const sum = (key) => productos.reduce((acc, p) => acc + num(p[key]), 0);
+                  const totals = {
+                    pesoEmpaqueComercialRX: sum('pesoEmpaqueComercialRX'),
+                    pesoTotalComercialRX: sum('pesoTotalComercialRX'),
+                    pesoEmpaqueComercialOTC: sum('pesoEmpaqueComercialOTC'),
+                    pesoTotalComercialOTC: sum('pesoTotalComercialOTC'),
+                    pesoEmpaqueInstitucional: sum('pesoEmpaqueInstitucional'),
+                    pesoTotalInstitucional: sum('pesoTotalInstitucional'),
+                    pesoEmpaqueIntrahospitalario: sum('pesoEmpaqueIntrahospitalario'),
+                    pesoTotalIntrahospitalario: sum('pesoTotalIntrahospitalario'),
+                    pesoEmpaqueMuestrasMedicas: sum('pesoEmpaqueMuestrasMedicas'),
+                    pesoTotalMuestrasMedicas: sum('pesoTotalMuestrasMedicas'),
+                    totalPesoEmpaques: sum('totalPesoEmpaques'),
+                    totalPesoProducto: sum('totalPesoProducto'),
+                  };
+                  return (
+                    <tr className="bg-gray-50 font-semibold text-center">
+                      {/* No., Razón, Marca, Nombre Genérico, Número de Registros, Código Estándar */}
+                      <td className="border border-gray-300 px-2 py-1 text-right" colSpan={6}>Totales</td>
+                      {/* Comercial RX */}
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoEmpaqueComercialRX}</td>
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoTotalComercialRX}</td>
+                      {/* Comercial OTC */}
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoEmpaqueComercialOTC}</td>
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoTotalComercialOTC}</td>
+                      {/* Institucional */}
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoEmpaqueInstitucional}</td>
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoTotalInstitucional}</td>
+                      {/* Intrahospitalario */}
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoEmpaqueIntrahospitalario}</td>
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoTotalIntrahospitalario}</td>
+                      {/* Muestras Médicas */}
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoEmpaqueMuestrasMedicas}</td>
+                      <td className="border border-gray-300 px-2 py-1">{totals.pesoTotalMuestrasMedicas}</td>
+                      {/* Fabricación (no numérico) */}
+                      <td className="border border-gray-300 px-2 py-1"></td>
+                      {/* Totales finales */}
+                      <td className="border border-gray-300 px-2 py-1">{totals.totalPesoEmpaques}</td>
+                      <td className="border border-gray-300 px-2 py-1">{totals.totalPesoProducto}</td>
+                      {/* Acciones (si aplica) */}
+                      {!readonly && <td className="border border-gray-300 px-2 py-1"></td>}
+                    </tr>
+                  );
+                })()
+              )}
           </table>
         </div>
           {/* Paginación inferior */}

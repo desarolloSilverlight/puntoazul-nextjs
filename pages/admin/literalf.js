@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import Admin from "layouts/Admin.js";
 import Informacion from "components/Forms/Informacion";
@@ -23,6 +23,9 @@ export default function FormularioF() {
   // Loader y estado para controlar botones según estadoInformacionF
   const [estadoInformacionF, setEstadoInformacionF] = useState(undefined);
   const [idInformacionFExists, setIdInformacionFExists] = useState(false);
+  // Tratamiento de datos (consentimiento)
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(true);
   
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -32,6 +35,49 @@ export default function FormularioF() {
       setIdInformacionFExists(!!localStorage.getItem("idInformacionF"));
     }
   }, []);
+
+  // Consultar tratamientoDatos del usuario y decidir si mostrar el modal (bloqueante)
+  useEffect(() => {
+    const initConsent = async () => {
+      try {
+        const resp = await fetch(`${API_BASE_URL}/users/me`, { credentials: 'include' });
+        if (resp.ok) {
+          const me = await resp.json();
+          const td = (me?.tratamientoDatos ?? me?.tratamiento_datos ?? 0);
+          localStorage.setItem('tratamientoDatos', String(td ?? 0));
+        }
+      } catch (_) {
+        // ignorar, usar fallback
+      } finally {
+        const tdLS = parseInt(localStorage.getItem('tratamientoDatos') || '0', 10);
+        setConsentOpen(!(tdLS === 1));
+        setConsentLoading(false);
+      }
+    };
+    initConsent();
+  }, []);
+
+  const aceptarTratamiento = async () => {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/users/tratamiento-datos`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tratamientoDatos: 1 })
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`No se pudo registrar su aceptación. ${t}`);
+      }
+      localStorage.setItem('tratamientoDatos', '1');
+      setConsentOpen(false);
+    } catch (e) {
+      alert(String(e.message || e));
+    }
+  };
+  const rechazarTratamiento = () => {
+    window.location.href = '/admin/dashboard';
+  };
 
   // Escuchar cambios en localStorage para actualizar el estado de las pestañas
   React.useEffect(() => {
@@ -286,6 +332,27 @@ export default function FormularioF() {
 
   return (
     <div className="mt-10 p-4 bg-gray-100 min-h-screen">
+      {/* Modal bloqueante de Tratamiento de Datos */}
+      {!consentLoading && (
+        <Modal
+          isOpen={consentOpen}
+          onRequestClose={() => { /* bloqueado: sin cierre */ }}
+          shouldCloseOnOverlayClick={false}
+          ariaHideApp={false}
+          className="mx-auto my-32 bg-white p-6 rounded-lg shadow-lg max-w-xl z-50 outline-none"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40"
+          contentLabel="Tratamiento de datos"
+        >
+          <h2 className="text-xl font-bold mb-3">Tratamiento de datos personales</h2>
+          <p className="text-gray-700 mb-4">
+            Para continuar, debe aceptar la política de tratamiento de datos. Al hacer clic en "Aceptar" autoriza el tratamiento de sus datos personales conforme a nuestra política.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button onClick={rechazarTratamiento} className="bg-gray-300 text-black px-4 py-2 rounded">Rechazar</button>
+            <button onClick={aceptarTratamiento} className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded">Aceptar</button>
+          </div>
+        </Modal>
+      )}
       {/* Estado actual del formulario */}
       {/* <div className="mb-2 text-blue-700 font-semibold">Estado actual del formulario: {estadoInformacionF}</div> */}
       {/* Botones encima de los tabs */}

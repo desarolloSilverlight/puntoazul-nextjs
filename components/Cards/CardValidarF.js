@@ -293,10 +293,10 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
   const generarPlantillaEmail = (accion, nombreCliente, totalBase, totalPlasticos) => {
     const plantillas = {
       "APROBAR": {
-        asunto: `Formulario Aprobado - Literal F Validado`,
+        asunto: `Formulario Aprobado - Linea Base Validado`,
         cuerpo: `Estimado/a ${nombreCliente},
 
-Me complace informarte que, tras la validación del Literal F, confirmamos que la Línea Base de la empresa ${nombreCliente} fue de ${totalBase+totalPlasticos} ton, para los materiales de Papel, Metal, Vidrio y Cartón el total fue de ${totalBase} ton y para los plásticos el total fue de ${totalPlasticos} ton. El formato correspondiente ya ha sido validado y adjunto encontrarás una carta de confirmación de datos que necesitamos que tu empresa firme. (ver adjunto)
+Me complace informarte que, tras la validación del Linea Base, confirmamos que la Línea Base de la empresa ${nombreCliente} fue de ${totalBase+totalPlasticos} ton, para los materiales de Papel, Metal, Vidrio y Cartón el total fue de ${totalBase} ton y para los plásticos el total fue de ${totalPlasticos} ton. El formato correspondiente ya ha sido validado y adjunto encontrarás una carta de confirmación de datos que necesitamos que tu empresa firme. (ver adjunto)
 
 Saludos cordiales,
 Equipo de Validación Punto Azul`
@@ -305,7 +305,7 @@ Equipo de Validación Punto Azul`
         asunto: `Formulario Linea Base Requiere Correcciones`,
         cuerpo: `Estimado/a ${nombreCliente},
 
-Lamentamos informarte que tu formulario del Literal F ha sido rechazado debido a inconsistencias encontradas durante el proceso de validación.
+Lamentamos informarte que tu formulario del Linea Base ha sido rechazado debido a inconsistencias encontradas durante el proceso de validación.
 
 Por favor, revisa la información enviada y realiza las correcciones necesarias antes de volver a enviar el formulario.
 
@@ -493,7 +493,7 @@ Equipo de Validación Punto Azul`
       {!selectedCliente ? (
         <>
         <div className="rounded-t mb-0 px-4 py-3 border-0">
-          <h3 className="text-lg font-semibold flex items-center">Validacion Literal F</h3>
+          <h3 className="text-lg font-semibold flex items-center">Validacion Linea Base</h3>
         </div>
         <div className="block w-full overflow-x-auto">
           <table className="items-center w-full bg-transparent border-collapse">

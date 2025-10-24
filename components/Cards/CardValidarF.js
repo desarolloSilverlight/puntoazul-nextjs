@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import Modal from "react-modal";
 import Informacion from "../Forms/Informacion";
@@ -23,9 +23,17 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
   const [distribucion, setDistribucion] = useState(null); // Estado para distribución
   const [empaquesPrimarios, setEmpaquesPrimarios] = useState([]); // Datos primarios separados
   const [empaquesSecundarios, setEmpaquesSecundarios] = useState([]); // Datos secundarios separados
+  // Paginación para tabla auxiliar de productos (plásticos)
+  const [plastPagina, setPlastPagina] = useState(1);
+  const plastPorPag = 5;
+  // Paginación para tablas auxiliares de Primarios y Secundarios
+  const [primPagina, setPrimPagina] = useState(1);
+  const primPorPag = 5;
+  const [secPagina, setSecPagina] = useState(1);
+  const secPorPag = 5;
 
   // Obtener clientes con formulario F pendiente
-  const fetchClientesInternal = async () => {
+  const fetchClientesInternal = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/informacion-f/getClientesPendientes`, {
@@ -50,13 +58,26 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
     } finally {
       setLoading(false);
     }
-  };
+  }, [propsClientes]);
 
   useEffect(() => {
     if (!propsClientes) {
       fetchClientesInternal();
     }
-  }, [propsClientes]);
+  }, [propsClientes, fetchClientesInternal]);
+
+  // Reiniciar paginación de plásticos cuando cambie el listado
+  useEffect(() => {
+    setPlastPagina(1);
+  }, [plasticos]);
+
+  // Reiniciar paginación de primarios/secundarios cuando cambien sus listados
+  useEffect(() => {
+    setPrimPagina(1);
+  }, [empaquesPrimarios]);
+  useEffect(() => {
+    setSecPagina(1);
+  }, [empaquesSecundarios]);
 
   // Manejar selección de cliente
   const handleSelectCliente = async (cliente) => {
@@ -296,7 +317,7 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
         asunto: `Formulario Aprobado - Linea Base Validado`,
         cuerpo: `Estimado/a ${nombreCliente},
 
-Me complace informarte que, tras la validación del Linea Base, confirmamos que la Línea Base de la empresa ${nombreCliente} fue de ${totalBase+totalPlasticos} ton, para los materiales de Papel, Metal, Vidrio y Cartón el total fue de ${totalBase} ton y para los plásticos el total fue de ${totalPlasticos} ton. El formato correspondiente ya ha sido validado y adjunto encontrarás una carta de confirmación de datos que necesitamos que tu empresa firme. (ver adjunto)
+Me complace informarte que, tras la validación del Linea Base, confirmamos que la Línea Base de la empresa ${nombreCliente} fue de ${(Number(totalBase) + Number(totalPlasticos)).toFixed(5)} ton, para los materiales de Papel, Metal, Vidrio y Cartón el total fue de ${Number(totalBase).toFixed(5)} ton y para los plásticos el total fue de ${Number(totalPlasticos).toFixed(5)} ton. El formato correspondiente ya ha sido validado y adjunto encontrarás una carta de confirmación de datos que necesitamos que tu empresa firme. (ver adjunto)
 
 Saludos cordiales,
 Equipo de Validación Punto Azul`
@@ -324,8 +345,8 @@ Equipo de Validación Punto Azul`
     // Calcular totales
     const totalesBase = calcularTotalesBase();
     const totalesPlasticos = calcularTotalesPlasticos();
-    
-    const plantilla = generarPlantillaEmail("APROBAR", selectedCliente?.nombre || "Cliente", totalesBase.toFixed(5), totalesPlasticos.toFixed(5));
+
+    const plantilla = generarPlantillaEmail("APROBAR", selectedCliente?.nombre || "Cliente", totalesBase, totalesPlasticos);
     setEmailSubject(plantilla.asunto);
     setEmailBody(plantilla.cuerpo);
     setShowEmailModal(true);
@@ -338,6 +359,8 @@ Equipo de Validación Punto Azul`
     setEmailBody(plantilla.cuerpo);
     setShowEmailModal(true);
   };
+
+  // (helper eliminado: hasAtLeastOneProductF no usado)
 
   // Función para calcular totales base (papel, metal, vidrio, cartón)
   const calcularTotalesBase = () => {
@@ -379,6 +402,8 @@ Equipo de Validación Punto Azul`
 
   // Función para enviar email y actualizar estado
   const handleEnviarEmail = async () => {
+    
+
     let nuevoEstado, motivo;
     
     // Determinar estado y motivo basado en el asunto del email
@@ -428,61 +453,7 @@ Equipo de Validación Punto Azul`
     }
   };
 
-  // Manejar acción de firmar (anterior - mantener como respaldo)
-  const handleFirmarAnterior = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/informacion-f/updateEstado/${selectedCliente.idInformacionF}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "Aprobado" }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      alert("El formulario ha sido aprobado.");
-      setSelectedCliente(null); // Volver a la lista de clientes
-      
-      // Usar la función correcta según el contexto
-      if (fetchClientes && typeof fetchClientes === 'function') {
-        fetchClientes(); // Función del componente padre
-      } else {
-        fetchClientesInternal(); // Función interna
-      }
-    } catch (error) {
-      console.error("Error al aprobar el formulario:", error);
-      alert("Hubo un error al aprobar el formulario.");
-    }
-  };
-
-  // Manejar acción de rechazar (anterior - mantener como respaldo)
-  const handleRechazarAnterior = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/informacion-f/updateEstado/${selectedCliente.idInformacionF}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: "Rechazado" }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      alert("El formulario ha sido rechazado.");
-      setSelectedCliente(null); // Volver a la lista de clientes
-      
-      // Usar la función correcta según el contexto
-      if (fetchClientes && typeof fetchClientes === 'function') {
-        fetchClientes(); // Función del componente padre
-      } else {
-        fetchClientesInternal(); // Función interna
-      }
-    } catch (error) {
-      console.error("Error al rechazar el formulario:", error);
-      alert("Hubo un error al rechazar el formulario.");
-    }
-  };
+  // (Eliminadas funciones de respaldo no usadas para evitar warnings de lint)
 
   return (
     <div
@@ -599,8 +570,15 @@ Equipo de Validación Punto Azul`
                       </tr>
                     </thead>
                     <tbody>
-                      {empaquesPrimarios.map((producto, index) => (
-                        <tr key={index} className="text-center">
+                      {(() => {
+                        const total = Array.isArray(empaquesPrimarios) ? empaquesPrimarios.length : 0;
+                        const totalPag = Math.max(1, Math.ceil(total / primPorPag));
+                        const page = Math.min(primPagina, totalPag);
+                        const start = (page - 1) * primPorPag;
+                        const end = start + primPorPag;
+                        const items = empaquesPrimarios.slice(start, end);
+                        return items.map((producto, index) => (
+                        <tr key={start + index} className="text-center">
                           <td className="px-2 py-1 text-xs border border-gray-300">{producto.nombre_producto || `Producto ${index + 1}`}</td>
                           <td className="px-2 py-1 text-xs border border-gray-300">
                             {((parseFloat(producto.papel || 0) * parseFloat(producto.unidades || 0)) / 1000000).toFixed(5)}
@@ -618,9 +596,45 @@ Equipo de Validación Punto Azul`
                             {((parseFloat(producto.vidrios || 0) * parseFloat(producto.unidades || 0)) / 1000000).toFixed(5)}
                           </td>
                         </tr>
-                      ))}
+                      ));
+                      })()}
                     </tbody>
                   </table>
+                  {/* Paginación Primarios */}
+                  {Array.isArray(empaquesPrimarios) && empaquesPrimarios.length > primPorPag && (
+                    <div className="mt-3 flex flex-wrap justify-between items-center gap-3">
+                      <div className="text-xs text-gray-600">
+                        {(() => {
+                          const total = empaquesPrimarios.length;
+                          const totalPag = Math.max(1, Math.ceil(total / primPorPag));
+                          const page = Math.min(primPagina, totalPag);
+                          const startDisp = (total === 0) ? 0 : (page - 1) * primPorPag + 1;
+                          const endDisp = Math.min(page * primPorPag, total);
+                          return `Mostrando ${startDisp} a ${endDisp} de ${total} productos`;
+                        })()}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPrimPagina(p => Math.max(1, p - 1))}
+                          disabled={primPagina === 1}
+                          className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Anterior
+                        </button>
+                        <button
+                          onClick={() => {
+                            const total = empaquesPrimarios.length;
+                            const totalPag = Math.max(1, Math.ceil(total / primPorPag));
+                            setPrimPagina(p => Math.min(totalPag, p + 1));
+                          }}
+                          className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          disabled={primPagina >= Math.ceil(empaquesPrimarios.length / primPorPag)}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Tabla Secundarios */}
@@ -638,8 +652,15 @@ Equipo de Validación Punto Azul`
                       </tr>
                     </thead>
                     <tbody>
-                      {empaquesSecundarios.map((producto, index) => (
-                        <tr key={index} className="text-center">
+                      {(() => {
+                        const total = Array.isArray(empaquesSecundarios) ? empaquesSecundarios.length : 0;
+                        const totalPag = Math.max(1, Math.ceil(total / secPorPag));
+                        const page = Math.min(secPagina, totalPag);
+                        const start = (page - 1) * secPorPag;
+                        const end = start + secPorPag;
+                        const items = empaquesSecundarios.slice(start, end);
+                        return items.map((producto, index) => (
+                        <tr key={start + index} className="text-center">
                           <td className="px-2 py-1 text-xs border border-gray-300">{producto.nombre_producto || `Producto ${index + 1}`}</td>
                           <td className="px-2 py-1 text-xs border border-gray-300">
                             {((parseFloat(producto.papel || 0) * parseFloat(producto.unidades || 0)) / 1000000).toFixed(5)}
@@ -657,9 +678,45 @@ Equipo de Validación Punto Azul`
                             {((parseFloat(producto.vidrios || 0) * parseFloat(producto.unidades || 0)) / 1000000).toFixed(5)}
                           </td>
                         </tr>
-                      ))}
+                      ));
+                      })()}
                     </tbody>
                   </table>
+                  {/* Paginación Secundarios */}
+                  {Array.isArray(empaquesSecundarios) && empaquesSecundarios.length > secPorPag && (
+                    <div className="mt-3 flex flex-wrap justify-between items-center gap-3">
+                      <div className="text-xs text-gray-600">
+                        {(() => {
+                          const total = empaquesSecundarios.length;
+                          const totalPag = Math.max(1, Math.ceil(total / secPorPag));
+                          const page = Math.min(secPagina, totalPag);
+                          const startDisp = (total === 0) ? 0 : (page - 1) * secPorPag + 1;
+                          const endDisp = Math.min(page * secPorPag, total);
+                          return `Mostrando ${startDisp} a ${endDisp} de ${total} productos`;
+                        })()}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSecPagina(p => Math.max(1, p - 1))}
+                          disabled={secPagina === 1}
+                          className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Anterior
+                        </button>
+                        <button
+                          onClick={() => {
+                            const total = empaquesSecundarios.length;
+                            const totalPag = Math.max(1, Math.ceil(total / secPorPag));
+                            setSecPagina(p => Math.min(totalPag, p + 1));
+                          }}
+                          className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          disabled={secPagina >= Math.ceil(empaquesSecundarios.length / secPorPag)}
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -834,7 +891,14 @@ Equipo de Validación Punto Azul`
                     </tr>
                   </thead>
                   <tbody>
-                    {plasticos.map((producto, index) => {
+                    {(() => {
+                      const totalProductos = Array.isArray(plasticos) ? plasticos.length : 0;
+                      const totalPaginas = Math.max(1, Math.ceil(totalProductos / plastPorPag));
+                      const pagina = Math.min(plastPagina, totalPaginas);
+                      const start = (pagina - 1) * plastPorPag;
+                      const end = start + plastPorPag;
+                      const paginaProductos = plasticos.slice(start, end);
+                      return paginaProductos.map((producto, index) => {
                       const liquidos = JSON.parse(producto.liquidos || "{}");
                       const otros = JSON.parse(producto.otros || "{}");
                       const construccion = JSON.parse(producto.construccion || "{}");
@@ -901,7 +965,7 @@ Equipo de Validación Punto Azul`
                       const totalGeneral = totalLiquidos + totalOtros + totalConstruccion;
 
                       return (
-                        <tr key={index} className="text-center">
+                        <tr key={start + index} className="text-center">
                           <td className="px-2 py-1 text-xs border border-gray-300">{producto.nombre_producto || `Producto ${index + 1}`}</td>
                           {/* Líquidos - Mostrar 5 decimales visualmente */}
                           <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.petAgua.toFixed(5)}</td>
@@ -936,9 +1000,45 @@ Equipo de Validación Punto Azul`
                           <td className="px-1 py-1 text-xs border border-gray-300 bg-yellow-200 font-bold">{totalGeneral.toFixed(5)}</td>
                         </tr>
                       );
-                    })}
+                    });
+                    })()}
                   </tbody>
                 </table>
+                {/* Controles de paginación */}
+                {Array.isArray(plasticos) && plasticos.length > plastPorPag && (
+                  <div className="mt-3 flex flex-wrap justify-between items-center gap-3">
+                    <div className="text-xs text-gray-600">
+                      {(() => {
+                        const total = plasticos.length;
+                        const totalPag = Math.max(1, Math.ceil(total / plastPorPag));
+                        const page = Math.min(plastPagina, totalPag);
+                        const startDisp = (total === 0) ? 0 : (page - 1) * plastPorPag + 1;
+                        const endDisp = Math.min(page * plastPorPag, total);
+                        return `Mostrando ${startDisp} a ${endDisp} de ${total} productos`;
+                      })()}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPlastPagina(p => Math.max(1, p - 1))}
+                        disabled={plastPagina === 1}
+                        className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        onClick={() => {
+                          const total = plasticos.length;
+                          const totalPag = Math.max(1, Math.ceil(total / plastPorPag));
+                          setPlastPagina(p => Math.min(totalPag, p + 1));
+                        }}
+                        className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        disabled={plastPagina >= Math.ceil(plasticos.length / plastPorPag)}
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Tabla Resumen - Sumatoria de todos los productos */}
@@ -1079,7 +1179,7 @@ Equipo de Validación Punto Azul`
                           <td className="px-1 py-1 text-xs border border-gray-300 bg-blue-200 font-bold">{totalLiquidosGeneral.toFixed(10)}</td>
                           <td className="px-1 py-1 text-xs border border-gray-300 bg-green-200 font-bold">{totalOtrosGeneral.toFixed(10)}</td>
                           <td className="px-1 py-1 text-xs border border-gray-300 bg-orange-200 font-bold">{totalConstruccionGeneral.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-red-300 font-bold text-lg">{totalPlasticosGeneral.toFixed(10)}</td>
+                          <td className="px-1 py-1 text-xs border border-gray-300 bg-red-300 font-bold">{totalPlasticosGeneral.toFixed(10)}</td>
                         </tr>
                       );
                     })()}

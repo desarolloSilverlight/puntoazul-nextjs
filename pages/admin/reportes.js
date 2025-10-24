@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Admin from "layouts/Admin.js";
 import { API_BASE_URL } from "../../utils/config";
+import ConsolidadoF from "components/Reports/ConsolidadoF";
+import ConsolidadoB from "components/Reports/ConsolidadoB";
 import { Bar, Pie, Line } from 'react-chartjs-2';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -32,6 +34,10 @@ export default function Reportes() {
   const [anosDisponibles, setAnosDisponibles] = useState([]); // Nuevo estado para años
   const [tablaDatos, setTablaDatos] = useState([]);
   const [datosReporte, setDatosReporte] = useState(null); // Para almacenar respuesta del backend
+  // Consolidado states
+  const [consolidadoF, setConsolidadoF] = useState(null); // { resumenBase, resumenPlasticos }
+  const [consolidadoB, setConsolidadoB] = useState(null); // { filas, total }
+  const [cargandoConsolidado, setCargandoConsolidado] = useState(false);
   
   // Estados para paginación y búsqueda de la tabla
   const [paginaActual, setPaginaActual] = useState(1);
@@ -142,6 +148,8 @@ export default function Reportes() {
     setAno(""); // Limpiar selección de año
     setTablaDatos([]); // Limpiar tabla
     setDatosReporte(null); // Limpiar datos de reporte
+  setConsolidadoF(null);
+  setConsolidadoB(null);
 
     // Si es toneladas o rangos de línea base, limpiar cliente ya que no se usa
   if (literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion")) {
@@ -232,6 +240,216 @@ export default function Reportes() {
 
         // Determinar endpoint según el literal
         let endpoint;
+        // Rama especial: Consolidado
+        if (reporte === 'consolidado') {
+          if (literal === 'linea_base') {
+            setCargandoConsolidado(true);
+            try {
+              // 1) Obtener empresas y estados (usamos reporte de estado existente)
+              const resp = await fetch(`${API_BASE_URL}/informacion-f/reportes`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ literal: 'linea_base', reporte: 'estado', cliente: null })
+              });
+              const data = resp.ok ? await resp.json() : [];
+              const empresas = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+              const esFinalizado = (e) => (e?.estado || '').toString().toLowerCase().includes('finalizado');
+              const finales = empresas.filter(esFinalizado);
+              // Intentar resolver IDs posibles en varias formas
+              const getIdF = (e) => e.idInformacionF || e.informacionF_idInformacionF || e.id || e.id_info || null;
+              const candidatos = finales.map(e => ({ id: getIdF(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '' }))
+                                       .filter(x => x.id);
+              if (!candidatos.length) {
+                alert('No se pudieron obtener los IDs de los finalizados para Línea Base. Solicite al backend incluir idInformacionF en el reporte de estado o agregue un endpoint getClientesFinalizados.');
+                setConsolidadoF(null);
+                setCargandoConsolidado(false);
+                return;
+              }
+              // 2) Procesar consolidado F por lotes
+              const limit = 4;
+              const chunk = (arr, n) => arr.reduce((a, c, i) => { (i % n ? a[a.length - 1] : a.push([])).push(c); return a; }, []);
+              let acumuladoBase = {
+                primarios: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
+                secundarios: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
+                total: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
+              };
+              let acumuladoPlast = {
+                liquidos: { petAgua: 0, petOtros: 0, pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 },
+                otros: { pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 },
+                construccion: { pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 },
+                totales: { totalLiquidos: 0, totalOtros: 0, totalConstruccion: 0, totalGeneral: 0 }
+              };
+              const toTon = (g, u) => ((parseFloat(g || 0) * parseFloat(u || 0)) / 1000000) || 0;
+              for (const grupo of chunk(candidatos, limit)) {
+                // Por cada cliente, cargar primarios/secundarios/plásticos en paralelo
+                const results = await Promise.all(grupo.map(async (c) => {
+                  try {
+                    const [rP, rS, rPl] = await Promise.all([
+                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${c.id}`),
+                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${c.id}`),
+                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${c.id}`),
+                    ]);
+                    const prim = rP.ok ? await rP.json() : [];
+                    const sec = rS.ok ? await rS.json() : [];
+                    const pla = rPl.ok ? await rPl.json() : [];
+                    return { prim, sec, pla };
+                  } catch { return { prim: [], sec: [], pla: [] }; }
+                }));
+                // Acumular
+                results.forEach(({ prim, sec, pla }) => {
+                  const acumLinea = (arr, dest) => {
+                    arr.forEach(p => {
+                      const u = parseFloat(p.unidades || 0) || 0;
+                      const papel = toTon(p.papel, u);
+                      const mf = toTon(p.metal_ferrosos, u);
+                      const mnf = toTon(p.metal_no_ferrososs, u);
+                      const carton = toTon(p.carton, u);
+                      const vidrio = toTon(p.vidrios, u);
+                      dest.papel += papel; dest.metalFerroso += mf; dest.metalNoFerroso += mnf; dest.carton += carton; dest.vidrio += vidrio; dest.total += (papel+mf+mnf+carton+vidrio);
+                    });
+                  };
+                  acumLinea(prim, acumuladoBase.primarios);
+                  acumLinea(sec, acumuladoBase.secundarios);
+                  // Recalcular total por material al final, por ahora sumaremos directo en total.total
+                  acumuladoBase.total.papel = acumuladoBase.primarios.papel + acumuladoBase.secundarios.papel;
+                  acumuladoBase.total.metalFerroso = acumuladoBase.primarios.metalFerroso + acumuladoBase.secundarios.metalFerroso;
+                  acumuladoBase.total.metalNoFerroso = acumuladoBase.primarios.metalNoFerroso + acumuladoBase.secundarios.metalNoFerroso;
+                  acumuladoBase.total.carton = acumuladoBase.primarios.carton + acumuladoBase.secundarios.carton;
+                  acumuladoBase.total.vidrio = acumuladoBase.primarios.vidrio + acumuladoBase.secundarios.vidrio;
+                  acumuladoBase.total.total = acumuladoBase.primarios.total + acumuladoBase.secundarios.total;
+
+                  // Plásticos: parsear JSON por categorías
+                  pla.forEach(prod => {
+                    const u = parseFloat(prod.unidades || 0) || 0;
+                    let liquidos = {}; let otros = {}; let construccion = {};
+                    try { liquidos = JSON.parse(prod.liquidos || '{}') || {}; } catch {}
+                    try { otros = JSON.parse(prod.otros || '{}') || {}; } catch {}
+                    try { construccion = JSON.parse(prod.construccion || '{}') || {}; } catch {}
+                    // Líquidos
+                    acumuladoPlast.liquidos.petAgua += toTon(liquidos['PET Agua'], u);
+                    acumuladoPlast.liquidos.petOtros += toTon(liquidos['PET Otros'], u);
+                    acumuladoPlast.liquidos.pet += toTon(liquidos['PET'], u);
+                    acumuladoPlast.liquidos.hdpe += toTon(liquidos['HDPE'], u);
+                    acumuladoPlast.liquidos.pvc += toTon(liquidos['PVC'], u);
+                    acumuladoPlast.liquidos.ldpe += toTon(liquidos['LDPE'], u);
+                    acumuladoPlast.liquidos.pp += toTon(liquidos['PP'], u);
+                    acumuladoPlast.liquidos.ps += toTon(liquidos['PS'], u);
+                    acumuladoPlast.liquidos.otros += toTon(liquidos['Otros'], u);
+                    // Otros
+                    acumuladoPlast.otros.pet += toTon(otros['PET'], u);
+                    acumuladoPlast.otros.hdpe += toTon(otros['HDPE'], u);
+                    acumuladoPlast.otros.pvc += toTon(otros['PVC'], u);
+                    acumuladoPlast.otros.ldpe += toTon(otros['LDPE'], u);
+                    acumuladoPlast.otros.pp += toTon(otros['PP'], u);
+                    acumuladoPlast.otros.ps += toTon(otros['PS'], u);
+                    acumuladoPlast.otros.otros += toTon(otros['Otros'], u);
+                    // Construcción
+                    acumuladoPlast.construccion.pet += toTon(construccion['PET'], u);
+                    acumuladoPlast.construccion.hdpe += toTon(construccion['HDPE'], u);
+                    acumuladoPlast.construccion.pvc += toTon(construccion['PVC'], u);
+                    acumuladoPlast.construccion.ldpe += toTon(construccion['LDPE'], u);
+                    acumuladoPlast.construccion.pp += toTon(construccion['PP'], u);
+                    acumuladoPlast.construccion.ps += toTon(construccion['PS'], u);
+                    acumuladoPlast.construccion.otros += toTon(construccion['Otros'], u);
+                  });
+                  const sumVals = obj => Object.values(obj).reduce((a,b)=>a+(parseFloat(b)||0),0);
+                  acumuladoPlast.totales.totalLiquidos = sumVals(acumuladoPlast.liquidos);
+                  acumuladoPlast.totales.totalOtros = sumVals(acumuladoPlast.otros);
+                  acumuladoPlast.totales.totalConstruccion = sumVals(acumuladoPlast.construccion);
+                  acumuladoPlast.totales.totalGeneral = acumuladoPlast.totales.totalLiquidos + acumuladoPlast.totales.totalOtros + acumuladoPlast.totales.totalConstruccion;
+                });
+              }
+              setConsolidadoF({ resumenBase: acumuladoBase, resumenPlasticos: acumuladoPlast });
+            } catch (e) {
+              console.error('Error construyendo consolidado F:', e);
+              alert('No se pudo construir el consolidado de Línea Base.');
+              setConsolidadoF(null);
+            } finally {
+              setCargandoConsolidado(false);
+            }
+            return; // Evitar continuar con fetch estándar
+          } else if (literal === 'literal_b') {
+            setCargandoConsolidado(true);
+            try {
+              const resp = await fetch(`${API_BASE_URL}/informacion-b/reporteEstado`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ literal: 'literal_b', reporte: 'estado', cliente: null })
+              });
+              const data = resp.ok ? await resp.json() : [];
+              const empresas = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+              const esFinalizado = (e) => (e?.estado || '').toString().toLowerCase().includes('finalizado');
+              const finales = empresas.filter(esFinalizado);
+              const getIdB = (e) => e.idInformacionB || e.informacionB_idInformacionB || e.id || e.id_info || null;
+              const candidatos = finales.map(e => ({ id: getIdB(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '', origen: e.origen || '' }))
+                                       .filter(x => x.id);
+              if (!candidatos.length) {
+                alert('No se pudieron obtener los IDs de los finalizados para Literal B. Solicite al backend incluir idInformacionB en el reporte de estado o agregue un endpoint getClientesFinalizados.');
+                setConsolidadoB(null);
+                setCargandoConsolidado(false);
+                return;
+              }
+              const limit = 4;
+              const chunk = (arr, n) => arr.reduce((a, c, i) => { (i % n ? a[a.length - 1] : a.push([])).push(c); return a; }, []);
+              const totalInit = {
+                pesoEmpaqueComercialRX: 0, pesoTotalComercialRX: 0,
+                pesoEmpaqueComercialOTC: 0, pesoTotalComercialOTC: 0,
+                pesoEmpaqueInstitucional: 0, pesoTotalInstitucional: 0,
+                pesoEmpaqueIntrahospitalario: 0, pesoTotalIntrahospitalario: 0,
+                pesoEmpaqueMuestrasMedicas: 0, pesoTotalMuestrasMedicas: 0,
+                totalPesoEmpaques: 0, totalPesoProducto: 0, totalFormula: 0
+              };
+              const filas = [];
+              let total = { ...totalInit };
+              for (const grupo of chunk(candidatos, limit)) {
+                const results = await Promise.all(grupo.map(async (c) => {
+                  try {
+                    const r = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${c.id}`);
+                    const prods = r.ok ? await r.json() : [];
+                    return { cliente: c, productos: prods };
+                  } catch { return { cliente: c, productos: [] }; }
+                }));
+                results.forEach(({ cliente, productos }) => {
+                  if (!Array.isArray(productos) || !productos.length) return;
+                  // Reutilizar sumas de CardValidarB
+                  const resumen = productos.reduce((acc, p) => ({
+                    pesoEmpaqueComercialRX: (acc.pesoEmpaqueComercialRX || 0) + (Number(p.pesoEmpaqueComercialRX) || 0),
+                    pesoTotalComercialRX: (acc.pesoTotalComercialRX || 0) + (Number(p.pesoTotalComercialRX) || 0),
+                    pesoEmpaqueComercialOTC: (acc.pesoEmpaqueComercialOTC || 0) + (Number(p.pesoEmpaqueComercialOTC) || 0),
+                    pesoTotalComercialOTC: (acc.pesoTotalComercialOTC || 0) + (Number(p.pesoTotalComercialOTC) || 0),
+                    pesoEmpaqueInstitucional: (acc.pesoEmpaqueInstitucional || 0) + (Number(p.pesoEmpaqueInstitucional) || 0),
+                    pesoTotalInstitucional: (acc.pesoTotalInstitucional || 0) + (Number(p.pesoTotalInstitucional) || 0),
+                    pesoEmpaqueIntrahospitalario: (acc.pesoEmpaqueIntrahospitalario || 0) + (Number(p.pesoEmpaqueIntrahospitalario) || 0),
+                    pesoTotalIntrahospitalario: (acc.pesoTotalIntrahospitalario || 0) + (Number(p.pesoTotalIntrahospitalario) || 0),
+                    pesoEmpaqueMuestrasMedicas: (acc.pesoEmpaqueMuestrasMedicas || 0) + (Number(p.pesoEmpaqueMuestrasMedicas) || 0),
+                    pesoTotalMuestrasMedicas: (acc.pesoTotalMuestrasMedicas || 0) + (Number(p.pesoTotalMuestrasMedicas) || 0),
+                    totalPesoEmpaques: (acc.totalPesoEmpaques || 0) + (Number(p.totalPesoEmpaques) || 0),
+                    totalPesoProducto: (acc.totalPesoProducto || 0) + (Number(p.totalPesoProducto) || 0),
+                  }), {});
+                  const totalFormula = (
+                    (Number(resumen.pesoTotalComercialRX) || 0) +
+                    (Number(resumen.pesoTotalComercialOTC) || 0) +
+                    ((Number(resumen.pesoTotalInstitucional) || 0) / 2) +
+                    (Number(resumen.pesoTotalMuestrasMedicas) || 0)
+                  );
+                  const fila = {
+                    nombre: productos[0]?.idInformacionB?.nombre || cliente.nombre || 'Cliente',
+                    nit: productos[0]?.idInformacionB?.nit || cliente.nit || '-',
+                    origen: productos[0]?.idInformacionB?.origen || cliente.origen || '-',
+                    resumen: { ...resumen, totalFormula }
+                  };
+                  filas.push(fila);
+                  // Acumular al total
+                  Object.keys(totalInit).forEach(k => { total[k] += Number(fila.resumen[k] || 0); });
+                });
+              }
+              setConsolidadoB({ filas, total });
+            } catch (e) {
+              console.error('Error construyendo consolidado B:', e);
+              alert('No se pudo construir el consolidado de Literal B.');
+              setConsolidadoB(null);
+            } finally {
+              setCargandoConsolidado(false);
+            }
+            return; // Evitar continuar
+          }
+        }
         if (literal === "linea_base") {
           endpoint = `${API_BASE_URL}/informacion-f/reportes`;
           
@@ -1694,6 +1912,7 @@ export default function Reportes() {
           { value: "grupo", label: "Grupo" },
           { value: "variacion_grupo", label: "Variación Grupo" },
           { value: "facturacion", label: "Facturación" },
+          { value: "consolidado", label: "Consolidado" },
           { value: "estado", label: "Estado" },
         ]
       : literal === "linea_base"
@@ -1701,6 +1920,7 @@ export default function Reportes() {
           { value: "toneladas", label: "Toneladas" }, 
           { value: "rangos", label: "Rango Toneladas" },
           { value: "facturacion", label: "Facturación" },
+          { value: "consolidado", label: "Consolidado" },
           { value: "estado", label: "Estado" },
         ]
       : [];
@@ -1748,9 +1968,9 @@ export default function Reportes() {
                 ))}
               </select>
             </div>
-            {/* Selector Cliente - Solo visible si NO es toneladas/rangos de línea base o grupo/peso de literal B */}
-      {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-        (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion")))) && (
+            {/* Selector Cliente - oculto también para Consolidado */}
+      {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "consolidado")) ||
+        (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado")))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Cliente</label>
                 <select
@@ -1817,6 +2037,24 @@ export default function Reportes() {
             </div>
           </div>
           
+          {/* Consolidado: vista específica */}
+          {reporte === 'consolidado' && (
+            <div className="mt-8">
+              {cargandoConsolidado && (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-2">Construyendo consolidado...</p>
+                </div>
+              )}
+              {!cargandoConsolidado && literal === 'linea_base' && consolidadoF && (
+                <ConsolidadoF resumenBase={consolidadoF.resumenBase} resumenPlasticos={consolidadoF.resumenPlasticos} />
+              )}
+              {!cargandoConsolidado && literal === 'literal_b' && consolidadoB && (
+                <ConsolidadoB filas={consolidadoB.filas} total={consolidadoB.total} />
+              )}
+            </div>
+          )}
+
           {/* Gráficas (antes de las tablas) */}
           {datosReporte && Array.isArray(datosReporte) && datosReporte.length > 0 && (
             <>

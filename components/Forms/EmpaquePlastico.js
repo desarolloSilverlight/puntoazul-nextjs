@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { API_BASE_URL } from "../../utils/config";
 import PropTypes from "prop-types";
 import Modal from "react-modal";
@@ -51,7 +51,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   // Obtener productos desde el backend al cargar el componente
   // --- Toneladas acumuladas globales ---
   // Definir la función fuera del useEffect para poder reutilizarla
-  const fetchToneladasAcumuladas = async () => {
+  const fetchToneladasAcumuladas = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/informacion-f/getToneladasAcumuladasPlasticos/${idInformacionF}`);
       if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
@@ -60,7 +60,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     } catch {
       setToneladasAcumuladasGlobal(0);
     }
-  };
+  }, [idInformacionF]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencionalmente limitada a idInformacionF
   useEffect(() => {
     const fetchProductos = async () => {
@@ -104,7 +104,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       fetchProductos();
       fetchToneladasAcumuladas();
     }
-  }, [idInformacionF]);
+  }, [idInformacionF, fetchToneladasAcumuladas]);
 
   // Mantener currentPage dentro de rango cuando cambian productos o pageSize
   // eslint-disable-next-line react-hooks/exhaustive-deps -- recalcular páginas solo cuando cambian productos o pageSize
@@ -113,7 +113,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
-  }, [productos, pageSize]);
+  }, [productos, pageSize, currentPage]);
 
   const agregarProducto = () => {
     setProductos([
@@ -170,8 +170,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       const nuevoErr = { ...erroresCampos };
       if (val.includes('.')) {
         nuevoErr[keyErr] = 'Use coma (,) para decimales';
-      } else if (val !== '' && !/^\d+(,\d{0,2})?$/.test(val)) {
-        nuevoErr[keyErr] = 'Máx 2 decimales con coma';
+      } else if (val !== '' && !/^\d+(,\d{0,10})?$/.test(val)) {
+        nuevoErr[keyErr] = 'Máx 10 decimales con coma';
       } else {
         delete nuevoErr[keyErr];
       }
@@ -228,7 +228,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     setIsLoading(true);
   const camposLiquidos = ["PET Agua", "PET Otros", "PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
   const camposOtros = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
-  const decimalRegexComa = /^\d+(,\d{1,2})?$/;
+  const decimalRegexComa = /^\d+(,\d{1,10})?$/;
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
       // Validación de empresaTitular, nombreProducto y unidades
@@ -276,7 +276,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           }
           const str = valor.toString();
           if (str.includes('.')) { alert(`Fila ${i+1} ${nombreGrupo}.${campo}: No use punto, use coma.`); setIsLoading(false); return false; }
-          if (str !== '' && !decimalRegexComa.test(str)) { alert(`Fila ${i+1} ${nombreGrupo}.${campo}: Formato inválido (máx 2 decimales con coma).`); setIsLoading(false); return false; }
+          if (str !== '' && !decimalRegexComa.test(str)) { alert(`Fila ${i+1} ${nombreGrupo}.${campo}: Formato inválido (máx 10 decimales con coma).`); setIsLoading(false); return false; }
         }
         return true;
       };
@@ -469,7 +469,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       '',
       'Campos obligatorios: Empresa titular, Nombre Producto, Unidades, Excepciones, Prohibiciones',
       "Regla: Uno de Excepciones o Prohibiciones debe ser 'no_aplica'",
-      'Valores numéricos: coma (,) para decimales, máx 2. No usar punto.',
+      'Valores numéricos: coma (,) para decimales, máx 10. No usar punto.',
       'Campos vacíos se interpretan como 0,00',
       'Opciones Excepciones: medicos, quimicos, alimentos, higiene, asistencia, impacto, residuos, reciclado, pitillos, no_aplica',
       'Opciones Prohibiciones: bolsas_pago, bolsas_publicidad, rollos_bolsas, mezcladores_pitillos, soportes_bombas, soportes_copitos, envases_liquidos, platos_utensilios, confeti_manteles, empaques_alimentos, laminas_alimentos, empaques_frutas, adhesivos_etiquetas, no_aplica'
@@ -511,7 +511,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           event.target.value = '';
           return;
         }
-        const headers = rawRows[headerIndex].map(h => (h||'').toString().trim());
+  const headers = rawRows[headerIndex].map(h => (h||'').toString().trim());
+  const headersLC = headers.map(h => h.toLowerCase());
         const dataMatrix = rawRows.slice(headerIndex+1).filter(r => r.some(c=> c!==null && c!==undefined && c!==''));
         const jsonData = dataMatrix.map(r => { const o={}; headers.forEach((h,i)=> o[h]=r[i]); return o; });
         if (jsonData.length===0){
@@ -521,48 +522,99 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           event.target.value = '';
           return;
         }
+        const getExact = (row, labelLC) => {
+          const idx = headersLC.findIndex(h => h === labelLC);
+          return idx >= 0 ? row[headers[idx]] : undefined;
+        };
+        const getApprox = (row, pred) => {
+          const idx = headersLC.findIndex(pred);
+          return idx >= 0 ? row[headers[idx]] : undefined;
+        };
+        const val = (row, label, approxPred) => {
+          const exact = getExact(row, label.toLowerCase());
+          if (exact !== undefined) return exact;
+          const approx = getApprox(row, approxPred);
+          return approx !== undefined ? approx : '0';
+        };
+        const resinNames = ['pet','hdpe','pvc','ldpe','pp','ps'];
+        const hasAnyResin = (h) => resinNames.some(r => h.includes(r));
         const mapearColumnas = (row) => {
-          const keys = Object.keys(row); const lower = keys.map(k=>k.toLowerCase()); const find=(pred)=> { const i=lower.findIndex(pred); return i>=0? keys[i]: null; };
-          const g = (pref, material) => row[find(k=> k.includes(pref) && k.includes(material))] || '0';
+          const empresa = val(row, 'Empresa titular', h => h.includes('empresa') && !h.includes('producto'));
+          const nombre = val(row, 'Nombre Producto', h => h.includes('nombre') && h.includes('producto'));
+          // Líquidos (evitar colisiones entre "PET Otros" y "Otros")
+          const liq_pet_agua = val(row, 'Liquidos PET Agua (g)', h => h.includes('liquidos') && h.includes('pet') && h.includes('agua'));
+          const liq_pet_otros_bebidas = val(row, 'Liquidos PET Otros (g)', h => h.includes('liquidos') && h.includes('pet') && (h.includes('otro') && (h.includes('beb') || h.includes('bebidas'))));
+          const liq_pet_otros_liquidos = val(row, 'Liquidos PET (g)', h => h.includes('liquidos') && h.includes('pet') && !h.includes('agua') && !h.includes('otro'));
+          const liq_hdpe = val(row, 'Liquidos HDPE (g)', h => h.includes('liquidos') && h.includes('hdpe'));
+          const liq_pvc = val(row, 'Liquidos PVC (g)', h => h.includes('liquidos') && h.includes('pvc'));
+          const liq_ldpe = val(row, 'Liquidos LDPE (g)', h => h.includes('liquidos') && h.includes('ldpe'));
+          const liq_pp = val(row, 'Liquidos PP (g)', h => h.includes('liquidos') && h.includes(' pp'));
+          const liq_ps = val(row, 'Liquidos PS (g)', h => h.includes('liquidos') && h.includes(' ps'));
+          const liq_otros = val(row, 'Liquidos Otros (g)', h => h.includes('liquidos') && h.includes('otros') && !hasAnyResin(h));
+
+          // Otros Productos
+          const op_pet = val(row, 'OtrosProductos PET (g)', h => h.includes('otrosproductos') && h.includes(' pet'));
+          const op_hdpe = val(row, 'OtrosProductos HDPE (g)', h => h.includes('otrosproductos') && h.includes('hdpe'));
+          const op_pvc = val(row, 'OtrosProductos PVC (g)', h => h.includes('otrosproductos') && h.includes('pvc'));
+          const op_ldpe = val(row, 'OtrosProductos LDPE (g)', h => h.includes('otrosproductos') && h.includes('ldpe'));
+          const op_pp = val(row, 'OtrosProductos PP (g)', h => h.includes('otrosproductos') && h.includes(' pp'));
+          const op_ps = val(row, 'OtrosProductos PS (g)', h => h.includes('otrosproductos') && h.includes(' ps'));
+          const op_otros = val(row, 'OtrosProductos Otros (g)', h => h.includes('otrosproductos') && h.includes('otros') && !hasAnyResin(h));
+
+          // Construcción
+          const cons_pet = val(row, 'Construccion PET (g)', h => h.includes('construccion') && h.includes(' pet'));
+          const cons_hdpe = val(row, 'Construccion HDPE (g)', h => h.includes('construccion') && h.includes('hdpe'));
+          const cons_pvc = val(row, 'Construccion PVC (g)', h => h.includes('construccion') && h.includes('pvc'));
+          const cons_ldpe = val(row, 'Construccion LDPE (g)', h => h.includes('construccion') && h.includes('ldpe'));
+          const cons_pp = val(row, 'Construccion PP (g)', h => h.includes('construccion') && h.includes(' pp'));
+          const cons_ps = val(row, 'Construccion PS (g)', h => h.includes('construccion') && h.includes(' ps'));
+          const cons_otros = val(row, 'Construccion Otros (g)', h => h.includes('construccion') && h.includes('otros') && !hasAnyResin(h));
+
           return {
-            empresaTitular: row[find(k=> k.includes('empresa') || k.includes('titular'))] || '',
-            nombreProducto: row[find(k=> k.includes('nombre') && k.includes('producto'))] || '',
+            empresaTitular: empresa || '',
+            nombreProducto: nombre || '',
             liquidos: {
-              'PET Agua': g('liquidos','agua'),
-              'PET Otros': g('liquidos','otros'),
-              'PET': (()=>{ const k = keys.find(k=> k.toLowerCase().includes('liquidos') && k.toLowerCase().includes('pet') && !k.toLowerCase().includes('agua') && !k.toLowerCase().includes('otros')); return row[k] || '0'; })(),
-              'HDPE': g('liquidos','hdpe'),
-              'PVC': g('liquidos','pvc'),
-              'LDPE': g('liquidos','ldpe'),
-              'PP': g('liquidos','pp'),
-              'PS': g('liquidos','ps'),
-              'Otros': g('liquidos','otros')
+              'PET Agua': liq_pet_agua || '0',
+              'PET Otros': liq_pet_otros_bebidas || '0',
+              'PET': liq_pet_otros_liquidos || '0',
+              'HDPE': liq_hdpe || '0',
+              'PVC': liq_pvc || '0',
+              'LDPE': liq_ldpe || '0',
+              'PP': liq_pp || '0',
+              'PS': liq_ps || '0',
+              'Otros': liq_otros || '0'
             },
             otrosProductos: {
-              'PET': g('otrosproductos','pet'),
-              'HDPE': g('otrosproductos','hdpe'),
-              'PVC': g('otrosproductos','pvc'),
-              'LDPE': g('otrosproductos','ldpe'),
-              'PP': g('otrosproductos','pp'),
-              'PS': g('otrosproductos','ps'),
-              'Otros': g('otrosproductos','otros')
+              'PET': op_pet || '0',
+              'HDPE': op_hdpe || '0',
+              'PVC': op_pvc || '0',
+              'LDPE': op_ldpe || '0',
+              'PP': op_pp || '0',
+              'PS': op_ps || '0',
+              'Otros': op_otros || '0'
             },
             construccion: {
-              'PET': g('construccion','pet'),
-              'HDPE': g('construccion','hdpe'),
-              'PVC': g('construccion','pvc'),
-              'LDPE': g('construccion','ldpe'),
-              'PP': g('construccion','pp'),
-              'PS': g('construccion','ps'),
-              'Otros': g('construccion','otros')
+              'PET': cons_pet || '0',
+              'HDPE': cons_hdpe || '0',
+              'PVC': cons_pvc || '0',
+              'LDPE': cons_ldpe || '0',
+              'PP': cons_pp || '0',
+              'PS': cons_ps || '0',
+              'Otros': cons_otros || '0'
             },
-            excepciones: row[find(k=> k.includes('excepciones'))] || '',
-            prohibiciones: row[find(k=> k.includes('prohibiciones'))] || '',
-            unidades: row[find(k=> k.includes('unidades'))] || ''
+            excepciones: val(row, 'Excepciones', h => h.includes('excepciones')) || '',
+            prohibiciones: val(row, 'Prohibiciones', h => h.includes('prohibiciones')) || '',
+            unidades: val(row, 'Unidades', h => h.includes('unidades')) || ''
           };
         };
         const productosValidados = []; const errores = [];
-  const decimalRegexFlexible = /^\d+(?:[.,]\d{1,10})?$/;
+    const formatTo10 = (n) => {
+      if (!Number.isFinite(n)) return '0,00';
+      const s = n.toFixed(10); // fijo 10 decimales
+      const trimmed = s.replace(/\.?0+$/, ''); // quitar ceros a la derecha
+      const withComma = trimmed.replace('.', ',');
+      return withComma.replace(/,$/, ''); // si quedó coma al final, quitarla
+    };
         const tipoReporte = localStorage.getItem('tipoReporte');
 
         // Opciones válidas
@@ -602,10 +654,14 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
               let v = grp[k];
               if (v === null || v === undefined || v === '') { grp[k] = '0,00'; return; }
               const s = v.toString().trim();
-              if (!decimalRegexFlexible.test(s)) { errores.push(`Fila ${numeroFila}: '${nombre}.${k}' número inválido (${v})`); return; }
-              const num = parseFloat(s.replace(',', '.'));
-              if (isNaN(num)) { errores.push(`Fila ${numeroFila}: '${nombre}.${k}' no interpretable (${v})`); return; }
-              grp[k] = num.toFixed(2).replace('.', ',');
+              // Intentar convertir SIEMPRE a número; si falla, marcar error.
+              let num = parseFloat(s.replace(',', '.'));
+              if (!Number.isFinite(num)) {
+                errores.push(`Fila ${numeroFila}: '${nombre}.${k}' número inválido (${v})`);
+                return;
+              }
+              // Aproximar automáticamente a 10 decimales
+              grp[k] = formatTo10(num);
             });
           };
           normalizarGrupo(producto.liquidos, 'Líquidos');

@@ -233,9 +233,37 @@ export default function FormularioF() {
   };
 
   const handleSendForm = () => {
-    if (window.confirm("¿Está seguro de que completó todo el formulario para revisión de Punto Azul? Una vez enviada la informacion no se podra volver a editar.")) {
-      actualizaEstado();
-    }
+    const confirmarYValidar = async () => {
+      if (!window.confirm("¿Está seguro de que completó todo el formulario para revisión de Punto Azul? Una vez enviada la informacion no se podra volver a editar.")) {
+        return;
+      }
+      const id = localStorage.getItem("idInformacionF");
+      if (!id) {
+        alert("Debe completar y guardar la información básica antes de enviar el formulario.");
+        return;
+      }
+      try {
+        const urls = [
+          `${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${id}`,
+          `${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${id}`,
+          `${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${id}`,
+        ];
+        const resps = await Promise.all(urls.map(u => fetch(u)));
+        const jsons = await Promise.all(resps.map(r => r.ok ? r.json() : []));
+        const toCount = (d) => Array.isArray(d) ? d.length : (Array.isArray(d?.data) ? d.data.length : 0);
+        const total = jsons.reduce((acc, d) => acc + toCount(d), 0);
+        if (total <= 0) {
+          alert("Debe registrar al menos un producto en Empaque Primario, Secundario o Plástico antes de enviar el formulario.");
+          return;
+        }
+        // Pasa la validación -> enviar
+        actualizaEstado();
+      } catch (e) {
+        console.error('Validación de productos (Literal F) falló:', e);
+        alert("No se pudo verificar los productos. Intente nuevamente o contacte soporte.");
+      }
+    };
+    confirmarYValidar();
   };
 
   const handleFileChange = (e) => {

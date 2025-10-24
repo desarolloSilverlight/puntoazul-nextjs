@@ -218,9 +218,37 @@ export default function FormularioF() {
   };
 
   const handleSendForm = () => {
-    if (window.confirm("¿Está seguro de que completó todo el formulario para revisión de Punto Azul? Una vez enviada la informacion no se podra volver a editar.")) {
-      actualizaEstado();
-    }
+    const confirmarYValidar = async () => {
+      if (!window.confirm("¿Está seguro de que completó todo el formulario para revisión de Punto Azul? Una vez enviada la informacion no se podra volver a editar.")) {
+        return;
+      }
+      // Validar que exista al menos 1 producto registrado (Literal B)
+      const id = localStorage.getItem("idInformacionB");
+      if (!id) {
+        alert("Debe completar y guardar la información básica antes de enviar el formulario.");
+        return;
+      }
+      try {
+        const resp = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${id}`);
+        if (!resp.ok) {
+          // Tratar respuestas no-OK como lista vacía
+          alert("Debe registrar al menos un producto antes de enviar el formulario.");
+          return;
+        }
+        const data = await resp.json();
+        const count = Array.isArray(data) ? data.length : 0;
+        if (count <= 0) {
+          alert("Debe registrar al menos un producto antes de enviar el formulario.");
+          return;
+        }
+        // Pasa la validación -> enviar
+        actualizaEstado();
+      } catch (e) {
+        console.error('Validación de productos (Literal B) falló:', e);
+        alert("No se pudo verificar los productos. Intente nuevamente o contacte soporte.");
+      }
+    };
+    confirmarYValidar();
   };
 
   const handleFileChange = (e) => {

@@ -245,18 +245,46 @@ export default function Reportes() {
           if (literal === 'linea_base') {
             setCargandoConsolidado(true);
             try {
-              // 1) Obtener empresas y estados (usamos reporte de estado existente)
-              const resp = await fetch(`${API_BASE_URL}/informacion-f/reportes`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ literal: 'linea_base', reporte: 'estado', cliente: null })
-              });
-              const data = resp.ok ? await resp.json() : [];
-              const empresas = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-              const esFinalizado = (e) => (e?.estado || '').toString().toLowerCase().includes('finalizado');
-              const finales = empresas.filter(esFinalizado);
-              // Intentar resolver IDs posibles en varias formas
-              const getIdF = (e) => e.idInformacionF || e.informacionF_idInformacionF || e.id || e.id_info || null;
-              const candidatos = finales.map(e => ({ id: getIdF(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '' }))
-                                       .filter(x => x.id);
+              // 1) Preferido: obtener finalizados por endpoints dedicados
+              let candidatos = [];
+              try {
+                let respFinish = await fetch(`${API_BASE_URL}/informacion-f/getClientesFinish`, { credentials: 'include' });
+                if (!respFinish.ok) {
+                  respFinish = await fetch(`${API_BASE_URL}/informacion-f/getFinishF`, { credentials: 'include' });
+                }
+                if (respFinish.ok) {
+                  const list = await respFinish.json();
+                  const arr = Array.isArray(list?.data) ? list.data : (Array.isArray(list) ? list : []);
+                  const getIdFinishF = (e) => {
+                    // Intentar varias formas comunes y anidadas
+                    const direct = e?.idInformacionF ?? e?.informacionF_idInformacionF ?? e?.id_informacion_f ?? e?.id;
+                    if (direct !== undefined && direct !== null && direct !== '') return direct;
+                    if (typeof e?.idInformacion === 'object') {
+                      if (e.idInformacion.idInformacionF !== undefined) return e.idInformacion.idInformacionF;
+                      if (e.idInformacion.id !== undefined) return e.idInformacion.id;
+                    }
+                    return null;
+                  };
+                  candidatos = arr.map(e => ({ id: getIdFinishF(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '' }))
+                                   .filter(x => x.id !== null && x.id !== undefined && x.id !== '');
+                }
+              } catch {}
+              // 2) Compatibilidad: derivar desde reporte de estado si aún no hay candidatos
+              if (!candidatos.length) {
+                const resp = await fetch(`${API_BASE_URL}/informacion-f/reportes`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ literal: 'linea_base', reporte: 'estado', cliente: null }), credentials: 'include'
+                });
+                const data = resp.ok ? await resp.json() : [];
+                const empresas = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+                const esFinalizado = (e) => {
+                  const st = (e?.estado || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+                  return st.includes('finalizado') || st.includes('firmado');
+                };
+                const finales = empresas.filter(esFinalizado);
+                const getIdF = (e) => e.idInformacionF || e.informacionF_idInformacionF || e.id_informacion_f || e.id || null;
+                candidatos = finales.map(e => ({ id: getIdF(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '' }))
+                                   .filter(x => x.id);
+              }
               if (!candidatos.length) {
                 alert('No se pudieron obtener los IDs de los finalizados para Línea Base. Solicite al backend incluir idInformacionF en el reporte de estado o agregue un endpoint getClientesFinalizados.');
                 setConsolidadoF(null);
@@ -265,7 +293,7 @@ export default function Reportes() {
               }
               // 2) Procesar consolidado F por lotes
               const limit = 4;
-              const chunk = (arr, n) => arr.reduce((a, c, i) => { (i % n ? a[a.length - 1] : a.push([])).push(c); return a; }, []);
+              const chunk = (arr, n) => arr.reduce((acc, item, idx) => { if (idx % n === 0) acc.push([]); acc[acc.length - 1].push(item); return acc; }, []);
               let acumuladoBase = {
                 primarios: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
                 secundarios: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
@@ -282,10 +310,12 @@ export default function Reportes() {
                 // Por cada cliente, cargar primarios/secundarios/plásticos en paralelo
                 const results = await Promise.all(grupo.map(async (c) => {
                   try {
+                    const idStr = typeof c.id === 'object' ? (c.id?.idInformacionF || c.id?.id || '') : String(c.id);
+                    const safeId = encodeURIComponent(idStr);
                     const [rP, rS, rPl] = await Promise.all([
-                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${c.id}`),
-                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${c.id}`),
-                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${c.id}`),
+                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${safeId}`, { credentials: 'include' }),
+                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${safeId}`, { credentials: 'include' }),
+                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${safeId}`, { credentials: 'include' }),
                     ]);
                     const prim = rP.ok ? await rP.json() : [];
                     const sec = rS.ok ? await rS.json() : [];
@@ -369,24 +399,34 @@ export default function Reportes() {
           } else if (literal === 'literal_b') {
             setCargandoConsolidado(true);
             try {
-              const resp = await fetch(`${API_BASE_URL}/informacion-b/reporteEstado`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ literal: 'literal_b', reporte: 'estado', cliente: null })
-              });
-              const data = resp.ok ? await resp.json() : [];
-              const empresas = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-              const esFinalizado = (e) => (e?.estado || '').toString().toLowerCase().includes('finalizado');
-              const finales = empresas.filter(esFinalizado);
-              const getIdB = (e) => e.idInformacionB || e.informacionB_idInformacionB || e.id || e.id_info || null;
-              const candidatos = finales.map(e => ({ id: getIdB(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '', origen: e.origen || '' }))
-                                       .filter(x => x.id);
+              // 1) Preferido: obtener finalizados Literal B por endpoint dedicado
+              let candidatos = [];
+              try {
+                const respFinish = await fetch(`${API_BASE_URL}/informacion-b/getFinishB`, { credentials: 'include' });
+                if (respFinish.ok) {
+                  const list = await respFinish.json();
+                  const arr = Array.isArray(list?.data) ? list.data : (Array.isArray(list) ? list : []);
+                  const getIdFinishB = (e) => {
+                    const direct = e?.idInformacionB ?? e?.informacionB_idInformacionB ?? e?.id_informacion_b ?? e?.id;
+                    if (direct !== undefined && direct !== null && direct !== '') return direct;
+                    if (typeof e?.idInformacion === 'object') {
+                      if (e.idInformacion.idInformacionB !== undefined) return e.idInformacion.idInformacionB;
+                      if (e.idInformacion.id !== undefined) return e.idInformacion.id;
+                    }
+                    return null;
+                  };
+                  candidatos = arr.map(e => ({ id: getIdFinishB(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '', origen: e.origen || '' }))
+                                   .filter(x => x.id !== null && x.id !== undefined && x.id !== '');
+                }
+              } catch {}
               if (!candidatos.length) {
-                alert('No se pudieron obtener los IDs de los finalizados para Literal B. Solicite al backend incluir idInformacionB en el reporte de estado o agregue un endpoint getClientesFinalizados.');
+                alert('No se pudieron obtener clientes finalizados desde getFinishB para Literal B. Verifique que existan finalizados y que su sesión tenga permisos.');
                 setConsolidadoB(null);
                 setCargandoConsolidado(false);
                 return;
               }
               const limit = 4;
-              const chunk = (arr, n) => arr.reduce((a, c, i) => { (i % n ? a[a.length - 1] : a.push([])).push(c); return a; }, []);
+              const chunk = (arr, n) => arr.reduce((acc, item, idx) => { if (idx % n === 0) acc.push([]); acc[acc.length - 1].push(item); return acc; }, []);
               const totalInit = {
                 pesoEmpaqueComercialRX: 0, pesoTotalComercialRX: 0,
                 pesoEmpaqueComercialOTC: 0, pesoTotalComercialOTC: 0,
@@ -400,7 +440,9 @@ export default function Reportes() {
               for (const grupo of chunk(candidatos, limit)) {
                 const results = await Promise.all(grupo.map(async (c) => {
                   try {
-                    const r = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${c.id}`);
+                    const idStr = typeof c.id === 'object' ? (c.id?.idInformacionB || c.id?.id || '') : String(c.id);
+                    const safeId = encodeURIComponent(idStr);
+                    const r = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${safeId}`, { credentials: 'include' });
                     const prods = r.ok ? await r.json() : [];
                     return { cliente: c, productos: prods };
                   } catch { return { cliente: c, productos: [] }; }

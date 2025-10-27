@@ -17,6 +17,7 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  const [emailAction, setEmailAction] = useState(""); // Para rastrear si es APROBAR o RECHAZAR
   const [empaques, setEmpaques] = useState([]); // Resumen de empaques
   const [plasticos, setPlasticos] = useState([]); // Resumen de plásticos
   const [retornables, setRetornables] = useState(null); // Estado para retornables
@@ -349,6 +350,7 @@ Equipo de Validación Punto Azul`
     const plantilla = generarPlantillaEmail("APROBAR", selectedCliente?.nombre || "Cliente", totalesBase, totalesPlasticos);
     setEmailSubject(plantilla.asunto);
     setEmailBody(plantilla.cuerpo);
+    setEmailAction("APROBAR"); // Establecer la acción
     setShowEmailModal(true);
   };
 
@@ -357,6 +359,7 @@ Equipo de Validación Punto Azul`
     const plantilla = generarPlantillaEmail("RECHAZAR", selectedCliente?.nombre || "Cliente", 0, 0);
     setEmailSubject(plantilla.asunto);
     setEmailBody(plantilla.cuerpo);
+    setEmailAction("RECHAZAR"); // Establecer la acción
     setShowEmailModal(true);
   };
 
@@ -402,15 +405,13 @@ Equipo de Validación Punto Azul`
 
   // Función para enviar email y actualizar estado
   const handleEnviarEmail = async () => {
-    
-
     let nuevoEstado, motivo;
     
-    // Determinar estado y motivo basado en el asunto del email
-    if (emailSubject.includes("Aprobado")) {
+    // Determinar estado y motivo basado en la acción establecida
+    if (emailAction === "APROBAR") {
       nuevoEstado = "Aprobado";
       motivo = "Aprobado";
-    } else if (emailSubject.includes("Rechazado")) {
+    } else if (emailAction === "RECHAZAR") {
       nuevoEstado = "Rechazado";
       motivo = "Rechazado";
     } else {

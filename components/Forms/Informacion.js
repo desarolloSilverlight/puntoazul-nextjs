@@ -307,7 +307,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
           }
           return "Guardado";
         });
-      } else if (checkResponse.status === 404) { // antes 500, usar 404 para crear
+      } else if (checkResponse.status === 500) { // antes 500, usar 404 para crear
         // Validar anioReportado antes de crear
         if (!allowedYears.map(String).includes(updatedFormData.anioReportado.toString())) {
           updatedFormData.anioReportado = allowedYears[0].toString();

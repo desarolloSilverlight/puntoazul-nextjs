@@ -18,22 +18,42 @@ export default function DashboardVinculado() {
         }
 
         // Verificar si existe formulario de línea base para este usuario
-        const response = await fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${idUsuario}`);
-        
-        if (response.status === 404) {
+        const response = await fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${idUsuario}`, { credentials: 'include' });
+
+        if (response.status === 404 || response.status === 204) {
           // No existe formulario
           setEstadoFormulario("sin_formulario");
         } else if (response.ok) {
-          const data = await response.json();
-          const estado = data.estado?.toLowerCase() || "guardado";
-          setEstadoFormulario(estado);
+          let data = null;
+          try {
+            data = await response.json();
+          } catch (e) {
+            // Si no hay cuerpo JSON, tratar como sin formulario
+            setEstadoFormulario("sin_formulario");
+            return;
+          }
+          // Algunas APIs devuelven arrays o un envoltorio { data: [...] }
+          const payload = Array.isArray(data) ? data
+                        : Array.isArray(data?.data) ? data.data
+                        : (data ? [data] : []);
+          if (!payload || payload.length === 0) {
+            setEstadoFormulario("sin_formulario");
+          } else {
+            const item = payload[0] || {};
+            const estado = (item.estado || data.estado || "guardado").toString().toLowerCase();
+            setEstadoFormulario(estado);
+          }
         } else {
-          throw new Error("Error al consultar el formulario de línea base");
+          // Para cualquier respuesta no OK, mostrar estado sin_formulario en lugar de error en pantalla
+          console.warn("Consulta formulario línea base no OK:", response.status, response.statusText);
+          setEstadoFormulario("sin_formulario");
         }
 
       } catch (err) {
-        setError(err.message);
-        console.error("Error:", err);
+        // En fallos de red o parseo, preferimos mostrar 'sin_formulario' en lugar de error bloqueante
+        console.warn("Fallo consultando formulario línea base:", err);
+        setEstadoFormulario("sin_formulario");
+        setError(null);
       } finally {
         setLoading(false);
       }

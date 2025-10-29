@@ -94,7 +94,7 @@ export default function Login() {
                 destinatario: forgotEmail,
                 asunto,
                 cuerpo,
-                cuerpoHtml: cuerpo.replace(/\n/g, "<br/>") ,
+                cuerpoHtml: cuerpo.replace(/\n/g, "<br>") ,
                 tipoFormulario: "reset_password"
               }],
               enviarComoHtml: true,

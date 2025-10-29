@@ -4,14 +4,14 @@ import { API_BASE_URL } from "../../utils/config";
 
 const plantillaPorDefecto = {
   "linea_base": {
-    asunto: "Formulario Línea Base - {NOMBRE}",
+    asunto: "Acceso al Formulario Línea Base - {NOMBRE}",
     cuerpo:
-      "Estimado/a {NOMBRE},\n\nLe compartimos el acceso a la plataforma para diligenciar el Formulario Línea Base.\nLink: {LINK}\nUsuario: {EMAIL}\nContraseña: {PASSWORD}\n\nSaludos cordiales,\nEquipo Punto Azul",
+      "Estimado/a {NOMBRE},\n\nLe compartimos el acceso a la plataforma para diligenciar el Formulario Línea Base.\n\nPara acceder al sistema:\n1. Ingrese al siguiente enlace: {LINK_PRIMER_ACCESO}\n2. Use su correo electrónico registrado: {EMAIL}\n3. El sistema le dará acceso automáticamente\n4. Una vez dentro, deberá establecer su contraseña personal\n\nPlataforma principal: {LINK}\n\nSaludos cordiales,\nEquipo Punto Azul",
   },
   "literal_b": {
-    asunto: "Formulario Literal B - {NOMBRE}",
+    asunto: "Acceso al Formulario Literal B - {NOMBRE}",
     cuerpo:
-      "Estimado/a {NOMBRE},\n\nLe compartimos el acceso a la plataforma para diligenciar el Formulario Literal B.\nLink: {LINK}\nUsuario: {EMAIL}\nContraseña: {PASSWORD}\n\nSaludos cordiales,\nEquipo Punto Azul",
+      "Estimado/a {NOMBRE},\n\nLe compartimos el acceso a la plataforma para diligenciar el Formulario Literal B.\n\nPara acceder al sistema:\n1. Ingrese al siguiente enlace: {LINK_PRIMER_ACCESO}\n2. Use su correo electrónico registrado: {EMAIL}\n3. El sistema le dará acceso automáticamente\n4. Una vez dentro, deberá establecer su contraseña personal\n\nPlataforma principal: {LINK}\n\nSaludos cordiales,\nEquipo Punto Azul",
   },
 };
 
@@ -26,20 +26,18 @@ export default function EnviarCorreos() {
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const platformLink = "https://gestionliterales.puntoazul.com.co/";
+  const primerAccesoLink = "https://gestionliterales.puntoazul.com.co/auth/primer-acceso";
 
   // Convierte saltos de línea en <br> para correos HTML
-  const toHtml = (text) => (text || "").replace(/\n/g, "<br/>");
+  const toHtml = (text) => (text || "").replace(/\n/g, "<br>");
 
   // Reemplaza variables en plantillas con datos del usuario
   const renderTemplate = (tpl, u) => {
-    const password = u?.contraseña ?? u?.contrasena ?? u?.password ?? "";
-    const looksHashed = typeof password === "string" && password.startsWith("$2") && password.length >= 55;
     const values = {
       "{NOMBRE}": u?.nombre || "",
       "{EMAIL}": u?.email || "",
-      // Si parece hash (bcrypt), mantenemos el placeholder para que el backend lo reemplace por el password plano
-      "{PASSWORD}": looksHashed ? "{PASSWORD}" : password,
       "{LINK}": platformLink,
+      "{LINK_PRIMER_ACCESO}": primerAccesoLink,
       "{FORMULARIO}": tipoFormulario === "linea_base" ? "Línea Base" : "Literal B",
     };
     return Object.entries(values).reduce((acc, [k, v]) => acc.split(k).join(v), tpl || "");
@@ -110,8 +108,7 @@ export default function EnviarCorreos() {
       const asuntoFinal = renderTemplate(asunto, u);
       const cuerpoTexto = renderTemplate(cuerpo, u);
       const cuerpoHtml = toHtml(cuerpoTexto);
-      const pass = u?.contraseña ?? u?.contrasena ?? u?.password ?? "";
-      const requiereInyeccionPassword = typeof pass === "string" && pass.startsWith("$2") && pass.length >= 55;
+      
       return {
         destinatario: u.email,
         asunto: asuntoFinal,
@@ -119,7 +116,7 @@ export default function EnviarCorreos() {
         cuerpoHtml, // para preservar saltos si el backend envía HTML
         idUsuario: u.idUsuario,
         tipoFormulario,
-        requiereInyeccionPassword,
+        marcarCambioPassword: true, // Marcar que debe cambiar password
       };
     });
     // Enviar al backend
@@ -130,7 +127,11 @@ export default function EnviarCorreos() {
       const resp = await fetch(urlEnvio, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensajes, enviarComoHtml: true, incluirPasswordPlano: true })
+        body: JSON.stringify({ 
+          mensajes, 
+          enviarComoHtml: true, 
+          activarCambioPassword: true // Activar el flag changePass en BD
+        })
       });
       if (resp.ok) {
         setMensaje("Correos enviados correctamente.");
@@ -231,7 +232,7 @@ export default function EnviarCorreos() {
           value={cuerpo}
           onChange={e => setCuerpo(e.target.value)}
         />
-        <p className="text-xs text-gray-500 mt-1">Variables disponibles: {"{NOMBRE}"}, {"{EMAIL}"}, {"{PASSWORD}"}, {"{LINK}"}, {"{FORMULARIO}"}</p>
+        <p className="text-xs text-gray-500 mt-1">Variables disponibles: {"{NOMBRE}"}, {"{EMAIL}"}, {"{LINK}"}, {"{LINK_PRIMER_ACCESO}"}, {"{FORMULARIO}"}</p>
       </div>
       <div className="mb-4 border rounded p-3 bg-gray-50">
         <div className="font-semibold mb-1">Vista previa</div>

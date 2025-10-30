@@ -29,6 +29,10 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   const [isDisabled, setIsDisabled] = useState(readonly); // Controlar si los campos están bloqueados
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
+  
+  // Estados para modal de tratamiento de datos
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(true);
 
   // Actualizar estado cuando cambie la prop
   React.useEffect(() => {
@@ -45,7 +49,74 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         setIsDisabled(true);
       }
     }
-  }, [propEstado]);
+  }, [propEstado, onEstadoChange]);
+
+  // Verificar si debe mostrar modal de tratamiento de datos (solo para usuarios sin formulario)
+  useEffect(() => {
+    // Solo verificar si no está en modo readonly
+    if (readonly) {
+      setConsentLoading(false);
+      return;
+    }
+
+    const initConsent = async () => {
+      try {
+        const idUsuario = localStorage.getItem("id");
+        if (!idUsuario) {
+          console.log("InformacionB: Sin idUsuario - verificar tratamiento");
+          const tdLS = parseInt(localStorage.getItem('tratamientoDatos') || '0', 10);
+          setConsentOpen(!(tdLS === 1));
+          setConsentLoading(false);
+          return;
+        }
+
+        // Verificar si el usuario ya tiene formulario existente
+        const formResponse = await fetch(`${API_BASE_URL}/informacion-b/getByIdUsuario/${idUsuario}`);
+        console.log("InformacionB: Estado formulario:", formResponse.status);
+        
+        if (formResponse.status === 404 || formResponse.status === 500) {
+          // Sin formulario - verificar tratamiento de datos
+          console.log("InformacionB: Sin formulario - verificar tratamiento");
+          
+          try {
+            const resp = await fetch(`${API_BASE_URL}/users/me`, { credentials: 'include' });
+            if (resp.ok) {
+              const me = await resp.json();
+              const td = (me?.tratamientoDatos ?? me?.tratamiento_datos ?? 0);
+              localStorage.setItem('tratamientoDatos', String(td ?? 0));
+              console.log("InformacionB: Tratamiento desde backend:", td);
+            }
+          } catch (_) {
+            console.log("InformacionB: Error obteniendo tratamiento, usando localStorage");
+          }
+          
+          const tdLS = parseInt(localStorage.getItem('tratamientoDatos') || '0', 10);
+          console.log("InformacionB: Tratamiento localStorage:", tdLS);
+          const shouldShowConsent = !(tdLS === 1);
+          console.log("InformacionB: ¿Mostrar modal?", shouldShowConsent);
+          setConsentOpen(shouldShowConsent);
+        } else if (formResponse.ok) {
+          // Formulario existe - NO mostrar modal
+          console.log("InformacionB: Formulario existe - NO mostrar modal");
+          setConsentOpen(false);
+        } else {
+          // Error - asumir sin_formulario
+          console.log("InformacionB: Error - asumir sin_formulario");
+          const tdLS = parseInt(localStorage.getItem('tratamientoDatos') || '0', 10);
+          setConsentOpen(!(tdLS === 1));
+        }
+      } catch (_) {
+        // Error general - asumir sin_formulario
+        console.log("InformacionB: Error general - asumir sin_formulario");
+        const tdLS = parseInt(localStorage.getItem('tratamientoDatos') || '0', 10);
+        setConsentOpen(!(tdLS === 1));
+      } finally {
+        setConsentLoading(false);
+      }
+    };
+    
+    initConsent();
+  }, [readonly]);
 
   // useEffect para traer nombre y nit del usuario al cargar el componente (solo en modo normal)
   useEffect(() => {
@@ -162,6 +233,31 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
     fetchData();
   }, [propIdUsuario, propIdInformacionB, readonly]); // Agregar dependencias
+
+  // Funciones para manejar modal de tratamiento de datos
+  const aceptarTratamiento = async () => {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/users/tratamiento-datos`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ tratamientoDatos: 1 })
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`No se pudo registrar su aceptación. ${t}`);
+      }
+      localStorage.setItem('tratamientoDatos', '1');
+      setConsentOpen(false);
+      console.log("InformacionB: Tratamiento aceptado");
+    } catch (e) {
+      alert(String(e.message || e));
+    }
+  };
+
+  const rechazarTratamiento = () => {
+    window.location.href = '/admin/dashboard';
+  };
 
   // Manejar el envío del formulario
   const handleSubmit = async (e) => {
@@ -280,6 +376,32 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         (color === "light" ? "bg-white" : "bg-blueGray-700 text-white")
       }
     >
+      {/* Modal de tratamiento de datos - Solo aparece en estado sin_formulario */}
+      {!consentLoading && (
+        <Modal
+          isOpen={consentOpen}
+          onRequestClose={() => { /* bloqueado: sin cierre */ }}
+          shouldCloseOnOverlayClick={false}
+          ariaHideApp={false}
+          className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg max-w-xl outline-none"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-75 z-50"
+          contentLabel="Tratamiento de datos"
+          style={{
+            overlay: { zIndex: 9999 },
+            content: { zIndex: 10000 }
+          }}
+        >
+          <h2 className="text-xl font-bold mb-3">Tratamiento de datos personales</h2>
+          <p className="text-gray-700 mb-4">
+            Para continuar con el registro de su formulario, debe aceptar la política de tratamiento de datos. Al hacer clic en "Aceptar" autoriza el tratamiento de sus datos personales conforme a nuestra política.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button onClick={rechazarTratamiento} className="bg-gray-300 text-black px-4 py-2 rounded">Rechazar</button>
+            <button onClick={aceptarTratamiento} className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded">Aceptar</button>
+          </div>
+        </Modal>
+      )}
+
       {/* Formulario */}
       <form onSubmit={handleSubmit}>
         <div className="p-4 border-b">

@@ -26,6 +26,8 @@ export default function FormularioF() {
   // Tratamiento de datos (consentimiento)
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentLoading, setConsentLoading] = useState(true);
+  // Estado sin formulario
+  const [sinFormularioConsentOpen, setSinFormularioConsentOpen] = useState(false);
   
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -34,6 +36,46 @@ export default function FormularioF() {
       // También verificar si existe idInformacionF
       setIdInformacionFExists(!!localStorage.getItem("idInformacionF"));
     }
+  }, []);
+
+  // Verificar estado sin_formulario
+  useEffect(() => {
+    const checkSinFormulario = async () => {
+      try {
+        const idUsuario = localStorage.getItem("id");
+        if (!idUsuario) {
+          setSinFormularioConsentOpen(true);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${idUsuario}`, { credentials: 'include' });
+
+        if (response.status === 404 || response.status === 204) {
+          // No existe formulario = sin_formulario
+          setSinFormularioConsentOpen(true);
+        } else if (response.ok) {
+          let data = null;
+          try {
+            data = await response.json();
+          } catch (e) {
+            setSinFormularioConsentOpen(true);
+            return;
+          }
+          const payload = Array.isArray(data) ? data
+                        : Array.isArray(data?.data) ? data.data
+                        : (data ? [data] : []);
+          if (!payload || payload.length === 0) {
+            setSinFormularioConsentOpen(true);
+          }
+        } else {
+          setSinFormularioConsentOpen(true);
+        }
+      } catch (err) {
+        setSinFormularioConsentOpen(true);
+      }
+    };
+
+    checkSinFormulario();
   }, []);
 
   // Consultar tratamientoDatos del usuario y decidir si mostrar el modal (bloqueante)
@@ -76,6 +118,15 @@ export default function FormularioF() {
     }
   };
   const rechazarTratamiento = () => {
+    window.location.href = '/admin/dashboard';
+  };
+
+  // Handlers para el modal de sin_formulario
+  const aceptarSinFormulario = () => {
+    setSinFormularioConsentOpen(false);
+  };
+
+  const rechazarSinFormulario = () => {
     window.location.href = '/admin/dashboard';
   };
 
@@ -381,6 +432,26 @@ export default function FormularioF() {
           </div>
         </Modal>
       )}
+
+      {/* Modal bloqueante para estado sin_formulario */}
+      <Modal
+        isOpen={sinFormularioConsentOpen}
+        onRequestClose={() => { /* bloqueado: sin cierre */ }}
+        shouldCloseOnOverlayClick={false}
+        ariaHideApp={false}
+        className="mx-auto my-32 bg-white p-6 rounded-lg shadow-lg max-w-xl z-50 outline-none"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40"
+        contentLabel="Consentimiento de tratamiento de datos"
+      >
+        <h2 className="text-xl font-bold mb-3">Consentimiento de tratamiento de datos</h2>
+        <p className="text-gray-700 mb-4">
+          ¿Está de acuerdo con el tratamiento de datos por parte de Punto Azul de acuerdo a los términos y condiciones?
+        </p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={rechazarSinFormulario} className="bg-gray-300 text-black px-4 py-2 rounded">Rechazar</button>
+          <button onClick={aceptarSinFormulario} className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded">Aceptar</button>
+        </div>
+      </Modal>
       {/* Estado actual del formulario */}
       {/* <div className="mb-2 text-blue-700 font-semibold">Estado actual del formulario: {estadoInformacionF}</div> */}
       {/* Botones encima de los tabs */}

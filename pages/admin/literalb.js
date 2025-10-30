@@ -112,8 +112,8 @@ export default function FormularioF() {
     }
   };
 
-  // Helper: convierte saltos de línea a <br/> para correos HTML
-  const toHtml = (text) => (text || "").replace(/\n/g, "<br/>");
+  // Helper: convierte saltos de línea a <br> para correos HTML
+  const toHtml = (text) => (text || "").replace(/\n/g, "<br>");
 
   // Envía dos correos tras cambiar a "Pendiente":
   // 1) Al asociado (correoFacturacion) y 2) A literalb@puntoazul.com.co

@@ -29,6 +29,10 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   const [isDisabled, setIsDisabled] = useState(readonly); // Controlar si los campos están bloqueados
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
+  
+  // Estados para modal de tratamiento de datos
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(true);
 
   // Actualizar estado cuando cambie la prop
   React.useEffect(() => {
@@ -46,6 +50,31 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       }
     }
   }, [propEstado]);
+
+  // Modal de tratamiento de datos - Solo aparece cuando el estado es "Iniciado"
+  useEffect(() => {
+    console.log("Estado actual en InformacionB.js:", estado);
+    // Solo mostrar el modal cuando el estado es "Iniciado"
+    if (estado === "Iniciado") {
+      console.log("Mostrando modal de tratamiento (InformacionB.js)");
+      setConsentOpen(true);
+    } else {
+      console.log("Ocultando modal de tratamiento (InformacionB.js)");
+      setConsentOpen(false);
+    }
+    setConsentLoading(false);
+  }, [estado]); // Solo depende del estado del formulario
+
+  // Funciones para el modal de tratamiento de datos
+  const aceptarTratamiento = async () => {
+    // Simplemente cerrar el modal, no guardar en backend
+    setConsentOpen(false);
+  };
+  
+  const rechazarTratamiento = () => {
+    // Redirigir al dashboard si rechaza
+    window.location.href = '/admin/dashboard';
+  };
 
   // useEffect para traer nombre y nit del usuario al cargar el componente (solo en modo normal)
   useEffect(() => {
@@ -597,6 +626,68 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
               Cerrar
             </button>
           </div>
+      </Modal>
+
+      {/* Modal de tratamiento de datos - Siempre renderizado, visibilidad controlada por useEffect */}
+      <Modal
+        isOpen={consentOpen}
+        onRequestClose={() => { /* bloqueado: sin cierre */ }}
+        shouldCloseOnOverlayClick={false}
+        ariaHideApp={false}
+        className="mx-auto my-32 bg-white p-6 rounded-lg shadow-lg max-w-xl outline-none"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+        contentLabel="Tratamiento de datos"
+        style={{
+          overlay: {
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          },
+          content: {
+            zIndex: 10000,
+            position: 'relative',
+            margin: 'auto',
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            border: '2px solid #3b82f6'
+          }
+        }}
+      >
+        <div style={{ zIndex: 10001, position: 'relative' }}>
+          <h2 className="text-xl font-bold mb-3" style={{ color: '#1f2937' }}>Tratamiento de datos personales</h2>
+          <p className="text-gray-700 mb-4">
+            Para continuar, debe aceptar la política de tratamiento de datos. Al hacer clic en "Aceptar" autoriza el tratamiento de sus datos personales conforme a nuestra política.
+          </p>
+          <div className="flex gap-6 justify-end">
+            <button 
+              onClick={rechazarTratamiento} 
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+              style={{ zIndex: 10002 }}
+            >
+              Rechazar
+            </button>
+            <button 
+              onClick={aceptarTratamiento} 
+              className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded"
+              style={{ zIndex: 10002 }}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -30,7 +30,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof document !== "undefined") {
       const style = document.createElement("style");
-      style.innerHTML = `
+      /*style.innerHTML = `
       @keyframes crazy-jump {
         0% { transform: translate(0, 0) rotate(0deg); }
         10% { transform: translate(-150px, -100px) rotate(-15deg); }
@@ -45,7 +45,7 @@ export default function Dashboard() {
         animation: crazy-jump 5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
       }
       `;
-      document.head.appendChild(style);
+      document.head.appendChild(style);*/
     }
   }, []);
 

@@ -23,61 +23,16 @@ export default function FormularioF() {
   // Loader y estado para controlar botones según estadoInformacionF
   const [estadoInformacionF, setEstadoInformacionF] = useState(undefined);
   const [idInformacionFExists, setIdInformacionFExists] = useState(false);
-  // Tratamiento de datos (consentimiento)
-  const [consentOpen, setConsentOpen] = useState(false);
-  const [consentLoading, setConsentLoading] = useState(true);
   
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const estadoGuardado = localStorage.getItem("estadoInformacionF");
-      setEstadoInformacionF(estadoGuardado && estadoGuardado.trim() !== "" ? estadoGuardado.trim() : "Guardado");
+      // Si no hay estado guardado, asignar "Iniciado" como estado inicial
+      setEstadoInformacionF(estadoGuardado && estadoGuardado.trim() !== "" ? estadoGuardado.trim() : "Iniciado");
       // También verificar si existe idInformacionF
       setIdInformacionFExists(!!localStorage.getItem("idInformacionF"));
     }
   }, []);
-
-  // Consultar tratamientoDatos del usuario y decidir si mostrar el modal (bloqueante)
-  useEffect(() => {
-    const initConsent = async () => {
-      try {
-        const resp = await fetch(`${API_BASE_URL}/users/me`, { credentials: 'include' });
-        if (resp.ok) {
-          const me = await resp.json();
-          const td = (me?.tratamientoDatos ?? me?.tratamiento_datos ?? 0);
-          localStorage.setItem('tratamientoDatos', String(td ?? 0));
-        }
-      } catch (_) {
-        // ignorar, usar fallback
-      } finally {
-        const tdLS = parseInt(localStorage.getItem('tratamientoDatos') || '0', 10);
-        setConsentOpen(!(tdLS === 1));
-        setConsentLoading(false);
-      }
-    };
-    initConsent();
-  }, []);
-
-  const aceptarTratamiento = async () => {
-    try {
-      const resp = await fetch(`${API_BASE_URL}/users/tratamiento-datos`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ tratamientoDatos: 1 })
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        throw new Error(`No se pudo registrar su aceptación. ${t}`);
-      }
-      localStorage.setItem('tratamientoDatos', '1');
-      setConsentOpen(false);
-    } catch (e) {
-      alert(String(e.message || e));
-    }
-  };
-  const rechazarTratamiento = () => {
-    window.location.href = '/admin/dashboard';
-  };
 
   // Escuchar cambios en localStorage para actualizar el estado de las pestañas
   React.useEffect(() => {
@@ -85,7 +40,7 @@ export default function FormularioF() {
       setIdInformacionFExists(!!localStorage.getItem("idInformacionF"));
       // También actualizar el estado del formulario
       const estadoGuardado = localStorage.getItem("estadoInformacionF");
-      setEstadoInformacionF(estadoGuardado && estadoGuardado.trim() !== "" ? estadoGuardado.trim() : "Guardado");
+      setEstadoInformacionF(estadoGuardado && estadoGuardado.trim() !== "" ? estadoGuardado.trim() : "Iniciado");
     };
     
     // Listener para cambios en localStorage
@@ -360,27 +315,6 @@ export default function FormularioF() {
 
   return (
     <div className="mt-10 p-4 bg-gray-100 min-h-screen">
-      {/* Modal bloqueante de Tratamiento de Datos */}
-      {!consentLoading && (
-        <Modal
-          isOpen={consentOpen}
-          onRequestClose={() => { /* bloqueado: sin cierre */ }}
-          shouldCloseOnOverlayClick={false}
-          ariaHideApp={false}
-          className="mx-auto my-32 bg-white p-6 rounded-lg shadow-lg max-w-xl z-50 outline-none"
-          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40"
-          contentLabel="Tratamiento de datos"
-        >
-          <h2 className="text-xl font-bold mb-3">Tratamiento de datos personales</h2>
-          <p className="text-gray-700 mb-4">
-            Para continuar, debe aceptar la política de tratamiento de datos. Al hacer clic en "Aceptar" autoriza el tratamiento de sus datos personales conforme a nuestra política.
-          </p>
-          <div className="flex gap-3 justify-end">
-            <button onClick={rechazarTratamiento} className="bg-gray-300 text-black px-4 py-2 rounded">Rechazar</button>
-            <button onClick={aceptarTratamiento} className="bg-lightBlue-600 hover:bg-lightBlue-700 text-white px-4 py-2 rounded">Aceptar</button>
-          </div>
-        </Modal>
-      )}
       {/* Estado actual del formulario */}
       {/* <div className="mb-2 text-blue-700 font-semibold">Estado actual del formulario: {estadoInformacionF}</div> */}
       {/* Botones encima de los tabs */}
@@ -403,12 +337,12 @@ export default function FormularioF() {
             title="Información sobre los estados"
           ></i>
         </p>
-        {/* Botón Enviar formulario: solo visible si estado es vacío, Guardado o Rechazado, pero mantiene el espacio */}
-        <div style={{ visibility: (!estadoInformacionF || estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado") ? "visible" : "hidden" }}>
+        {/* Botón Enviar formulario: solo visible si estado es vacío, Iniciado, Guardado o Rechazado, pero mantiene el espacio */}
+        <div style={{ visibility: (!estadoInformacionF || estadoInformacionF === "Iniciado" || estadoInformacionF === "Guardado" || estadoInformacionF === "Rechazado") ? "visible" : "hidden" }}>
           <button
             className="bg-lightBlue-600 text-white px-4 py-2 rounded mt-3"
             onClick={handleSendForm}
-            disabled={!(estadoInformacionF === "Guardado" || !estadoInformacionF || estadoInformacionF === "Rechazado")}
+            disabled={!(estadoInformacionF === "Iniciado" || estadoInformacionF === "Guardado" || !estadoInformacionF || estadoInformacionF === "Rechazado")}
           >
             Enviar formulario
           </button>
@@ -425,6 +359,7 @@ export default function FormularioF() {
       >
         <h2 className="text-xl font-bold mb-4">¿Qué significa el estado del formulario?</h2>
         <ul className="list-disc pl-6 text-gray-700 mb-4">
+          <li><span className="font-semibold">Iniciado:</span> Formulario nuevo, listo para ser diligenciado por primera vez.</li>
           <li><span className="font-semibold">Guardado:</span> Su formulario se va guardando pero aún no lo puede ver el personal de Punto Azul.</li>
           <li><span className="font-semibold">Pendiente:</span> Está pendiente de revisión por el personal de Punto Azul.</li>
           <li><span className="font-semibold">Rechazado:</span> Su formulario ha sido devuelto por algún motivo que se especifica en el correo.</li>

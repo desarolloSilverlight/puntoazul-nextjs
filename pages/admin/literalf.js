@@ -23,6 +23,9 @@ export default function FormularioF() {
   // Loader y estado para controlar botones según estadoInformacionF
   const [estadoInformacionF, setEstadoInformacionF] = useState(undefined);
   const [idInformacionFExists, setIdInformacionFExists] = useState(false);
+  // Tratamiento de datos (consentimiento)
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(true);
   
   React.useEffect(() => {
     if (typeof window !== "undefined") {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Modal from "react-modal";
 import Admin from "layouts/Admin.js";
 import InformacionB from "components/Forms/InformacionB";

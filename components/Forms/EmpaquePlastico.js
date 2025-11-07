@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 export default function FormularioAfiliado({ color, readonly = false, idInformacionF: propIdInformacionF }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Cargando...");
   let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF");
   let estadoInformacionF = localStorage.getItem("estadoInformacionF");
   // Solo editable si estado es Guardado o Rechazado Y no está en modo readonly
@@ -64,6 +65,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencionalmente limitada a idInformacionF
   useEffect(() => {
     const fetchProductos = async () => {
+      if (!idInformacionF) return;
+      
+      setIsLoading(true);
+      setLoadingMessage("Cargando empaques plásticos...");
+      
       try {
         const response = await fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${idInformacionF}`, {
           method: "GET",
@@ -73,11 +79,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         if (!response.ok) {
           if (response.status === 404) {
             console.log("No se encontraron empaques plásticos para este idInformacionF.");
+            setIsLoading(false);
             return;
           }
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
 
+        setLoadingMessage("Procesando datos...");
         const data = await response.json();
         console.log("Empaques plásticos obtenidos:", data);
         // Mapear los datos recibidos al formato esperado por el componente
@@ -96,10 +104,15 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         }));
         setProductos(productosFormateados);
         setCurrentPage(1);
+        setLoadingMessage(`${productosFormateados.length} empaques cargados correctamente`);
       } catch (error) {
         console.error("Error al obtener los empaques plásticos:", error);
+        setLoadingMessage("Error al cargar empaques plásticos");
+      } finally {
+        setIsLoading(false);
       }
     };
+    
     if (idInformacionF) {
       fetchProductos();
       fetchToneladasAcumuladas();
@@ -320,8 +333,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           console.info('[EmpaquePlastico] Usando serverMaxPacketBytes de localStorage =', stored);
           return stored;
         }
-        console.warn('[EmpaquePlastico] Usando límite por defecto 2048 bytes. Si ya incrementó max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", NUEVO_VALOR) y vuelva a guardar para aprovechar más rendimiento.');
-        return 2048; // valor por defecto asumido
+        console.warn('[EmpaquePlastico] Usando límite por defecto 536870912 bytes (512MB). Si cambió max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", "NUEVO_VALOR") para usar valor personalizado.');
+        return 536870912; // valor por defecto actualizado
       };
       const SERVER_MAX_PACKET_BYTES = resolveServerPacketLimit();
       const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70); // 70% para overhead
@@ -427,8 +440,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       await Promise.all(workers);
       alert(`Se guardaron ${enviados} registros de Empaque Plástico en ${totalChunks} lote(s).`);
       await fetchToneladasAcumuladas();
-      if (SERVER_MAX_PACKET_BYTES === 2048 && productosSerializados.length > 50) {
-        console.info("[EmpaquePlastico] Sugerencia: Suba max_allowed_packet en MySQL (ej. 8MB) y luego ejecute localStorage.setItem('serverMaxPacketBytes', '8000000') para acelerar el guardado.");
+      if (SERVER_MAX_PACKET_BYTES === 536870912 && productosSerializados.length > 10000) {
+        console.info("[EmpaquePlastico] Rendimiento óptimo: Con max_allowed_packet=512MB puede procesar lotes grandes eficientemente.");
       }
     } catch (error) {
       console.error("Error al enviar los empaques plásticos:", error);
@@ -485,9 +498,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     const file = event.target.files[0];
     if (!file) return;
 
+    setIsLoading(true);
+    setLoadingMessage("Analizando archivo Excel...");
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
+        setLoadingMessage("Procesando datos del archivo...");
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -498,6 +515,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           descargarErroresTXT(errores, file.name);
           alert('Se generó un TXT con los errores encontrados.');
           event.target.value = '';
+          setIsLoading(false);
           return;
         }
         let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c=> typeof c==='string' && c.toLowerCase().includes('empresa')) && r.some(c=> typeof c==='string' && c.toLowerCase().includes('nombre')));
@@ -509,6 +527,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           descargarErroresTXT(errores, file.name);
           alert('Se generó un TXT con los errores encontrados.');
           event.target.value = '';
+          setIsLoading(false);
           return;
         }
   const headers = rawRows[headerIndex].map(h => (h||'').toString().trim());
@@ -518,10 +537,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         if (jsonData.length===0){
           const errores = ['No hay filas de datos después de encabezados.'];
           descargarErroresTXT(errores, file.name);
-          alert('Se generó un TXT con los errores encontrados.');
+          alert('Se generó un TXT con los errores encontrado.');
           event.target.value = '';
+          setIsLoading(false);
           return;
         }
+        
+        setLoadingMessage(`Validando ${jsonData.length} registros...`);
         const getExact = (row, labelLC) => {
           const idx = headersLC.findIndex(h => h === labelLC);
           return idx >= 0 ? row[headers[idx]] : undefined;
@@ -697,19 +719,26 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           descargarErroresTXT(errores, file.name);
           alert('Se generó un TXT con los errores encontrados.');
           event.target.value = '';
+          setIsLoading(false);
           return;
         }
 
-  // Actualizar estado con productos validados y reiniciar a la primera página
-  setProductos(productosValidados);
-  setCurrentPage(1);
+        setLoadingMessage("Cargando datos en la tabla...");
+        // Actualizar estado con productos validados y reiniciar a la primera página
+        setProductos(productosValidados);
+        setCurrentPage(1);
         
         // Mensaje informativo según el tipo de reporte
         let mensaje = `Se cargaron exitosamente ${productosValidados.length} productos desde Excel.`;
         if (tipoReporte === "totalizado") {
           mensaje += "\n\nNota: Las unidades fueron ajustadas automáticamente a 1 porque el tipo de reporte es totalizado.";
         }
-        alert(mensaje);
+        
+        setLoadingMessage(`${productosValidados.length} productos cargados correctamente`);
+        setTimeout(() => {
+          setIsLoading(false);
+          alert(mensaje);
+        }, 500);
 
       } catch (error) {
         console.error('Error al procesar archivo Excel:', error);
@@ -720,6 +749,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         descargarErroresTXT(errores, file?.name || 'archivo.xlsx');
         alert('Se generó un TXT con el detalle del error.');
         event.target.value = '';
+        setIsLoading(false);
       }
     };
 
@@ -768,16 +798,18 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             return (
               <>
                 <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
-                  Guardando información... {uploadProgress.total > 0 ? `${percentage}%` : ''}
+                  {uploadProgress.total > 0 ? `Guardando información... ${percentage}%` : loadingMessage}
                 </span>
 
-                {/* Barra de progreso */}
-                <div className="w-64 h-2 bg-gray-200 rounded-full mt-3 overflow-hidden">
-                  <div
-                    className="h-2 bg-blue-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
+                {/* Barra de progreso - solo mostrar durante guardado */}
+                {uploadProgress.total > 0 && (
+                  <div className="w-64 h-2 bg-gray-200 rounded-full mt-3 overflow-hidden">
+                    <div
+                      className="h-2 bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                )}
               </>
             );
           })()}
@@ -877,7 +909,26 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                 </tr>
               </thead>
               <tbody>
-                {(() => {
+                {productos.length === 0 && !isLoading ? (
+                  <tr>
+                    <td colSpan={readonly ? "26" : "27"} className="text-center py-8 text-gray-500">
+                      <div className="flex flex-col items-center">
+                        <i className="fas fa-recycle text-4xl text-gray-400 mb-3"></i>
+                        <p className="text-lg font-medium">No hay empaques plásticos registrados</p>
+                        <p className="text-sm">Agregue productos manualmente o cargue un archivo Excel</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : isLoading ? (
+                  <tr>
+                    <td colSpan={readonly ? "26" : "27"} className="text-center py-8">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                        <span className="text-gray-600">{loadingMessage}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (() => {
                   const totalItems = productos.length;
                   const startIdx = (currentPage - 1) * pageSize;
                   const endIdx = Math.min(totalItems, startIdx + pageSize);
@@ -1058,6 +1109,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                   );
                 });
                 })()}
+                {/* Closing the ternary operator for the tbody content */}
+                
               </tbody>
               {/* Totales sobre TODOS los registros (no por página) */}
               {productos.length > 0 && (

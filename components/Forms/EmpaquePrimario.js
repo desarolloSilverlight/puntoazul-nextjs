@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 export default function FormularioAfiliado({ color, readonly = false, idInformacionF: propIdInformacionF, estado: propEstado }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Cargando...");
   let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF");
   let estadoInformacionF = propEstado || localStorage.getItem("estadoInformacionF");
   let tipoReporte = localStorage.getItem("tipoReporte");
@@ -88,6 +89,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
   useEffect(() => {
     const fetchProductos = async () => {
+      if (!idInformacionF) {
+        console.log("Sin idInformacionF, no se pueden cargar productos");
+        return;
+      }
+      
+      setLoadingMessage("Cargando productos...");
+      setIsLoading(true); // Mostrar loader durante carga inicial
       try {
         const response = await fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${idInformacionF}`, {
           method: "GET",
@@ -96,6 +104,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         if (!response.ok) {
           if (response.status === 404) {
             console.log("No se encontraron empaques primarios para este idInformacion.");
+            setIsLoading(false);
             return;
           }
           throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -131,8 +140,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         });
   setProductos(productosFormateados);
   setCurrentPage(1);
+        
+        setIsLoading(false); // Quitar loader al completar carga exitosa
       } catch (error) {
         console.error("Error al obtener los empaques primarios:", error);
+        setIsLoading(false); // Quitar loader en caso de error
       }
     };
     if (idInformacionF) {
@@ -218,6 +230,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoadingMessage("Guardando información...");
     setIsLoading(true);
     // Validaciones requeridas
   const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
@@ -345,9 +358,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         return fila;
       });
       // Opción 2: Chunking dinámico basado en tamaño promedio de fila para no exceder ~2MB por request.
-  // Ajuste especial: el servidor reporta max_allowed_packet = 2048 bytes (2KB) -> extremadamente bajo.
+  // Ajuste especial: el servidor reporta max_allowed_packet = 536870912 bytes (512MB) -> extremadamente bajo.
   // Implementamos un modo de contingencia: si una fila se acerca al límite, enviamos 1 fila por request.
-  const SERVER_MAX_PACKET_BYTES = 2048; // valor reportado
+  const SERVER_MAX_PACKET_BYTES = 536870912; // valor reportado
   const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70); // 70% del límite para overhead (headers/query internals)
   // Si se eleva max_allowed_packet en el servidor, se puede redefinir TARGET_MAX_BYTES a un valor mayor.
   const TARGET_MAX_BYTES = Math.max( SAFE_TARGET, 1_000 ); // asegurar al menos 1000 bytes para cálculos; aquí ~1433 si 2048
@@ -563,6 +576,10 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     const file = event.target.files[0];
     if (!file) return;
 
+    // Mostrar loader mientras se analiza el archivo
+    setLoadingMessage("Analizando archivo Excel...");
+    setIsLoading(true);
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -573,6 +590,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         // Leer como matriz para detectar si hay fila de nota previa a encabezados
         const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         if (!rawRows || rawRows.length === 0) {
+          setIsLoading(false);
           descargarErroresTXT(["El archivo Excel está vacío."], file?.name);
           alert('El archivo Excel está vacío. Se descargó un .txt con el detalle.');
           if (event && event.target) event.target.value = '';
@@ -581,6 +599,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         // Buscar fila que contenga los encabezados (que incluya 'Empresa' y 'Nombre')
         let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('empresa')) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('nombre')));
         if (headerIndex === -1) {
+          setIsLoading(false);
           descargarErroresTXT([
             'No se encontraron encabezados válidos en el Excel (faltan columnas como Empresa titular, Nombre Producto).'
           ], file?.name);
@@ -596,6 +615,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           return obj;
         });
         if (jsonData.length === 0) {
+          setIsLoading(false);
           descargarErroresTXT(['No hay filas de datos después de los encabezados.'], file?.name);
           alert('No hay filas de datos. Se descargó un .txt con el detalle.');
           if (event && event.target) event.target.value = '';
@@ -753,6 +773,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         });
 
         if (errores.length > 0) {
+          setIsLoading(false);
           descargarErroresTXT(errores, file?.name);
           alert(`Se encontraron ${errores.length} errores. Se descargó un .txt con el detalle para su corrección.`);
           if (event && event.target) event.target.value = '';
@@ -768,9 +789,12 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         if (tipoReporte === "totalizado") {
           mensaje += "\n\nNota: Las unidades fueron ajustadas automáticamente a 1 porque el tipo de reporte es totalizado.";
         }
+        
+        setIsLoading(false); // Quitar loader al completar exitosamente
         alert(mensaje);
 
       } catch (error) {
+        setIsLoading(false); // Quitar loader en caso de error
         console.error('Error al procesar archivo Excel:', error);
         descargarErroresTXT([
           `Error al procesar el archivo Excel: ${error.message}`,
@@ -817,7 +841,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             return (
               <>
                 <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
-                  Guardando información... {uploadProgress.total > 0 ? `${percentage}%` : ''}
+                  {loadingMessage} {uploadProgress.total > 0 ? `${percentage}%` : ''}
                 </span>
 
                 {/* Barra de progreso */}
@@ -956,9 +980,26 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                 </tr>
               </thead>
               <tbody>
-                {productos.length === 0 ? (
+                {productos.length === 0 && !isLoading ? (
                   <tr>
-                    <td colSpan={readonly ? 11 : 12} className="text-center py-2">No hay productos guardados.</td>
+                    <td colSpan={readonly ? 11 : 12} className="text-center py-8">
+                      <div className="flex flex-col items-center text-gray-500">
+                        <i className="fas fa-box-open text-4xl mb-2"></i>
+                        <p className="text-lg font-medium">No hay productos guardados</p>
+                        <p className="text-sm">
+                          {esEditable ? "Agregue productos manualmente o cargue un archivo Excel" : "Este formulario no tiene productos registrados"}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : isLoading && productos.length === 0 ? (
+                  <tr>
+                    <td colSpan={readonly ? 11 : 12} className="text-center py-8">
+                      <div className="flex flex-col items-center text-blue-600">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                        <p>Cargando productos...</p>
+                      </div>
+                    </td>
                   </tr>
                 ) : (
                   // Renderizar solo la página actual

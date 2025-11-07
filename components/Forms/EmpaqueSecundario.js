@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 export default function FormularioAfiliado({ color, readonly = false, idInformacionF: propIdInformacionF, estado: propEstado }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Cargando...");
   let idInformacionF = propIdInformacionF || localStorage.getItem("idInformacionF");
   let estadoInformacionF = propEstado || localStorage.getItem("estadoInformacionF");
   let tipoReporte = localStorage.getItem("tipoReporte");
@@ -60,6 +61,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencional a idInformacionF y tipoReporte
   useEffect(() => {
   const fetchProductos = async () => {
+      if (!idInformacionF) {
+        console.log("Sin idInformacionF, no se pueden cargar productos");
+        return;
+      }
+      
+      setLoadingMessage("Cargando productos...");
+      setIsLoading(true);
       try {
         const response = await fetch(`${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${idInformacionF}`, {
           method: "GET",
@@ -68,6 +76,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         if (!response.ok) {
           if (response.status === 404) {
             console.log("No se encontraron empaques secundarios para este idInformacionF.");
+            setIsLoading(false);
             return;
           }
           throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -102,8 +111,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         });
   setProductos(productosFormateados);
   setCurrentPage(1);
+        
+        setIsLoading(false);
       } catch (error) {
         console.error("Error al obtener los empaques secundarios:", error);
+        setIsLoading(false);
       }
     };
     if (idInformacionF) {
@@ -215,6 +227,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoadingMessage("Guardando información...");
     setIsLoading(true);
     // Validaciones requeridas
   const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
@@ -346,8 +359,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
           console.info('[EmpaqueSecundario] Usando serverMaxPacketBytes de localStorage =', stored);
           return stored;
         }
-        console.warn('[EmpaqueSecundario] Límite por defecto 2048 bytes. Tras subir max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", "8000000") por ejemplo.');
-        return 2048;
+        console.warn('[EmpaqueSecundario] Límite por defecto 536870912 bytes (512MB). Si cambió max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", "NUEVO_VALOR") para usar valor personalizado.');
+        return 536870912;
       };
       const SERVER_MAX_PACKET_BYTES = resolveServerPacketLimit();
       const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70);
@@ -447,8 +460,8 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       await Promise.all(workers);
       alert(`Se guardaron ${enviados} registros de Empaque Secundario en ${totalChunks} lote(s).`);
       await fetchToneladasAcumuladas();
-      if (SERVER_MAX_PACKET_BYTES === 2048 && productosSerializados.length > 50) {
-        console.info("[EmpaqueSecundario] Sugerencia: incremente max_allowed_packet y luego ejecute localStorage.setItem('serverMaxPacketBytes','8000000') para mejorar rendimiento.");
+      if (SERVER_MAX_PACKET_BYTES === 536870912 && productosSerializados.length > 10000) {
+        console.info("[EmpaqueSecundario] Rendimiento óptimo: Con max_allowed_packet=512MB puede procesar lotes grandes eficientemente.");
       }
     } catch (error) {
       console.error("Error al enviar los empaques secundarios:", error);
@@ -531,6 +544,9 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     const file = event.target.files[0];
     if (!file) return;
 
+    setLoadingMessage("Analizando archivo Excel...");
+    setIsLoading(true);
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -540,6 +556,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const worksheet = workbook.Sheets[sheetName];
         const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
         if (!rawRows || rawRows.length === 0) {
+          setIsLoading(false);
           descargarErroresTXT(["El archivo Excel está vacío."], file?.name);
           alert('El archivo Excel está vacío. Se descargó un .txt con el detalle.');
           if (event && event.target) event.target.value = '';
@@ -547,6 +564,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         }
         let headerIndex = rawRows.findIndex(r => Array.isArray(r) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('empresa')) && r.some(c => typeof c === 'string' && c.toLowerCase().includes('nombre')));
         if (headerIndex === -1) {
+          setIsLoading(false);
           descargarErroresTXT(['No se encontraron encabezados válidos.'], file?.name);
           alert('No se encontraron encabezados válidos. Se descargó un .txt con el detalle.');
           if (event && event.target) event.target.value = '';
@@ -556,6 +574,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const dataMatrix = rawRows.slice(headerIndex + 1).filter(r => r.some(c => c !== null && c !== undefined && c !== ''));
         const jsonData = dataMatrix.map(r => { const o = {}; headers.forEach((h,i)=> o[h]=r[i]); return o; });
         if (jsonData.length === 0) {
+          setIsLoading(false);
           descargarErroresTXT(['No hay filas de datos después de los encabezados.'], file?.name);
           alert('No hay filas de datos después de los encabezados. Se descargó un .txt con el detalle.');
           if (event && event.target) event.target.value = '';
@@ -696,6 +715,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         });
 
         if (errores.length > 0) {
+          setIsLoading(false);
           descargarErroresTXT(errores, file?.name);
           alert(`Se encontraron ${errores.length} errores. Se descargó un .txt con el detalle para su corrección.`);
           if (event && event.target) event.target.value = '';
@@ -711,9 +731,12 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         if (tipoReporte === "totalizado") {
           mensaje += "\n\nNota: Las unidades fueron ajustadas automáticamente a 1 porque el tipo de reporte es totalizado.";
         }
+        
+        setIsLoading(false);
         alert(mensaje);
 
       } catch (error) {
+        setIsLoading(false);
         console.error('Error al procesar archivo Excel:', error);
         descargarErroresTXT([
           `Error al procesar el archivo Excel: ${error.message}`,
@@ -759,7 +782,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
             return (
               <>
                 <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
-                  Guardando información... {uploadProgress.total > 0 ? `${percentage}%` : ''}
+                  {loadingMessage} {uploadProgress.total > 0 ? `${percentage}%` : ''}
                 </span>
 
                 {/* Barra de progreso */}
@@ -848,7 +871,28 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
                 </tr>
               </thead>
               <tbody>
-                {(() => {
+                {productos.length === 0 && !isLoading ? (
+                  <tr>
+                    <td colSpan={readonly ? 11 : 12} className="text-center py-8">
+                      <div className="flex flex-col items-center text-gray-500">
+                        <i className="fas fa-box-open text-4xl mb-2"></i>
+                        <p className="text-lg font-medium">No hay productos guardados</p>
+                        <p className="text-sm">
+                          {esEditable ? "Agregue productos manualmente o cargue un archivo Excel" : "Este formulario no tiene productos registrados"}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : isLoading && productos.length === 0 ? (
+                  <tr>
+                    <td colSpan={readonly ? 11 : 12} className="text-center py-8">
+                      <div className="flex flex-col items-center text-blue-600">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                        <p>Cargando productos...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (() => {
                   const totalItems = productos.length;
                   const startIdx = (currentPage - 1) * pageSize;
                   const endIdx = Math.min(totalItems, startIdx + pageSize);

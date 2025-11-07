@@ -19,6 +19,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   const [productos, setProductos] = useState([]); // Estado para los productos
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
   const [isLoading, setIsLoading] = useState(false); // Loader al guardar
+  const [loadingMessage, setLoadingMessage] = useState("Cargando...");
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 }); // Progreso de lotes
   // Paginación
   const [pageSize, setPageSize] = useState(10);
@@ -56,6 +57,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   // Obtener productos desde el backend al cargar el componente
   useEffect(() => {
     const fetchProductos = async () => {
+      if (!idInformacionB) return;
+      
+      setIsLoading(true);
+      setLoadingMessage("Cargando productos...");
+      
       try {
         const response = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${idInformacionB}`, {
           method: "GET",
@@ -65,17 +71,23 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         if (!response.ok) {
           if (response.status === 404) {
             console.log("No se encontraron productos para este idInformacionB.");
+            setIsLoading(false);
             return; // Si no hay productos, no hacemos nada
           }
           throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
 
+        setLoadingMessage("Procesando datos...");
         const data = await response.json();
-  console.log("Productos obtenidos:", data);
-  setProductos(data); // Guardar los productos en el estado
-  setCurrentPage(1);
+        console.log("Productos obtenidos:", data);
+        setProductos(data); // Guardar los productos en el estado
+        setCurrentPage(1);
+        setLoadingMessage(`${data.length} productos cargados correctamente`);
       } catch (error) {
         console.error("Error al obtener los productos:", error);
+        setLoadingMessage("Error al cargar productos");
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -286,8 +298,8 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           console.info('[ProductosB] Usando serverMaxPacketBytes de localStorage =', stored);
           return stored;
         }
-        console.warn('[ProductosB] Usando límite por defecto 2048 bytes. Si aumentó max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", "8000000") (ejemplo) y vuelva a guardar.');
-        return 2048;
+        console.warn('[ProductosB] Usando límite por defecto 536870912 bytes (512MB). Si cambió max_allowed_packet ejecute localStorage.setItem("serverMaxPacketBytes", "NUEVO_VALOR") para usar valor personalizado.');
+        return 536870912;
       };
       const SERVER_MAX_PACKET_BYTES = resolveServerPacketLimit();
       const SAFE_TARGET = Math.floor(SERVER_MAX_PACKET_BYTES * 0.70);
@@ -390,8 +402,8 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
       await Promise.all(workers);
 
       alert(`Se guardaron ${payload.length} registros de Productos (Literal B) en ${totalChunks} lote(s).`);
-      if (SERVER_MAX_PACKET_BYTES === 2048 && payload.length > 50) {
-        console.info("[ProductosB] Sugerencia: incremente max_allowed_packet en MySQL y luego ejecute localStorage.setItem('serverMaxPacketBytes','8000000') para aumentar el rendimiento de carga.");
+      if (SERVER_MAX_PACKET_BYTES === 536870912 && payload.length > 10000) {
+        console.info("[ProductosB] Rendimiento óptimo: Con max_allowed_packet=512MB puede procesar lotes grandes eficientemente.");
       }
     } catch (error) {
       console.error('Error al enviar los productos:', error);
@@ -498,9 +510,13 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     const file = e.target.files[0];
     if (!file) return;
 
+    setIsLoading(true);
+    setLoadingMessage("Analizando archivo Excel...");
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
+        setLoadingMessage("Procesando datos del archivo...");
         const data = new Uint8Array(event.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -508,6 +524,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
         // Validar y procesar datos
+        setLoadingMessage(`Validando ${jsonData.length} registros...`);
         const productosValidados = [];
         const errores = [];
 
@@ -635,6 +652,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           alert(`Se encontraron ${errores.length} errores. Se descargó un archivo .txt con el detalle para su corrección.`);
           // Limpiar el input antes de salir para permitir recargar el mismo archivo
           if (e && e.target) e.target.value = "";
+          setIsLoading(false);
           return;
         }
 
@@ -642,6 +660,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           descargarErroresTXT(["No se encontraron productos válidos en el archivo Excel."], file?.name);
           alert("No se encontraron productos válidos. Se descargó un archivo .txt con el detalle.");
           if (e && e.target) e.target.value = "";
+          setIsLoading(false);
           return;
         }
 
@@ -650,9 +669,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         const confirmarReemplazo = window.confirm(mensaje);
         if (!confirmarReemplazo) {
           if (e && e.target) e.target.value = ""; // permitir recargar el mismo archivo
+          setIsLoading(false);
           return;
         }
 
+        setLoadingMessage("Cargando datos en la tabla...");
         // Normalizar IDs consecutivos desde 1
         const productosReemplazados = productosValidados.map((p, idx) => ({
           ...p,
@@ -660,7 +681,12 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         }));
         setProductos(productosReemplazados);
         setCurrentPage(1);
-        alert(`Se reemplazó la tabla con ${productosValidados.length} productos del archivo.\n\nRecuerde presionar "Guardar" para persistir los cambios.`);
+        
+        setLoadingMessage(`${productosValidados.length} productos cargados correctamente`);
+        setTimeout(() => {
+          setIsLoading(false);
+          alert(`Se reemplazó la tabla con ${productosValidados.length} productos del archivo.\n\nRecuerde presionar "Guardar" para persistir los cambios.`);
+        }, 500);
 
       } catch (error) {
         descargarErroresTXT([
@@ -668,10 +694,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           "Asegúrese de que el archivo tenga el formato correcto.",
         ], file?.name);
         alert("Ocurrió un error al procesar el archivo. Se descargó un archivo .txt con el detalle.");
+        setIsLoading(false);
       }
 
       // Limpiar el input
-  e.target.value = "";
+      e.target.value = "";
     };
 
     reader.readAsArrayBuffer(file);
@@ -726,16 +753,18 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
             return (
               <>
                 <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
-                  Guardando información... {uploadProgress.total > 0 ? `${percentage}%` : ''}
+                  {uploadProgress.total > 0 ? `Guardando información... ${percentage}%` : loadingMessage}
                 </span>
 
-                {/* Barra de progreso */}
-                <div className="w-64 h-2 bg-gray-200 rounded-full mt-3 overflow-hidden">
-                  <div
-                    className="h-2 bg-blue-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
+                {/* Barra de progreso - solo mostrar durante guardado */}
+                {uploadProgress.total > 0 && (
+                  <div className="w-64 h-2 bg-gray-200 rounded-full mt-3 overflow-hidden">
+                    <div
+                      className="h-2 bg-blue-600 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                )}
               </>
             );
           })()}
@@ -859,7 +888,26 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 </tr>
               </thead>
               <tbody>
-                {(() => {
+                {productos.length === 0 && !isLoading ? (
+                  <tr>
+                    <td colSpan={readonly ? "16" : "17"} className="text-center py-8 text-gray-500">
+                      <div className="flex flex-col items-center">
+                        <i className="fas fa-pills text-4xl text-gray-400 mb-3"></i>
+                        <p className="text-lg font-medium">No hay productos registrados</p>
+                        <p className="text-sm">Agregue productos manualmente o cargue un archivo Excel</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : isLoading ? (
+                  <tr>
+                    <td colSpan={readonly ? "16" : "17"} className="text-center py-8">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                        <span className="text-gray-600">{loadingMessage}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (() => {
                   const totalItems = productos.length;
                   const startIdx = (currentPage - 1) * pageSize;
                   const endIdx = Math.min(totalItems, startIdx + pageSize);
@@ -1048,6 +1096,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 </tr>
                 )});
                 })()}
+                {/* Closing the ternary operator for the tbody content */}
             </tbody>
               {/* Totales sobre TODOS los registros (no por página) */}
               {productos.length > 0 && (

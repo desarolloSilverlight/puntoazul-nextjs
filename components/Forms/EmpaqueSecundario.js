@@ -374,44 +374,53 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         }
         avgBytesPorFila = total / SAMPLE_COUNT;
       }
-      let rowsPerChunk = 120;
+      let rowsPerChunk = 150; // valor base antes de recalcular (igual que EmpaquePrimario)
       if (avgBytesPorFila > 0) {
         rowsPerChunk = Math.floor(TARGET_MAX_BYTES / avgBytesPorFila);
+        // Rango adaptado: igual que EmpaquePrimario
         if (SERVER_MAX_PACKET_BYTES <= 4096) {
           rowsPerChunk = Math.max(1, Math.min(50, rowsPerChunk));
         } else {
-          rowsPerChunk = Math.max(50, Math.min(400, rowsPerChunk));
+          rowsPerChunk = Math.max(50, Math.min(300, rowsPerChunk));
         }
       }
+      // Fallback adicional: si una sola fila ya excede el SAFE_TARGET, forzar 1 por chunk
       if (avgBytesPorFila > SAFE_TARGET) {
-        console.warn('[EmpaqueSecundario] Una fila ('+avgBytesPorFila+' bytes) > SAFE_TARGET='+SAFE_TARGET+' -> forzando 1 fila por chunk');
+        console.warn('[EmpaqueSecundario] Una fila ('+avgBytesPorFila+' bytes) excede SAFE_TARGET='+SAFE_TARGET+' -> forzando micro-chunks de 1 fila');
         rowsPerChunk = 1;
       }
       const prelim = [];
       for (let i = 0; i < productosSerializados.length; i += rowsPerChunk) {
         prelim.push(productosSerializados.slice(i, i + rowsPerChunk));
       }
+      // Refinar: si algún chunk supera el umbral duro (TARGET_MAX_BYTES), subdividirlo dinámicamente
       const refined = [];
       for (const ch of prelim) {
-        const size = new TextEncoder().encode(JSON.stringify(ch)).length;
+        let json = JSON.stringify(ch);
+        let size = new TextEncoder().encode(json).length;
         if (size <= TARGET_MAX_BYTES) {
           refined.push(ch);
         } else {
+          // Subdividir adaptativamente hasta cumplir límite
           let start = 0;
-          let estimate = Math.max(1, Math.floor(ch.length * (TARGET_MAX_BYTES / size)));
+          // Estimar subChunkSize inicial proporcional
+          let estimatedSubSize = Math.max(1, Math.floor(ch.length * (TARGET_MAX_BYTES / size)));
           while (start < ch.length) {
-            let subSize = Math.min(estimate, ch.length - start);
-            while (subSize > 0) {
-              const tentative = ch.slice(start, start + subSize);
-              const tBytes = new TextEncoder().encode(JSON.stringify(tentative)).length;
+            let subChunkSize = Math.min(estimatedSubSize, ch.length - start);
+            // Reducir hasta que entre
+            while (subChunkSize > 0) {
+              const tentative = ch.slice(start, start + subChunkSize);
+              const tJson = JSON.stringify(tentative);
+              const tBytes = new TextEncoder().encode(tJson).length;
               if (tBytes <= TARGET_MAX_BYTES || tentative.length === 1) {
                 refined.push(tentative);
                 start += tentative.length;
                 break;
               }
-              subSize = Math.floor(subSize / 2);
+              subChunkSize = Math.floor(subChunkSize / 2);
             }
-            if (subSize === 0) {
+            if (subChunkSize === 0) {
+              // fallback de seguridad
               refined.push([ch[start]]);
               start += 1;
             }
@@ -419,16 +428,19 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         }
       }
       const chunks = refined;
-      console.log('[EmpaqueSecundario] avgBytesPorFila=', avgBytesPorFila.toFixed(2), 'rowsPerChunk=', rowsPerChunk, 'prelim=', prelim.length, 'final=', chunks.length, 'TARGET_MAX_BYTES=', TARGET_MAX_BYTES, 'SERVER_MAX_PACKET_BYTES=', SERVER_MAX_PACKET_BYTES);
+      // Log detallado de tamaños de cada chunk
+      console.log('[EmpaqueSecundario] avgBytesPorFila=', avgBytesPorFila.toFixed(2), 'rowsPerChunkEstimado=', rowsPerChunk, 'chunksPreSplit=', prelim.length, 'chunksFinal=', chunks.length, 'TARGET_MAX_BYTES=', TARGET_MAX_BYTES, 'SERVER_MAX_PACKET_BYTES=', SERVER_MAX_PACKET_BYTES);
       chunks.forEach((c,i)=>{
         const b = new TextEncoder().encode(JSON.stringify(c)).length;
         console.log(`[EmpaqueSecundario] Chunk ${i+1}/${chunks.length} bytes=${b}`);
       });
       const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
       const totalChunks = chunks.length;
-      const concurrency = 2;
+      const concurrency = 2; // menor paralelismo para reducir presión
       setUploadProgress({ total: totalChunks, done: 0 });
+      
       let enviados = 0;
+      let nextIndex = 0;
       const uploadChunk = async (index) => {
         const chunk = chunks[index];
         const isFirst = index === 0;
@@ -446,10 +458,11 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         enviados += chunk.length;
         setUploadProgress(p => ({ total: p.total, done: p.done + 1 }));
       };
+      // Subir el primer lote de forma secuencial para garantizar el 'replace'
       if (totalChunks > 0) {
         await uploadChunk(0);
+        nextIndex = 1;
       }
-      let nextIndex = 1;
       const workers = Array.from({ length: Math.min(concurrency, totalChunks) }, async () => {
         while (true) {
           const current = nextIndex++;

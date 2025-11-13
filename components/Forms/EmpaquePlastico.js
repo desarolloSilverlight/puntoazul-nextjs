@@ -50,22 +50,13 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
   };
 
   // Obtener productos desde el backend al cargar el componente
-  // --- Toneladas acumuladas globales ---
-  // Definir la función fuera del useEffect para poder reutilizarla
-  const fetchToneladasAcumuladas = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/informacion-f/getToneladasAcumuladasPlasticos/${idInformacionF}`);
-      if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
-      const data = await response.json();
-      setToneladasAcumuladasGlobal(Number(data.toneladas) || 0);
-    } catch {
-      setToneladasAcumuladasGlobal(0);
-    }
-  }, [idInformacionF]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencionalmente limitada a idInformacionF
   useEffect(() => {
     const fetchProductos = async () => {
-      if (!idInformacionF) return;
+      if (!idInformacionF) {
+        console.log("Sin idInformacionF, no se pueden cargar productos");
+        return;
+      }
       
       setIsLoading(true);
       setLoadingMessage("Cargando empaques plásticos...");
@@ -89,7 +80,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         const data = await response.json();
         console.log("Empaques plásticos obtenidos:", data);
         // Mapear los datos recibidos al formato esperado por el componente
-  const productosFormateados = data.map(producto => ({
+        const productosFormateados = data.map(producto => ({
           id: producto.idEmpaque,
           idInformacionF: producto.idInformacionF,
           empresaTitular: producto.empresa || "",
@@ -115,9 +106,29 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     
     if (idInformacionF) {
       fetchProductos();
+    }
+  }, [idInformacionF]);
+
+  // --- Toneladas acumuladas globales ---
+  // Definir la función fuera del useEffect para poder reutilizarla
+  const fetchToneladasAcumuladas = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/informacion-f/getToneladasAcumuladasPlasticos/${idInformacionF}`);
+      if (!response.ok) throw new Error("No se pudo obtener toneladas acumuladas");
+      const data = await response.json();
+      setToneladasAcumuladasGlobal(Number(data.toneladas) || 0);
+    } catch {
+      setToneladasAcumuladasGlobal(0);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencia intencional a idInformacionF
+  useEffect(() => {
+    if (idInformacionF) {
       fetchToneladasAcumuladas();
     }
-  }, [idInformacionF, fetchToneladasAcumuladas]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idInformacionF]);
 
   // Mantener currentPage dentro de rango cuando cambian productos o pageSize
   // eslint-disable-next-line react-hooks/exhaustive-deps -- recalcular páginas solo cuando cambian productos o pageSize

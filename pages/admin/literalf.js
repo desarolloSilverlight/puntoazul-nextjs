@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import Backdrop from '@mui/material/Backdrop';
+import { Oval } from 'react-loader-spinner';
 import Modal from "react-modal";
 import Admin from "layouts/Admin.js";
 import Informacion from "components/Forms/Informacion";
@@ -10,6 +12,7 @@ import DistribucionGeografica from "components/Forms/DistribucionGeografica";
 import { API_BASE_URL } from "../../utils/config";
 
 export default function FormularioF() {
+  const [isSending, setIsSending] = useState(false);
   // Necesario para accesibilidad con react-modal
   if (typeof window !== "undefined") {
     Modal.setAppElement("#__next");
@@ -200,26 +203,36 @@ export default function FormularioF() {
         alert("Debe completar y guardar la información básica antes de enviar el formulario.");
         return;
       }
+      setIsSending(true);
       try {
-        const urls = [
-          `${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${id}`,
-          `${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${id}`,
-          `${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${id}`,
+        // Optimización: solo verificar existencia de al menos un producto por endpoint
+        const endpoints = [
+          `${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${id}?limit=1`,
+          `${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${id}?limit=1`,
+          `${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${id}?limit=1`,
         ];
-        const resps = await Promise.all(urls.map(u => fetch(u)));
-        const jsons = await Promise.all(resps.map(r => r.ok ? r.json() : []));
-        const toCount = (d) => Array.isArray(d) ? d.length : (Array.isArray(d?.data) ? d.data.length : 0);
-        const total = jsons.reduce((acc, d) => acc + toCount(d), 0);
-        if (total <= 0) {
+        let found = false;
+        for (let i = 0; i < endpoints.length; i++) {
+          const resp = await fetch(endpoints[i]);
+          if (resp.ok) {
+            const data = await resp.json();
+            if (Array.isArray(data) && data.length > 0) { found = true; break; }
+            if (Array.isArray(data?.data) && data.data.length > 0) { found = true; break; }
+          }
+        }
+        if (!found) {
+          setIsSending(false);
           alert("Debe registrar al menos un producto en Empaque Primario, Secundario o Plástico antes de enviar el formulario.");
           return;
         }
-        // Pasa la validación -> enviar
-        actualizaEstado();
+        await actualizaEstado();
       } catch (e) {
+        setIsSending(false);
         console.error('Validación de productos (Literal F) falló:', e);
         alert("No se pudo verificar los productos. Intente nuevamente o contacte soporte.");
+        return;
       }
+      setIsSending(false);
     };
     confirmarYValidar();
   };
@@ -318,6 +331,27 @@ export default function FormularioF() {
 
   return (
     <div className="mt-10 p-4 bg-gray-100 min-h-screen">
+      {/* Loader para envío de formulario */}
+      {/* Loader Backdrop Overlay */}
+      <Backdrop
+        sx={{ color: '#2563eb', zIndex: (theme) => theme.zIndex.modal + 1000 }}
+        open={isSending}
+      >
+        <div className="flex flex-col items-center">
+          <Oval
+            height={60}
+            width={60}
+            color="#2563eb"
+            secondaryColor="#60a5fa"
+            strokeWidth={5}
+            ariaLabel="oval-loading"
+            visible={true}
+          />
+          <span className="text-blue-700 font-semibold mt-4 bg-white px-4 py-2 rounded-lg shadow">
+            Actualizando estado...
+          </span>
+        </div>
+      </Backdrop>
       {/* Estado actual del formulario */}
       {/* <div className="mb-2 text-blue-700 font-semibold">Estado actual del formulario: {estadoInformacionF}</div> */}
       {/* Botones encima de los tabs */}

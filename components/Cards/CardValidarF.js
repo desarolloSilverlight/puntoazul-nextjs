@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Oval } from 'react-loader-spinner';
+import Backdrop from '@mui/material/Backdrop';
 import PropTypes from "prop-types";
 import Modal from "react-modal";
 import Informacion from "../Forms/Informacion";
@@ -14,6 +16,8 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
   const [selectedCliente, setSelectedCliente] = useState(null); // Cliente seleccionado
   const [activeTab, setActiveTab] = useState("resumen-base"); // Pestaña activa
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('Cargando datos...');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -83,51 +87,39 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
   // Manejar selección de cliente
   const handleSelectCliente = async (cliente) => {
     setSelectedCliente(cliente);
-
+    setLoading(true);
+    setLoadingProgress(0);
+    setLoadingMessage('Cargando información del cliente...');
     try {
-      // Obtener información completa del cliente incluyendo correoFacturacion
+      // 1. Obtener información completa del cliente incluyendo correoFacturacion
+      setLoadingProgress(10);
       const informacionResponse = await fetch(`${API_BASE_URL}/informacion-f/getInformacion/${cliente.idInformacionF}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
-
       if (informacionResponse.ok) {
         const informacionData = await informacionResponse.json();
-        // Actualizar selectedCliente con la información completa
-        setSelectedCliente(prev => ({
-          ...prev,
-          correo_facturacion: informacionData.correo_facturacion
-        }));
+        setSelectedCliente(prev => ({ ...prev, correo_facturacion: informacionData.correo_facturacion }));
       }
-
-      // Obtener empaques primarios
+      setLoadingProgress(25);
+      // 2. Obtener empaques primarios
       const primariosResponse = await fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${cliente.idInformacionF}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
-
-      if (!primariosResponse.ok) {
-        throw new Error(`Error ${primariosResponse.status}: ${primariosResponse.statusText}`);
-      }
-
+      if (!primariosResponse.ok) throw new Error(`Error ${primariosResponse.status}: ${primariosResponse.statusText}`);
       const primariosData = await primariosResponse.json();
-
-      // Obtener empaques secundarios
+      setLoadingProgress(40);
+      // 3. Obtener empaques secundarios
       const secundariosResponse = await fetch(`${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${cliente.idInformacionF}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
-
-      if (!secundariosResponse.ok) {
-        throw new Error(`Error ${secundariosResponse.status}: ${secundariosResponse.statusText}`);
-      }
-
+      if (!secundariosResponse.ok) throw new Error(`Error ${secundariosResponse.status}: ${secundariosResponse.statusText}`);
       const secundariosData = await secundariosResponse.json();
-
-      // Almacenar datos primarios y secundarios por separado
+      setLoadingProgress(55);
       setEmpaquesPrimarios(primariosData);
       setEmpaquesSecundarios(secundariosData);
-
       // Calcular totales y porcentajes
       const empaquesData = primariosData.map((primario, index) => {
         const secundario = secundariosData[index] || {};
@@ -137,20 +129,17 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
           parseFloat(primario.metal_no_ferrososs || 0) +
           parseFloat(primario.carton || 0) +
           parseFloat(primario.vidrios || 0);
-
         const totalSecundarios =
           parseFloat(secundario.papel || 0) +
           parseFloat(secundario.metal_ferrosos || 0) +
           parseFloat(secundario.metal_no_ferrososs || 0) +
           parseFloat(secundario.carton || 0) +
           parseFloat(secundario.vidrios || 0);
-
         const total = totalPrimarios + totalSecundarios;
         const porcPrimarios = total > 0 ? ((totalPrimarios / total) * 100).toFixed(2) : 0;
         const porcSecundarios = total > 0 ? ((totalSecundarios / total) * 100).toFixed(2) : 0;
         const totalMetalPrimarios = parseFloat(primario.metal_ferrosos || 0) + parseFloat(primario.metal_no_ferrososs || 0);
         const totalMetalSecundarios = parseFloat(secundario.metal_ferrosos || 0) + parseFloat(secundario.metal_no_ferrososs || 0);
-
         return {
           razonSocial: primario.empresa || secundario.empresa,
           papelPrimarios: primario.papel || 0,
@@ -166,24 +155,25 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
           porcSecundarios,
         };
       });
-
       setEmpaques(empaquesData);
-
-      // Obtener resumen de plásticos
+      setLoadingProgress(65);
+      // 4. Obtener resumen de plásticos
       const plasticosResponse = await fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${cliente.idInformacionF}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
-
-      if (!plasticosResponse.ok) {
-        throw new Error(`Error ${plasticosResponse.status}: ${plasticosResponse.statusText}`);
-      }
-
+      if (!plasticosResponse.ok) throw new Error(`Error ${plasticosResponse.status}: ${plasticosResponse.statusText}`);
       const plasticosData = await plasticosResponse.json();
-      console.log("Resumen de plásticos:", plasticosData); // Verifica los datos de plásticos
-      setPlasticos(plasticosData);
-
-      // Obtener retornables
+      // Mapear igual que EmpaquePlastico.js para asegurar consistencia de claves y parseo
+      const plasticosFormateados = plasticosData.map(producto => ({
+        ...producto,
+        liquidos: typeof producto.liquidos === 'string' ? (()=>{ try { return JSON.parse(producto.liquidos || '{}'); } catch { return {}; } })() : (producto.liquidos || {}),
+        otrosProductos: typeof producto.otros === 'string' ? (()=>{ try { return JSON.parse(producto.otros || '{}'); } catch { return {}; } })() : (producto.otros || {}),
+        construccion: typeof producto.construccion === 'string' ? (()=>{ try { return JSON.parse(producto.construccion || '{}'); } catch { return {}; } })() : (producto.construccion || {}),
+      }));
+      setPlasticos(plasticosFormateados);
+      setLoadingProgress(75);
+      // 5. Obtener retornables
       try {
         const response = await fetch(`${API_BASE_URL}/informacion-f/getEnvasesRetornables/${cliente.idInformacionF}`, {
           method: "GET",
@@ -192,7 +182,6 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
         if (response.ok) {
           const data = await response.json();
           if (data && data.length > 0) {
-            // Utilidad para deserializar doble JSON si es necesario
             function parseDoubleJSON(value) {
               try {
                 if (typeof value === "string") {
@@ -218,7 +207,6 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
                 "EENC_EERI": "(EENC +  EERI)",
                 "MATERIAL_70": "Material con % mayor al 70% (*)",
                 "NINGUN_MATERIAL_70": "Ningún material con % mayor al 70%  (**)",
-
                 "MATERIAL_1": "Material 1",
                 "MATERIAL_2": "Material 2",
                 "MATERIAL_3": "Material 3",
@@ -245,8 +233,8 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
       } catch (error) {
         setRetornables(null);
       }
-
-      // Obtener distribución
+      setLoadingProgress(85);
+      // 6. Obtener distribución
       try {
         const response = await fetch(`${API_BASE_URL}/informacion-f/getDistribucion/${cliente.idInformacionF}`, {
           method: "GET",
@@ -261,8 +249,8 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
       } catch (error) {
         setDistribucion(null);
       }
-
-      // Obtener distribución geográfica
+      setLoadingProgress(92);
+      // 7. Obtener distribución geográfica
       try {
         const response = await fetch(`${API_BASE_URL}/informacion-f/getDistribucionGeografica/${cliente.idInformacionF}`, {
           method: "GET",
@@ -272,7 +260,6 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
           const data = await response.json();
           if (data && data.length > 0) {
             const primerRegistro = data[0];
-            // Doble parseo por si viene doblemente serializado
             let departamentosObj = {};
             try {
               let temp = JSON.parse(primerRegistro.departamentos || "{}") || {};
@@ -306,8 +293,11 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
       } catch (error) {
         setDistribucion(null);
       }
+      setLoadingProgress(100);
     } catch (error) {
       console.error("Error al obtener los datos del cliente:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -462,6 +452,14 @@ Equipo de Validación Punto Azul`
         color === "light" ? "bg-white" : "bg-blueGray-700 text-white"
       }`}
     >
+      {/* Loader global para carga de datos del cliente */}
+      <Backdrop open={loading} sx={{ color: '#fff', zIndex: 1300 }}>
+        <div className="flex flex-col items-center">
+          <Oval color="#1976d2" height={60} width={60} secondaryColor="#90caf9" strokeWidth={5} />
+          <span className="mt-4 text-lg font-semibold">{loadingMessage}</span>
+          <span className="mt-2 text-base">{`Progreso: ${loadingProgress}%`}</span>
+        </div>
+      </Backdrop>
       {!selectedCliente ? (
         <>
         <div className="rounded-t mb-0 px-4 py-3 border-0">
@@ -844,19 +842,23 @@ Equipo de Validación Punto Azul`
           )}
           {activeTab === "resumen-plasticos" && (
             <div className="w-full overflow-x-auto p-4">
-              {/* Tabla Auxiliar - Productos convertidos a toneladas */}
+              {/* Tabla Auxiliar - Productos en gramos igual a EmpaquePlastico.js */}
               <div className="mb-6">
-                <h4 className="text-center font-bold mb-2">TABLA AUXILIAR - PRODUCTOS (Toneladas)</h4>
+                <h4 className="text-center font-bold mb-2">TABLA AUXILIAR - PRODUCTOS (Gramos)</h4>
                 <table className="w-full table-auto border-separate border-spacing-1 border border-gray-300">
                   <thead>
                     <tr className="bg-purple-100">
-                      <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Producto</th>
-                      <th colSpan={9} className="px-2 py-1 text-xs font-semibold border border-gray-300">Líquidos (ton)</th>
-                      <th colSpan={7} className="px-2 py-1 text-xs font-semibold border border-gray-300">Otros Productos (ton)</th>
-                      <th colSpan={7} className="px-2 py-1 text-xs font-semibold border border-gray-300">Construcción (ton)</th>
-                      <th colSpan={4} className="px-2 py-1 text-xs font-semibold border border-gray-300">Totales (ton)</th>
+                      <th className="px-2 py-1 text-xs font-semibold border border-gray-300">No.</th>
+                      <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Empresa Titular</th>
+                      <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Nombre Producto</th>
+                      <th colSpan={9} className="px-2 py-1 text-xs font-semibold border border-gray-300">Líquidos (g)</th>
+                      <th colSpan={7} className="px-2 py-1 text-xs font-semibold border border-gray-300">Otros Productos Plásticos (g)</th>
+                      <th colSpan={7} className="px-2 py-1 text-xs font-semibold border border-gray-300">Plásticos de Construcción (g)</th>
+                      <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Unidades</th>
                     </tr>
                     <tr className="bg-purple-50">
+                      <th className="px-2 py-1 text-xs font-semibold border border-gray-300"></th>
+                      <th className="px-2 py-1 text-xs font-semibold border border-gray-300"></th>
                       <th className="px-2 py-1 text-xs font-semibold border border-gray-300"></th>
                       {/* Líquidos */}
                       <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PET Agua</th>
@@ -884,15 +886,19 @@ Equipo de Validación Punto Azul`
                       <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PP</th>
                       <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PS</th>
                       <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Otros</th>
-                      {/* Totales */}
-                      <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total Líquidos</th>
-                      <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total Otros</th>
-                      <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total Construcción</th>
-                      <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total General</th>
+                      {/* Unidades */}
+                      <th className="px-1 py-1 text-xs font-semibold border border-gray-300"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {(() => {
+                      const liquidosKeys = ["PET Agua","PET Otros","PET","HDPE","PVC","LDPE","PP","PS","Otros"];
+                      const otrosKeys = ["PET","HDPE","PVC","LDPE","PP","PS","Otros"];
+                      const toNum = (v) => {
+                        if (v === null || v === undefined || v === '') return 0;
+                        const n = parseFloat(v.toString().replace(',', '.'));
+                        return isNaN(n) ? 0 : n;
+                      };
                       const totalProductos = Array.isArray(plasticos) ? plasticos.length : 0;
                       const totalPaginas = Math.max(1, Math.ceil(totalProductos / plastPorPag));
                       const pagina = Math.min(plastPagina, totalPaginas);
@@ -900,108 +906,32 @@ Equipo de Validación Punto Azul`
                       const end = start + plastPorPag;
                       const paginaProductos = plasticos.slice(start, end);
                       return paginaProductos.map((producto, index) => {
-                      const liquidos = JSON.parse(producto.liquidos || "{}");
-                      const otros = JSON.parse(producto.otros || "{}");
-                      const construccion = JSON.parse(producto.construccion || "{}");
-                      const unidades = parseFloat(producto.unidades || 0);
-
-                      // Calcular peso total sumando todos los campos de plásticos
-                      const pesoLiquidos = Object.values(liquidos).reduce((sum, val) => sum + parseFloat(val || 0), 0);
-                      const pesoOtros = Object.values(otros).reduce((sum, val) => sum + parseFloat(val || 0), 0);
-                      const pesoConstruccion = Object.values(construccion).reduce((sum, val) => sum + parseFloat(val || 0), 0);
-                      const pesoTotal = pesoLiquidos + pesoOtros + pesoConstruccion;
-
-                      // Debug: mostrar valores en consola
-                      console.log(`Producto ${index}:`, {
-                        nombre: producto.nombre_producto,
-                        pesoTotal: pesoTotal,
-                        unidades: unidades,
-                        pesoLiquidos: pesoLiquidos,
-                        pesoOtros: pesoOtros,
-                        pesoConstruccion: pesoConstruccion,
-                        liquidos: liquidos,
-                        otros: otros,
-                        construccion: construccion
+                        const liquidos = typeof producto.liquidos === 'string' ? (()=>{ try { return JSON.parse(producto.liquidos || '{}'); } catch { return {}; } })() : (producto.liquidos || {});
+                        const otros = typeof producto.otrosProductos === 'string' ? (()=>{ try { return JSON.parse(producto.otrosProductos || '{}'); } catch { return {}; } })() : (producto.otrosProductos || {});
+                        const construccion = typeof producto.construccion === 'string' ? (()=>{ try { return JSON.parse(producto.construccion || '{}'); } catch { return {}; } })() : (producto.construccion || {});
+                        const unidades = toNum(producto.unidades);
+                        return (
+                          <tr key={start + index} className="text-center">
+                            <td className="px-2 py-1 text-xs border border-gray-300">{start + index + 1}</td>
+                            <td className="px-2 py-1 text-xs border border-gray-300">{producto.empresaTitular || producto.empresa || ''}</td>
+                            <td className="px-2 py-1 text-xs border border-gray-300">{producto.nombreProducto || producto.nombre_producto || `Producto ${index + 1}`}</td>
+                            {/* Líquidos */}
+                            {liquidosKeys.map(k => (
+                              <td key={`liq-${k}`} className="px-1 py-1 text-xs border border-gray-300">{(toNum(liquidos[k]) ).toFixed(2)}</td>
+                            ))}
+                            {/* Otros Productos */}
+                            {otrosKeys.map(k => (
+                              <td key={`otros-${k}`} className="px-1 py-1 text-xs border border-gray-300">{(toNum(otros[k]) ).toFixed(2)}</td>
+                            ))}
+                            {/* Construcción */}
+                            {otrosKeys.map(k => (
+                              <td key={`cons-${k}`} className="px-1 py-1 text-xs border border-gray-300">{(toNum(construccion[k]) ).toFixed(2)}</td>
+                            ))}
+                            {/* Unidades */}
+                            <td className="px-1 py-1 text-xs border border-gray-300">{unidades}</td>
+                          </tr>
+                        );
                       });
-
-                      // Calcular toneladas para cada subcampo de líquidos
-                      const liquidosTon = {
-                        petAgua: (parseFloat(liquidos["PET Agua"] || 0) * unidades) / 1000000,
-                        petOtros: (parseFloat(liquidos["PET Otros"] || 0) * unidades) / 1000000,
-                        pet: (parseFloat(liquidos.PET || 0) * unidades) / 1000000,
-                        hdpe: (parseFloat(liquidos.HDPE || 0) * unidades) / 1000000,
-                        pvc: (parseFloat(liquidos.PVC || 0) * unidades) / 1000000,
-                        ldpe: (parseFloat(liquidos.LDPE || 0) * unidades) / 1000000,
-                        pp: (parseFloat(liquidos.PP || 0) * unidades) / 1000000,
-                        ps: (parseFloat(liquidos.PS || 0) * unidades) / 1000000,
-                        otros: (parseFloat(liquidos.Otros || 0) * unidades) / 1000000
-                      };
-
-                      // Calcular toneladas para cada subcampo de otros productos
-                      const otrosTon = {
-                        pet: (parseFloat(otros.PET || 0) * unidades) / 1000000,
-                        hdpe: (parseFloat(otros.HDPE || 0) * unidades) / 1000000,
-                        pvc: (parseFloat(otros.PVC || 0) * unidades) / 1000000,
-                        ldpe: (parseFloat(otros.LDPE || 0) * unidades) / 1000000,
-                        pp: (parseFloat(otros.PP || 0) * unidades) / 1000000,
-                        ps: (parseFloat(otros.PS || 0) * unidades) / 1000000,
-                        otros: (parseFloat(otros.Otros || 0) * unidades) / 1000000
-                      };
-
-                      // Calcular toneladas para cada subcampo de construcción
-                      const construccionTon = {
-                        pet: (parseFloat(construccion.PET || 0) * unidades) / 1000000,
-                        hdpe: (parseFloat(construccion.HDPE || 0) * unidades) / 1000000,
-                        pvc: (parseFloat(construccion.PVC || 0) * unidades) / 1000000,
-                        ldpe: (parseFloat(construccion.LDPE || 0) * unidades) / 1000000,
-                        pp: (parseFloat(construccion.PP || 0) * unidades) / 1000000,
-                        ps: (parseFloat(construccion.PS || 0) * unidades) / 1000000,
-                        otros: (parseFloat(construccion.Otros || 0) * unidades) / 1000000
-                      };
-
-                      // Calcular totales por categoría
-                      const totalLiquidos = Object.values(liquidosTon).reduce((sum, val) => sum + val, 0);
-                      const totalOtros = Object.values(otrosTon).reduce((sum, val) => sum + val, 0);
-                      const totalConstruccion = Object.values(construccionTon).reduce((sum, val) => sum + val, 0);
-                      const totalGeneral = totalLiquidos + totalOtros + totalConstruccion;
-
-                      return (
-                        <tr key={start + index} className="text-center">
-                          <td className="px-2 py-1 text-xs border border-gray-300">{producto.nombre_producto || `Producto ${index + 1}`}</td>
-                          {/* Líquidos - Mostrar 5 decimales visualmente */}
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.petAgua.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.petOtros.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.pet.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.hdpe.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.pvc.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.ldpe.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.pp.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.ps.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{liquidosTon.otros.toFixed(5)}</td>
-                          {/* Otros Productos - Mostrar 5 decimales visualmente */}
-                          <td className="px-1 py-1 text-xs border border-gray-300">{otrosTon.pet.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{otrosTon.hdpe.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{otrosTon.pvc.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{otrosTon.ldpe.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{otrosTon.pp.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{otrosTon.ps.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{otrosTon.otros.toFixed(5)}</td>
-                          {/* Construcción - Mostrar 5 decimales visualmente */}
-                          <td className="px-1 py-1 text-xs border border-gray-300">{construccionTon.pet.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{construccionTon.hdpe.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{construccionTon.pvc.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{construccionTon.ldpe.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{construccionTon.pp.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{construccionTon.ps.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{construccionTon.otros.toFixed(5)}</td>
-                          {/* Totales */}
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-blue-100 font-semibold">{totalLiquidos.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-green-100 font-semibold">{totalOtros.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-orange-100 font-semibold">{totalConstruccion.toFixed(5)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-yellow-200 font-bold">{totalGeneral.toFixed(5)}</td>
-                        </tr>
-                      );
-                    });
                     })()}
                   </tbody>
                 </table>
@@ -1042,7 +972,7 @@ Equipo de Validación Punto Azul`
                 )}
               </div>
 
-              {/* Tabla Resumen - Sumatoria de todos los productos */}
+              {/* Tabla Resumen - Sumatoria de todos los productos (en toneladas, igual backend) */}
               <div className="mt-6">
                 <h4 className="text-center font-bold mb-2">TABLA RESUMEN - SUMATORIA TOTAL</h4>
                 <table className="w-full table-auto border-separate border-spacing-1 border border-gray-300">
@@ -1091,96 +1021,52 @@ Equipo de Validación Punto Azul`
                   </thead>
                   <tbody>
                     {(() => {
-                      // Calcular totales acumulados de todos los productos
-                      const totalesAcumulados = {
-                        liquidos: {
-                          petAgua: 0, petOtros: 0, pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0
-                        },
-                        otrosProductos: {
-                          pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0
-                        },
-                        construccion: {
-                          pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0
-                        }
+                      // Sumar igual que el backend: (valor * unidades) / 1,000,000
+                      const liquidosKeys = ["PET Agua","PET Otros","PET","HDPE","PVC","LDPE","PP","PS","Otros"];
+                      const otrosKeys = ["PET","HDPE","PVC","LDPE","PP","PS","Otros"];
+                      const toNum = (v) => {
+                        if (v === null || v === undefined || v === '') return 0;
+                        const n = parseFloat(v.toString().replace(',', '.'));
+                        return isNaN(n) ? 0 : n;
                       };
-
-                      // Acumular totales de todos los productos
+                      // Inicializar acumuladores
+                      const sumLiquidos = Object.fromEntries(liquidosKeys.map(k => [k, 0]));
+                      const sumOtros = Object.fromEntries(otrosKeys.map(k => [k, 0]));
+                      const sumConstruccion = Object.fromEntries(otrosKeys.map(k => [k, 0]));
+                      // Sumar por producto
                       plasticos.forEach(producto => {
-                        const liquidos = JSON.parse(producto.liquidos || "{}");
-                        const otros = JSON.parse(producto.otros || "{}");
-                        const construccion = JSON.parse(producto.construccion || "{}");
-                        const unidades = parseFloat(producto.unidades || 0);
-
-                        // Acumular líquidos - directamente multiplicar por unidades y dividir por 1,000,000
-                        totalesAcumulados.liquidos.petAgua += (parseFloat(liquidos["PET Agua"] || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.petOtros += (parseFloat(liquidos["PET Otros"] || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.pet += (parseFloat(liquidos.PET || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.hdpe += (parseFloat(liquidos.HDPE || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.pvc += (parseFloat(liquidos.PVC || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.ldpe += (parseFloat(liquidos.LDPE || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.pp += (parseFloat(liquidos.PP || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.ps += (parseFloat(liquidos.PS || 0) * unidades) / 1000000;
-                        totalesAcumulados.liquidos.otros += (parseFloat(liquidos.Otros || 0) * unidades) / 1000000;
-
-                        // Acumular otros productos - directamente multiplicar por unidades y dividir por 1,000,000
-                        totalesAcumulados.otrosProductos.pet += (parseFloat(otros.PET || 0) * unidades) / 1000000;
-                        totalesAcumulados.otrosProductos.hdpe += (parseFloat(otros.HDPE || 0) * unidades) / 1000000;
-                        totalesAcumulados.otrosProductos.pvc += (parseFloat(otros.PVC || 0) * unidades) / 1000000;
-                        totalesAcumulados.otrosProductos.ldpe += (parseFloat(otros.LDPE || 0) * unidades) / 1000000;
-                        totalesAcumulados.otrosProductos.pp += (parseFloat(otros.PP || 0) * unidades) / 1000000;
-                        totalesAcumulados.otrosProductos.ps += (parseFloat(otros.PS || 0) * unidades) / 1000000;
-                        totalesAcumulados.otrosProductos.otros += (parseFloat(otros.Otros || 0) * unidades) / 1000000;
-
-                        // Acumular construcción - directamente multiplicar por unidades y dividir por 1,000,000
-                        totalesAcumulados.construccion.pet += (parseFloat(construccion.PET || 0) * unidades) / 1000000;
-                        totalesAcumulados.construccion.hdpe += (parseFloat(construccion.HDPE || 0) * unidades) / 1000000;
-                        totalesAcumulados.construccion.pvc += (parseFloat(construccion.PVC || 0) * unidades) / 1000000;
-                        totalesAcumulados.construccion.ldpe += (parseFloat(construccion.LDPE || 0) * unidades) / 1000000;
-                        totalesAcumulados.construccion.pp += (parseFloat(construccion.PP || 0) * unidades) / 1000000;
-                        totalesAcumulados.construccion.ps += (parseFloat(construccion.PS || 0) * unidades) / 1000000;
-                        totalesAcumulados.construccion.otros += (parseFloat(construccion.Otros || 0) * unidades) / 1000000;
+                        const liquidos = typeof producto.liquidos === 'string' ? (()=>{ try { return JSON.parse(producto.liquidos || '{}'); } catch { return {}; } })() : (producto.liquidos || {});
+                        const otros = typeof producto.otrosProductos === 'string' ? (()=>{ try { return JSON.parse(producto.otrosProductos || '{}'); } catch { return {}; } })() : (producto.otrosProductos || {});
+                        const construccion = typeof producto.construccion === 'string' ? (()=>{ try { return JSON.parse(producto.construccion || '{}'); } catch { return {}; } })() : (producto.construccion || {});
+                        const unidades = toNum(producto.unidades);
+                        liquidosKeys.forEach(k => { sumLiquidos[k] += (toNum(liquidos[k]) * unidades) / 1000000; });
+                        otrosKeys.forEach(k => { sumOtros[k] += (toNum(otros[k]) * unidades) / 1000000; });
+                        otrosKeys.forEach(k => { sumConstruccion[k] += (toNum(construccion[k]) * unidades) / 1000000; });
                       });
-
-                      // Calcular totales por categoría
-                      const totalLiquidosGeneral = Object.values(totalesAcumulados.liquidos).reduce((sum, val) => sum + val, 0);
-                      const totalOtrosGeneral = Object.values(totalesAcumulados.otrosProductos).reduce((sum, val) => sum + val, 0);
-                      const totalConstruccionGeneral = Object.values(totalesAcumulados.construccion).reduce((sum, val) => sum + val, 0);
-                      const totalPlasticosGeneral = totalLiquidosGeneral + totalOtrosGeneral + totalConstruccionGeneral;
-
+                      const totalLiquidos = Object.values(sumLiquidos).reduce((a, b) => a + b, 0);
+                      const totalOtros = Object.values(sumOtros).reduce((a, b) => a + b, 0);
+                      const totalConstruccion = Object.values(sumConstruccion).reduce((a, b) => a + b, 0);
+                      const totalGeneral = totalLiquidos + totalOtros + totalConstruccion;
                       return (
                         <tr className="text-center bg-gray-100 font-bold">
                           <td className="px-2 py-1 text-xs font-bold border border-gray-300">TOTAL</td>
                           {/* Líquidos */}
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.petAgua.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.petOtros.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.pet.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.hdpe.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.pvc.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.ldpe.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.pp.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.ps.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.liquidos.otros.toFixed(10)}</td>
+                          {liquidosKeys.map(k => (
+                            <td key={`t-liq-${k}`} className="px-1 py-1 text-xs border border-gray-300">{sumLiquidos[k].toFixed(10)}</td>
+                          ))}
                           {/* Otros Productos */}
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.otrosProductos.pet.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.otrosProductos.hdpe.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.otrosProductos.pvc.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.otrosProductos.ldpe.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.otrosProductos.pp.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.otrosProductos.ps.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.otrosProductos.otros.toFixed(10)}</td>
+                          {otrosKeys.map(k => (
+                            <td key={`t-otros-${k}`} className="px-1 py-1 text-xs border border-gray-300">{sumOtros[k].toFixed(10)}</td>
+                          ))}
                           {/* Construcción */}
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.construccion.pet.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.construccion.hdpe.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.construccion.pvc.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.construccion.ldpe.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.construccion.pp.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.construccion.ps.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300">{totalesAcumulados.construccion.otros.toFixed(10)}</td>
+                          {otrosKeys.map(k => (
+                            <td key={`t-cons-${k}`} className="px-1 py-1 text-xs border border-gray-300">{sumConstruccion[k].toFixed(10)}</td>
+                          ))}
                           {/* Totales */}
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-blue-200 font-bold">{totalLiquidosGeneral.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-green-200 font-bold">{totalOtrosGeneral.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-orange-200 font-bold">{totalConstruccionGeneral.toFixed(10)}</td>
-                          <td className="px-1 py-1 text-xs border border-gray-300 bg-red-300 font-bold">{totalPlasticosGeneral.toFixed(10)}</td>
+                          <td className="px-1 py-1 text-xs border border-gray-300 bg-blue-200 font-bold">{totalLiquidos.toFixed(10)}</td>
+                          <td className="px-1 py-1 text-xs border border-gray-300 bg-green-200 font-bold">{totalOtros.toFixed(10)}</td>
+                          <td className="px-1 py-1 text-xs border border-gray-300 bg-orange-200 font-bold">{totalConstruccion.toFixed(10)}</td>
+                          <td className="px-1 py-1 text-xs border border-gray-300 bg-red-300 font-bold">{totalGeneral.toFixed(10)}</td>
                         </tr>
                       );
                     })()}

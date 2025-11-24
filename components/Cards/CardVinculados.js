@@ -13,6 +13,10 @@ export default function CardVinculados({ color }) {
   const [selectedIdUsuario, setSelectedIdUsuario] = useState(null);
   const [activeTab, setActiveTab] = useState("informacion");
   const [idInformacionF, setIdInformacionF] = useState(null);
+  // Buscador y paginación para la tabla principal
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     setLoading(true);
@@ -40,7 +44,24 @@ export default function CardVinculados({ color }) {
     }
   }, [selectedIdUsuario]);
 
+  // Buscador y paginación para la tabla principal
+  const filteredVinculados = vinculados.filter(v => {
+    const term = search.toLowerCase();
+    return (
+      v.nombre?.toLowerCase().includes(term) ||
+      v.nit?.toLowerCase().includes(term) ||
+      v.celular?.toLowerCase().includes(term) ||
+      v.email?.toLowerCase().includes(term)
+    );
+  });
+  const totalPages = Math.ceil(filteredVinculados.length / pageSize);
+  const paginatedVinculados = filteredVinculados.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   if (selectedIdUsuario) {
+    // Detalle del vinculado (sin cambios)
     return (
       <div className="relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded bg-white">
         <div className="flex items-center justify-between px-6 pt-4">
@@ -172,54 +193,70 @@ export default function CardVinculados({ color }) {
         {loading ? (
           <div className="p-4 text-center">Cargando...</div>
         ) : (
-          <table className="items-center w-full bg-transparent border-collapse">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Nombre
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  NIT
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Celular
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.isArray(vinculados) && vinculados.length > 0 ? (
-                vinculados.map((vinculado) => (
-                  <tr key={vinculado.idUsuario} className="border-t">
-                    <td className="p-2">{vinculado.nombre}</td>
-                    <td className="p-2">{vinculado.nit}</td>
-                    <td className="p-2">{vinculado.celular}</td>
-                    <td className="p-2">{vinculado.email}</td>
-                    <td className="p-2">
-                      <button
-                        className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
-                        type="button"
-                        onClick={() => setSelectedIdUsuario(vinculado.idUsuario)}
-                      >
-                        Ver
-                      </button>
+          <>
+            {/* Buscador */}
+            <div className="flex flex-wrap gap-2 mb-4 px-4">
+              <input
+                type="text"
+                className="border p-2 rounded w-1/2"
+                placeholder="Buscar por nombre, NIT, celular o email"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+              />
+            </div>
+            <table className="items-center w-full bg-transparent border-collapse">
+              <thead>
+                <tr>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Nombre</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">NIT</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Celular</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Email</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.isArray(paginatedVinculados) && paginatedVinculados.length > 0 ? (
+                  paginatedVinculados.map((vinculado) => (
+                    <tr key={vinculado.idUsuario} className="border-t">
+                      <td className="p-2">{vinculado.nombre}</td>
+                      <td className="p-2">{vinculado.nit}</td>
+                      <td className="p-2">{vinculado.celular}</td>
+                      <td className="p-2">{vinculado.email}</td>
+                      <td className="p-2">
+                        <button
+                          className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
+                          type="button"
+                          onClick={() => setSelectedIdUsuario(vinculado.idUsuario)}
+                        >
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="p-4 text-center text-gray-500">
+                      No hay vinculados para mostrar.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-500">
-                    No hay vinculados para mostrar.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+            {/* Paginación */}
+            <div className="flex justify-center items-center gap-2 py-4">
+              <button
+                className="px-3 py-1 rounded bg-blueGray-200 text-blueGray-700 font-bold disabled:opacity-50"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+              >Anterior</button>
+              <span className="px-2">Página {currentPage} de {totalPages || 1}</span>
+              <button
+                className="px-3 py-1 rounded bg-blueGray-200 text-blueGray-700 font-bold disabled:opacity-50"
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage(currentPage + 1)}
+              >Siguiente</button>
+            </div>
+          </>
         )}
       </div>
     </div>

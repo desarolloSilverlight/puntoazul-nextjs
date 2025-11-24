@@ -9,11 +9,15 @@ export default function CardAsociados({ color }) {
   const [asociados, setAsociados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIdUsuario, setSelectedIdUsuario] = useState(null);
-  const [activeTab, setActiveTab] = useState("informacion"); // Tabs: informacion | productos
+  const [activeTab, setActiveTab] = useState("informacion");
   const [infoLoading, setInfoLoading] = useState(false);
-  const [selectedInfoB, setSelectedInfoB] = useState(null); // Datos de informacion-b del asociado
+  const [selectedInfoB, setSelectedInfoB] = useState(null);
   const [infoError, setInfoError] = useState(null);
-  const [estadosByUsuario, setEstadosByUsuario] = useState({}); // { [idUsuario]: { estado, idInformacionB } }
+  const [estadosByUsuario, setEstadosByUsuario] = useState({});
+  // Buscador y paginación
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     setLoading(true);
@@ -23,7 +27,6 @@ export default function CardAsociados({ color }) {
       })
       .then(res => res.json())
       .then(data => {
-        console.log("Asociados:", data);
         setAsociados(data);
         setLoading(false);
       })
@@ -112,6 +115,22 @@ export default function CardAsociados({ color }) {
     const cls = styles[estado] || "bg-gray-100 text-gray-700";
     return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{estado}</span>;
   };
+
+  // Buscador y paginación para la tabla principal
+  const filteredAsociados = asociados.filter(a => {
+    const term = search.toLowerCase();
+    return (
+      a.nombre?.toLowerCase().includes(term) ||
+      a.nit?.toLowerCase().includes(term) ||
+      a.celular?.toLowerCase().includes(term) ||
+      a.email?.toLowerCase().includes(term)
+    );
+  });
+  const totalPages = Math.ceil(filteredAsociados.length / pageSize);
+  const paginatedAsociados = filteredAsociados.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   // Vista detalle con tabs (sin resumen)
   if (selectedIdUsuario) {
@@ -226,60 +245,74 @@ export default function CardAsociados({ color }) {
         {loading ? (
           <div className="p-4 text-center">Cargando...</div>
         ) : (
-          <table className="items-center w-full bg-transparent border-collapse">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Nombre
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  NIT
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Celular
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.isArray(asociados) && asociados.length > 0 ? (
-                asociados.map((asociado) => (
-                  <tr key={asociado.idUsuario} className="border-t">
-                    <td className="p-2">{asociado.nombre}</td>
-                    <td className="p-2">{asociado.nit}</td>
-                    <td className="p-2">{asociado.celular}</td>
-          <td className="p-2">{asociado.email}</td>
-                    <td className="p-2">
-                      <EstadoPill estado={(estadosByUsuario[asociado.idUsuario] || {}).estado} />
-                    </td>
-                    <td className="p-2">
-                      <button
-                        className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
-                        type="button"
-            onClick={() => handleVerAsociado(asociado.idUsuario)}
-                      >
-                        Ver
-                      </button>
+          <>
+            {/* Buscador */}
+            <div className="flex flex-wrap gap-2 mb-4 px-4">
+              <input
+                type="text"
+                className="border p-2 rounded w-1/2"
+                placeholder="Buscar por nombre, NIT, celular o email"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+              />
+            </div>
+            <table className="items-center w-full bg-transparent border-collapse">
+              <thead>
+                <tr>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Nombre</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">NIT</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Celular</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Email</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Estado</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.isArray(paginatedAsociados) && paginatedAsociados.length > 0 ? (
+                  paginatedAsociados.map((asociado) => (
+                    <tr key={asociado.idUsuario} className="border-t">
+                      <td className="p-2">{asociado.nombre}</td>
+                      <td className="p-2">{asociado.identificacion}</td>
+                      <td className="p-2">{asociado.celular}</td>
+                      <td className="p-2">{asociado.email}</td>
+                      <td className="p-2">
+                        <EstadoPill estado={(estadosByUsuario[asociado.idUsuario] || {}).estado} />
+                      </td>
+                      <td className="p-2">
+                        <button
+                          className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
+                          type="button"
+                          onClick={() => handleVerAsociado(asociado.idUsuario)}
+                        >
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="p-4 text-center text-gray-500">
+                      No hay asociados para mostrar.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="p-4 text-center text-gray-500">
-                    No hay asociados para mostrar.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+            {/* Paginación */}
+            <div className="flex justify-center items-center gap-2 py-4">
+              <button
+                className="px-3 py-1 rounded bg-blueGray-200 text-blueGray-700 font-bold disabled:opacity-50"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+              >Anterior</button>
+              <span className="px-2">Página {currentPage} de {totalPages || 1}</span>
+              <button
+                className="px-3 py-1 rounded bg-blueGray-200 text-blueGray-700 font-bold disabled:opacity-50"
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage(currentPage + 1)}
+              >Siguiente</button>
+            </div>
+          </>
         )}
       </div>
     </div>

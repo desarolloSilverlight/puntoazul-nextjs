@@ -315,13 +315,13 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
         }
         avgBytesPerRow = total / SAMPLE_COUNT;
       }
-      let rowsPerChunk = 120;
+      let rowsPerChunk = 50; // Reducido de 120 para lotes más pequeños
       if (avgBytesPerRow > 0) {
         rowsPerChunk = Math.floor(TARGET_MAX_BYTES / avgBytesPerRow);
         if (SERVER_MAX_PACKET_BYTES <= 4096) {
           rowsPerChunk = Math.max(1, Math.min(50, rowsPerChunk));
         } else {
-          rowsPerChunk = Math.max(50, Math.min(500, rowsPerChunk));
+          rowsPerChunk = Math.max(50, Math.min(150, rowsPerChunk)); // Reducido de 500 a 150 para evitar error 413
         }
       }
       if (avgBytesPerRow > SAFE_TARGET) {
@@ -555,19 +555,19 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           // Totales se ignorarán si vienen en el archivo (se recalculan siempre)
 
           // Validaciones de campos obligatorios
-          if (!razonSocial || razonSocial.trim() === "") {
+          if (!razonSocial || String(razonSocial).trim() === "") {
             erroresFila.push("Razón Social es requerida");
           }
-          if (!marca || marca.trim() === "") {
+          if (!marca || String(marca).trim() === "") {
             erroresFila.push("Marca es requerida");
           }
-          if (!nombreGenerico || nombreGenerico.trim() === "") {
+          if (!nombreGenerico || String(nombreGenerico).trim() === "") {
             erroresFila.push("Nombre Genérico es requerido");
           }
-          if (!numeroRegistros || numeroRegistros.toString().trim() === "") {
+          if (!numeroRegistros || String(numeroRegistros).trim() === "") {
             erroresFila.push("Número de Registros es requerido");
           }
-          if (!codigoEstandar || codigoEstandar.toString().trim() === "") {
+          if (!codigoEstandar || String(codigoEstandar).trim() === "") {
             erroresFila.push("Código Estándar de Datos es requerido");
           }
 
@@ -624,11 +624,11 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
             productosValidados.push({
               id: productos.length + productosValidados.length + 1,
               idInformacionB,
-              razonSocial: razonSocial.trim(),
-              marca: marca.trim(),
-              nombreGenerico: nombreGenerico.trim(),
-              numeroRegistros: numeroRegistros.trim(),
-              codigoEstandarDatos: codigoEstandar.trim(),
+              razonSocial: String(razonSocial).trim(),
+              marca: String(marca).trim(),
+              nombreGenerico: String(nombreGenerico).trim(),
+              numeroRegistros: String(numeroRegistros).trim(),
+              codigoEstandarDatos: String(codigoEstandar).trim(),
               pesoEmpaqueComercialRX: parseFloat(pesoEmpaqueComercialRX),
               pesoTotalComercialRX: parseFloat(pesoTotalComercialRX),
               pesoEmpaqueComercialOTC: parseFloat(pesoEmpaqueComercialOTC),

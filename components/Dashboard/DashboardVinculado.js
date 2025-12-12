@@ -196,9 +196,9 @@ export default function DashboardVinculado() {
               <h2 className={`text-xl font-semibold ${colorActual.text}`}>
                 Formulario Línea Base 
               </h2>
-              <p className="text-gray-600 mt-1">
+              {/* <p className="text-gray-600 mt-1">
                 Reporte de línea base de medicamentos y dispositivos médicos
-              </p>
+              </p> */}
             </div>
             <div className={`${colorActual.accent} text-2xl`}>
               <i className="fas fa-chart-line"></i>

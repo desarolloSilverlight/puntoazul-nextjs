@@ -176,9 +176,9 @@ export default function DashboardAsociado() {
               <h2 className={`text-xl font-semibold ${colorActual.text}`}>
                 Formulario Literal B 
               </h2>
-              <p className="text-gray-600 mt-1">
+              {/* <p className="text-gray-600 mt-1">
                 Reporte anual de medicamentos y dispositivos médicos
-              </p>
+              </p> */}
             </div>
             <div className={`${colorActual.accent} text-2xl`}>
               <i className="fas fa-clipboard-list"></i>

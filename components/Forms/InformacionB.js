@@ -76,6 +76,20 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
     window.location.href = '/admin/dashboard';
   };
 
+  // Años permitidos para anoReporte: año actual -2 y -1
+  const currentYear = new Date().getFullYear();
+  const allowedYearsReporte = [currentYear - 1, currentYear - 2];
+
+  // Asegurar valor inicial válido si no viene del backend
+  useEffect(() => {
+    if (!formData.anoReporte) {
+      setFormData(prev => ({ ...prev, anoReporte: allowedYearsReporte[0].toString() }));
+    } else if (!allowedYearsReporte.map(String).includes(formData.anoReporte)) {
+      setFormData(prev => ({ ...prev, anoReporte: allowedYearsReporte[0].toString() }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.anoReporte]);
+
   // useEffect para traer nombre y nit del usuario al cargar el componente (solo en modo normal)
   useEffect(() => {
     // Solo ejecutar en modo normal, no en readonly
@@ -478,15 +492,19 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" htmlFor="anoReporte">Año reporte</label>
-              <input
+              <select
                 name="anoReporte"
                 id="anoReporte"
                 className="border p-2 w-full"
-                type="number"
-                placeholder="Año reporte"
                 value={formData.anoReporte}
-                disabled={true} // Siempre deshabilitado
-              />
+                onChange={(e) => setFormData({ ...formData, anoReporte: e.target.value })}
+                disabled={isDisabled}
+                required
+              >
+                {allowedYearsReporte.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" htmlFor="titulares">Titulares Representados</label>

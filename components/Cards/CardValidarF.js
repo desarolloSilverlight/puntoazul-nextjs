@@ -355,41 +355,72 @@ Equipo de Validación Punto Azul`
 
   // (helper eliminado: hasAtLeastOneProductF no usado)
 
+  // Helper: convierte valor a número, manejando null/undefined/vacío
+  const safeParseFloat = (value) => {
+    if (value === null || value === undefined || value === '') return 0;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   // Función para calcular totales base (papel, metal, vidrio, cartón)
   const calcularTotalesBase = () => {
-    const totalesPrimarios = empaquesPrimarios.reduce((acc, producto) => ({
-      papel: acc.papel + ((parseFloat(producto.papel || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      metalFerroso: acc.metalFerroso + ((parseFloat(producto.metal_ferrosos || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      metalNoFerroso: acc.metalNoFerroso + ((parseFloat(producto.metal_no_ferrososs || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      carton: acc.carton + ((parseFloat(producto.carton || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      vidrio: acc.vidrio + ((parseFloat(producto.vidrios || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-    }), { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0 });
+    const totalesPrimarios = empaquesPrimarios.reduce((acc, producto) => {
+      const unidades = safeParseFloat(producto.unidades);
+      return {
+        papel: acc.papel + ((safeParseFloat(producto.papel) * unidades) / 1000000),
+        metalFerroso: acc.metalFerroso + ((safeParseFloat(producto.metal_ferrosos) * unidades) / 1000000),
+        metalNoFerroso: acc.metalNoFerroso + ((safeParseFloat(producto.metal_no_ferrososs) * unidades) / 1000000),
+        carton: acc.carton + ((safeParseFloat(producto.carton) * unidades) / 1000000),
+        vidrio: acc.vidrio + ((safeParseFloat(producto.vidrios) * unidades) / 1000000),
+      };
+    }, { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0 });
 
-    const totalesSecundarios = empaquesSecundarios.reduce((acc, producto) => ({
-      papel: acc.papel + ((parseFloat(producto.papel || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      metalFerroso: acc.metalFerroso + ((parseFloat(producto.metal_ferrosos || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      metalNoFerroso: acc.metalNoFerroso + ((parseFloat(producto.metal_no_ferrososs || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      carton: acc.carton + ((parseFloat(producto.carton || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-      vidrio: acc.vidrio + ((parseFloat(producto.vidrios || 0) * parseFloat(producto.unidades || 0)) / 1000000),
-    }), { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0 });
+    const totalesSecundarios = empaquesSecundarios.reduce((acc, producto) => {
+      const unidades = safeParseFloat(producto.unidades);
+      return {
+        papel: acc.papel + ((safeParseFloat(producto.papel) * unidades) / 1000000),
+        metalFerroso: acc.metalFerroso + ((safeParseFloat(producto.metal_ferrosos) * unidades) / 1000000),
+        metalNoFerroso: acc.metalNoFerroso + ((safeParseFloat(producto.metal_no_ferrososs) * unidades) / 1000000),
+        carton: acc.carton + ((safeParseFloat(producto.carton) * unidades) / 1000000),
+        vidrio: acc.vidrio + ((safeParseFloat(producto.vidrios) * unidades) / 1000000),
+      };
+    }, { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0 });
 
-    return totalesPrimarios.papel + totalesPrimarios.metalFerroso + totalesPrimarios.metalNoFerroso + totalesPrimarios.carton + totalesPrimarios.vidrio +
-           totalesSecundarios.papel + totalesSecundarios.metalFerroso + totalesSecundarios.metalNoFerroso + totalesSecundarios.carton + totalesSecundarios.vidrio;
+    const totalBase = totalesPrimarios.papel + totalesPrimarios.metalFerroso + totalesPrimarios.metalNoFerroso + totalesPrimarios.carton + totalesPrimarios.vidrio +
+                      totalesSecundarios.papel + totalesSecundarios.metalFerroso + totalesSecundarios.metalNoFerroso + totalesSecundarios.carton + totalesSecundarios.vidrio;
+    
+    return isNaN(totalBase) ? 0 : totalBase;
   };
 
   // Función para calcular totales de plásticos
   const calcularTotalesPlasticos = () => {
     return plasticos.reduce((total, producto) => {
-      const liquidos = JSON.parse(producto.liquidos || "{}");
-      const otros = JSON.parse(producto.otros || "{}");
-      const construccion = JSON.parse(producto.construccion || "{}");
-      const unidades = parseFloat(producto.unidades || 0);
+      // Los datos ya vienen parseados desde el fetch (líneas 170-172), no hacer doble parsing
+      const liquidos = producto.liquidos || {};
+      const otros = producto.otrosProductos || producto.otros || {};
+      const construccion = producto.construccion || {};
+      const unidades = safeParseFloat(producto.unidades);
 
-      const totalLiquidos = Object.values(liquidos).reduce((sum, val) => sum + (parseFloat(val || 0) * unidades) / 1000000, 0);
-      const totalOtros = Object.values(otros).reduce((sum, val) => sum + (parseFloat(val || 0) * unidades) / 1000000, 0);
-      const totalConstruccion = Object.values(construccion).reduce((sum, val) => sum + (parseFloat(val || 0) * unidades) / 1000000, 0);
+      const totalLiquidos = Object.values(liquidos).reduce((sum, val) => {
+        const valorNumerico = safeParseFloat(val);
+        const resultado = (valorNumerico * unidades) / 1000000;
+        return sum + (isNaN(resultado) ? 0 : resultado);
+      }, 0);
       
-      return total + totalLiquidos + totalOtros + totalConstruccion;
+      const totalOtros = Object.values(otros).reduce((sum, val) => {
+        const valorNumerico = safeParseFloat(val);
+        const resultado = (valorNumerico * unidades) / 1000000;
+        return sum + (isNaN(resultado) ? 0 : resultado);
+      }, 0);
+      
+      const totalConstruccion = Object.values(construccion).reduce((sum, val) => {
+        const valorNumerico = safeParseFloat(val);
+        const resultado = (valorNumerico * unidades) / 1000000;
+        return sum + (isNaN(resultado) ? 0 : resultado);
+      }, 0);
+      
+      const subtotal = totalLiquidos + totalOtros + totalConstruccion;
+      return total + (isNaN(subtotal) ? 0 : subtotal);
     }, 0);
   };
 

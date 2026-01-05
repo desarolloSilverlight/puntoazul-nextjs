@@ -113,9 +113,9 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
     window.location.href = '/admin/dashboard';
   };
 
-  // Años permitidos para anioReportado: año actual -1 y -2
+  // Años permitidos para anioReportado: año actual -2 y -3
   const currentYear = new Date().getFullYear();
-  const allowedYears = [currentYear - 1, currentYear - 2];
+  const allowedYears = [currentYear - 2, currentYear - 3];
 
   // Asegurar valor inicial válido si no viene del backend
   useEffect(() => {

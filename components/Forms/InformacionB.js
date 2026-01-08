@@ -482,7 +482,7 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           {/* Cuarta fila */}
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-semibold mb-1" htmlFor="ano">Año</label>
+              <label className="block text-xs font-semibold mb-1" htmlFor="ano">Año de diligenciamiento</label>
               <select
                 name="ano"
                 id="ano"

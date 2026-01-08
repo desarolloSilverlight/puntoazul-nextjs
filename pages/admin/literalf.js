@@ -274,12 +274,18 @@ export default function FormularioF() {
 
   // Subir documento al backend (alineado con literalb.js: solo archivo -> finaliza)
   const handleUploadCarta = async () => {
-    if (!selectedFile) return;
+    // Validación obligatoria: debe seleccionar un archivo
+    if (!selectedFile) {
+      alert("⚠️ Debe seleccionar un archivo para continuar");
+      return;
+    }
+    
     const idInformacionF = localStorage.getItem("idInformacionF");
     const formData = new FormData();
     formData.append("file", selectedFile);
+    
     try {
-      // Ajuste: el backend expone /cargaCartaUrl/ con FileInterceptor('file')
+      // Paso 1: Subir el archivo al backend
       const response = await fetch(`${API_BASE_URL}/informacion-f/cargaCartaUrl/${idInformacionF}`, {
         method: "POST",
         body: formData,
@@ -288,8 +294,12 @@ export default function FormularioF() {
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
-      alert("Formulario subido correctamente.");
+      
+      // Paso 2: Si la carga fue exitosa, entonces cambiar estado a Finalizado
       await FinalizaFormulario();
+      
+      // Paso 3: Todo completado, mostrar mensaje de éxito y cerrar modal
+      alert("✅ Carta firmada subida correctamente. El formulario ha sido finalizado.");
       setShowModal(false);
       setSelectedFile(null);
     } catch (error) {
@@ -297,7 +307,7 @@ export default function FormularioF() {
       if (String(error.message).includes("Unexpected field")) {
         alert("El backend rechazó el campo 'file'. Verifique que el FileInterceptor use FileInterceptor('file').");
       } else {
-        alert(`Error al subir el formulario: ${error.message}`);
+        alert(`Error al subir la carta: ${error.message}`);
       }
     }
   };
@@ -416,32 +426,87 @@ export default function FormularioF() {
         onRequestClose={() => setShowModal(false)}
         className="mx-auto my-32 bg-white p-5 rounded-lg shadow-lg max-w-xl z-40 max-h-460-px overflow-y-auto outline-none"
         overlayClassName=""
-        contentLabel="Cargar carta"
+        contentLabel="Cargar carta firmada"
         shouldCloseOnOverlayClick={true}
       >
-        <h2 className="text-xl font-bold mb-4">Cargar carta</h2>
-        <p className="mb-4">
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <i className="fas fa-file-upload text-lightBlue-600"></i>
+          Cargar Carta Firmada
+        </h2>
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+          <p className="text-sm text-blue-800">
+            <strong>📄 Importante:</strong> Debes subir la carta firmada para finalizar el proceso.
+          </p>
+        </div>
+        <p className="mb-4 text-gray-700">
           Sube aquí el documento de la carta firmada en formato PDF, Word o imagen.
           <br />
-          <strong>Nota:</strong> Al subir la carta, el proceso se finalizará automáticamente.
+          <strong className="text-orange-600">Nota:</strong> Al subir la carta, el formulario pasará automáticamente a estado <strong>Finalizado</strong>.
         </p>
-        <input type="file" accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileChange} className="mb-4" />
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Seleccionar archivo: <span className="text-red-500">*</span>
+          </label>
+          <input 
+            type="file" 
+            accept=".pdf,.doc,.docx,.jpg,.png" 
+            onChange={handleFileChange} 
+            className="block w-full text-sm text-gray-500
+              file:mr-4 file:py-2 file:px-4
+              file:rounded file:border-0
+              file:text-sm file:font-semibold
+              file:bg-lightBlue-50 file:text-lightBlue-700
+              hover:file:bg-lightBlue-100
+              border border-gray-300 rounded-lg cursor-pointer" 
+          />
+        </div>
+        
         {selectedFile && (
-          <div className="mb-2 text-sm text-gray-700">Archivo seleccionado: {selectedFile.name}</div>
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <i className="fas fa-check-circle text-green-600"></i>
+              <span className="text-sm text-green-800">
+                <strong>Archivo seleccionado:</strong> {selectedFile.name}
+              </span>
+            </div>
+          </div>
         )}
-        <button
-          className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
-          onClick={handleUploadCarta}
-          disabled={!selectedFile}
-        >
-          Subir
-        </button>
-        <button
-          className="bg-gray-300 text-black px-4 py-2 rounded mt-3 ml-2"
-          onClick={() => setShowModal(false)}
-        >
-          Cancelar
-        </button>
+        
+        {!selectedFile && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <i className="fas fa-exclamation-triangle text-yellow-600"></i>
+              <span className="text-sm text-yellow-800">
+                Debes seleccionar un archivo para poder continuar
+              </span>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex gap-2 mt-6">
+          <button
+            className={`flex-1 px-4 py-2 rounded font-semibold transition-all ${
+              !selectedFile 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                : 'bg-lightBlue-600 text-white hover:bg-lightBlue-700'
+            }`}
+            onClick={handleUploadCarta}
+            disabled={!selectedFile}
+          >
+            <i className="fas fa-upload mr-2"></i>
+            Subir y Finalizar
+          </button>
+          <button
+            className="px-4 py-2 rounded bg-gray-300 text-gray-700 hover:bg-gray-400 transition-all"
+            onClick={() => {
+              setShowModal(false);
+              setSelectedFile(null);
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
       </Modal>
       {/* Tabs */}
       <div className="relative flex border-b-2 border-gray-300">

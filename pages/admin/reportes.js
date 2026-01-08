@@ -245,152 +245,31 @@ export default function Reportes() {
           if (literal === 'linea_base') {
             setCargandoConsolidado(true);
             try {
-              // 1) Preferido: obtener finalizados por endpoints dedicados
-              let candidatos = [];
-              try {
-                let respFinish = await fetch(`${API_BASE_URL}/informacion-f/getClientesFinish`, { credentials: 'include' });
-                if (!respFinish.ok) {
-                  respFinish = await fetch(`${API_BASE_URL}/informacion-f/getFinishF`, { credentials: 'include' });
-                }
-                if (respFinish.ok) {
-                  const list = await respFinish.json();
-                  const arr = Array.isArray(list?.data) ? list.data : (Array.isArray(list) ? list : []);
-                  const getIdFinishF = (e) => {
-                    // Intentar varias formas comunes y anidadas
-                    const direct = e?.idInformacionF ?? e?.informacionF_idInformacionF ?? e?.id_informacion_f ?? e?.id;
-                    if (direct !== undefined && direct !== null && direct !== '') return direct;
-                    if (typeof e?.idInformacion === 'object') {
-                      if (e.idInformacion.idInformacionF !== undefined) return e.idInformacion.idInformacionF;
-                      if (e.idInformacion.id !== undefined) return e.idInformacion.id;
-                    }
-                    return null;
-                  };
-                  candidatos = arr.map(e => ({ id: getIdFinishF(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '' }))
-                                   .filter(x => x.id !== null && x.id !== undefined && x.id !== '');
-                }
-              } catch {}
-              // 2) Compatibilidad: derivar desde reporte de estado si aún no hay candidatos
-              if (!candidatos.length) {
-                const resp = await fetch(`${API_BASE_URL}/informacion-f/reportes`, {
-                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ literal: 'linea_base', reporte: 'estado', cliente: null }), credentials: 'include'
-                });
-                const data = resp.ok ? await resp.json() : [];
-                const empresas = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-                const esFinalizado = (e) => {
-                  const st = (e?.estado || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-                  return st.includes('finalizado') || st.includes('firmado');
-                };
-                const finales = empresas.filter(esFinalizado);
-                const getIdF = (e) => e.idInformacionF || e.informacionF_idInformacionF || e.id_informacion_f || e.id || null;
-                candidatos = finales.map(e => ({ id: getIdF(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '' }))
-                                   .filter(x => x.id);
+              // Llamar al nuevo endpoint consolidado-raw
+              const response = await fetch(`${API_BASE_URL}/informacion-f/consolidado-raw`, {
+                credentials: 'include'
+              });
+
+              if (!response.ok) {
+                throw new Error(`Error ${response.status}: No se pudo obtener datos consolidados`);
               }
-              if (!candidatos.length) {
-                alert('No se pudieron obtener los IDs de los finalizados para Línea Base. Solicite al backend incluir idInformacionF en el reporte de estado o agregue un endpoint getClientesFinalizados.');
+
+              const result = await response.json();
+              const datosRaw = result.success && Array.isArray(result.data) ? result.data : [];
+
+              if (datosRaw.length === 0) {
+                alert('No hay formularios finalizados para generar el consolidado.');
                 setConsolidadoF(null);
                 setCargandoConsolidado(false);
                 return;
               }
-              // 2) Procesar consolidado F por lotes
-              const limit = 4;
-              const chunk = (arr, n) => arr.reduce((acc, item, idx) => { if (idx % n === 0) acc.push([]); acc[acc.length - 1].push(item); return acc; }, []);
-              let acumuladoBase = {
-                primarios: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
-                secundarios: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
-                total: { papel: 0, metalFerroso: 0, metalNoFerroso: 0, carton: 0, vidrio: 0, total: 0 },
-              };
-              let acumuladoPlast = {
-                liquidos: { petAgua: 0, petOtros: 0, pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 },
-                otros: { pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 },
-                construccion: { pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 },
-                totales: { totalLiquidos: 0, totalOtros: 0, totalConstruccion: 0, totalGeneral: 0 }
-              };
-              const toTon = (g, u) => ((parseFloat(g || 0) * parseFloat(u || 0)) / 1000000) || 0;
-              for (const grupo of chunk(candidatos, limit)) {
-                // Por cada cliente, cargar primarios/secundarios/plásticos en paralelo
-                const results = await Promise.all(grupo.map(async (c) => {
-                  try {
-                    const idStr = typeof c.id === 'object' ? (c.id?.idInformacionF || c.id?.id || '') : String(c.id);
-                    const safeId = encodeURIComponent(idStr);
-                    const [rP, rS, rPl] = await Promise.all([
-                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPrimarios/${safeId}`, { credentials: 'include' }),
-                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesSecundarios/${safeId}`, { credentials: 'include' }),
-                      fetch(`${API_BASE_URL}/informacion-f/getEmpaquesPlasticos/${safeId}`, { credentials: 'include' }),
-                    ]);
-                    const prim = rP.ok ? await rP.json() : [];
-                    const sec = rS.ok ? await rS.json() : [];
-                    const pla = rPl.ok ? await rPl.json() : [];
-                    return { prim, sec, pla };
-                  } catch { return { prim: [], sec: [], pla: [] }; }
-                }));
-                // Acumular
-                results.forEach(({ prim, sec, pla }) => {
-                  const acumLinea = (arr, dest) => {
-                    arr.forEach(p => {
-                      const u = parseFloat(p.unidades || 0) || 0;
-                      const papel = toTon(p.papel, u);
-                      const mf = toTon(p.metal_ferrosos, u);
-                      const mnf = toTon(p.metal_no_ferrososs, u);
-                      const carton = toTon(p.carton, u);
-                      const vidrio = toTon(p.vidrios, u);
-                      dest.papel += papel; dest.metalFerroso += mf; dest.metalNoFerroso += mnf; dest.carton += carton; dest.vidrio += vidrio; dest.total += (papel+mf+mnf+carton+vidrio);
-                    });
-                  };
-                  acumLinea(prim, acumuladoBase.primarios);
-                  acumLinea(sec, acumuladoBase.secundarios);
-                  // Recalcular total por material al final, por ahora sumaremos directo en total.total
-                  acumuladoBase.total.papel = acumuladoBase.primarios.papel + acumuladoBase.secundarios.papel;
-                  acumuladoBase.total.metalFerroso = acumuladoBase.primarios.metalFerroso + acumuladoBase.secundarios.metalFerroso;
-                  acumuladoBase.total.metalNoFerroso = acumuladoBase.primarios.metalNoFerroso + acumuladoBase.secundarios.metalNoFerroso;
-                  acumuladoBase.total.carton = acumuladoBase.primarios.carton + acumuladoBase.secundarios.carton;
-                  acumuladoBase.total.vidrio = acumuladoBase.primarios.vidrio + acumuladoBase.secundarios.vidrio;
-                  acumuladoBase.total.total = acumuladoBase.primarios.total + acumuladoBase.secundarios.total;
 
-                  // Plásticos: parsear JSON por categorías
-                  pla.forEach(prod => {
-                    const u = parseFloat(prod.unidades || 0) || 0;
-                    let liquidos = {}; let otros = {}; let construccion = {};
-                    try { liquidos = JSON.parse(prod.liquidos || '{}') || {}; } catch {}
-                    try { otros = JSON.parse(prod.otros || '{}') || {}; } catch {}
-                    try { construccion = JSON.parse(prod.construccion || '{}') || {}; } catch {}
-                    // Líquidos
-                    acumuladoPlast.liquidos.petAgua += toTon(liquidos['PET Agua'], u);
-                    acumuladoPlast.liquidos.petOtros += toTon(liquidos['PET Otros'], u);
-                    acumuladoPlast.liquidos.pet += toTon(liquidos['PET'], u);
-                    acumuladoPlast.liquidos.hdpe += toTon(liquidos['HDPE'], u);
-                    acumuladoPlast.liquidos.pvc += toTon(liquidos['PVC'], u);
-                    acumuladoPlast.liquidos.ldpe += toTon(liquidos['LDPE'], u);
-                    acumuladoPlast.liquidos.pp += toTon(liquidos['PP'], u);
-                    acumuladoPlast.liquidos.ps += toTon(liquidos['PS'], u);
-                    acumuladoPlast.liquidos.otros += toTon(liquidos['Otros'], u);
-                    // Otros
-                    acumuladoPlast.otros.pet += toTon(otros['PET'], u);
-                    acumuladoPlast.otros.hdpe += toTon(otros['HDPE'], u);
-                    acumuladoPlast.otros.pvc += toTon(otros['PVC'], u);
-                    acumuladoPlast.otros.ldpe += toTon(otros['LDPE'], u);
-                    acumuladoPlast.otros.pp += toTon(otros['PP'], u);
-                    acumuladoPlast.otros.ps += toTon(otros['PS'], u);
-                    acumuladoPlast.otros.otros += toTon(otros['Otros'], u);
-                    // Construcción
-                    acumuladoPlast.construccion.pet += toTon(construccion['PET'], u);
-                    acumuladoPlast.construccion.hdpe += toTon(construccion['HDPE'], u);
-                    acumuladoPlast.construccion.pvc += toTon(construccion['PVC'], u);
-                    acumuladoPlast.construccion.ldpe += toTon(construccion['LDPE'], u);
-                    acumuladoPlast.construccion.pp += toTon(construccion['PP'], u);
-                    acumuladoPlast.construccion.ps += toTon(construccion['PS'], u);
-                    acumuladoPlast.construccion.otros += toTon(construccion['Otros'], u);
-                  });
-                  const sumVals = obj => Object.values(obj).reduce((a,b)=>a+(parseFloat(b)||0),0);
-                  acumuladoPlast.totales.totalLiquidos = sumVals(acumuladoPlast.liquidos);
-                  acumuladoPlast.totales.totalOtros = sumVals(acumuladoPlast.otros);
-                  acumuladoPlast.totales.totalConstruccion = sumVals(acumuladoPlast.construccion);
-                  acumuladoPlast.totales.totalGeneral = acumuladoPlast.totales.totalLiquidos + acumuladoPlast.totales.totalOtros + acumuladoPlast.totales.totalConstruccion;
-                });
-              }
-              setConsolidadoF({ resumenBase: acumuladoBase, resumenPlasticos: acumuladoPlast });
+              // Pasar datos crudos al componente
+              setConsolidadoF({ datosRaw });
+
             } catch (e) {
               console.error('Error construyendo consolidado F:', e);
-              alert('No se pudo construir el consolidado de Línea Base.');
+              alert(`No se pudo construir el consolidado de Línea Base: ${e.message}`);
               setConsolidadoF(null);
             } finally {
               setCargandoConsolidado(false);
@@ -493,15 +372,21 @@ export default function Reportes() {
           }
         }
         if (literal === "linea_base") {
-          endpoint = `${API_BASE_URL}/informacion-f/reportes`;
-          
-          // Para toneladas, rangos y facturación, no enviar cliente (todos los clientes)
-          if (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion") {
-            datosEnvio.cliente = null; // Explícitamente null para todos los clientes
-            datosEnvio.ano = parseInt(ano);
-          } else {
-            // Para otros reportes, usar el cliente seleccionado
+          // Para estado, usar endpoint específico
+          if (reporte === "estado") {
+            endpoint = `${API_BASE_URL}/informacion-f/reporteEstado`;
             datosEnvio.cliente = cliente || null;
+          } else {
+            endpoint = `${API_BASE_URL}/informacion-f/reportes`;
+            
+            // Para toneladas, rangos y facturación, no enviar cliente (todos los clientes)
+            if (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion") {
+              datosEnvio.cliente = null; // Explícitamente null para todos los clientes
+              datosEnvio.ano = parseInt(ano);
+            } else {
+              // Para otros reportes, usar el cliente seleccionado
+              datosEnvio.cliente = cliente || null;
+            }
           }
         } else if (literal === "literal_b") {
           // Para variación de grupo, comparar dos años
@@ -631,6 +516,7 @@ export default function Reportes() {
         const data = await response.json();
         
         console.log("=== Datos recibidos del backend ===", data);
+        console.log("=== Literal y Reporte ===", literal, reporte);
         
         // Verificar si los datos vienen en una propiedad específica
         let datosParaTabla = data;
@@ -640,7 +526,11 @@ export default function Reportes() {
           datosParaTabla = data.empresas;
         } else if (data && data.result && Array.isArray(data.result)) {
           datosParaTabla = data.result;
+        } else if (Array.isArray(data)) {
+          datosParaTabla = data;
         }
+        
+        console.log("=== Datos parseados para tabla ===", datosParaTabla);
         
         setDatosReporte(datosParaTabla);
         setTablaDatos(datosParaTabla);
@@ -685,7 +575,19 @@ export default function Reportes() {
     }
 
     const empresasComparacion = [];
-    const anosDisponiblesOrdenados = [...anosDisponibles].sort((a, b) => a - b);
+    
+    // Determinar años a mostrar: solo el año seleccionado y el año anterior (si existe)
+    const anoSeleccionado = parseInt(ano);
+    const anoAnterior = anoSeleccionado - 1;
+    
+    // Verificar si el año anterior existe en los datos
+    const todosAnosDisponibles = [...anosDisponibles].sort((a, b) => a - b);
+    const tieneAnoAnterior = todosAnosDisponibles.includes(anoAnterior);
+    
+    // Solo incluir el año anterior si existe en los datos
+    const anosDisponiblesOrdenados = tieneAnoAnterior 
+      ? [anoAnterior, anoSeleccionado] 
+      : [anoSeleccionado];
     
     datosReporte.forEach((empresa, index) => {
       const datosEmpresa = {
@@ -695,7 +597,7 @@ export default function Reportes() {
         toneladas: {}
       };
 
-      // Extraer toneladas_reportadas para cada año disponible desde la propiedad 'anos'
+      // Extraer toneladas_reportadas solo para los años a mostrar
       anosDisponiblesOrdenados.forEach(year => {
         const yearStr = year.toString();
         
@@ -731,6 +633,13 @@ export default function Reportes() {
       return valorActual > 0 ? 100 : 0;
     }
     return ((valorActual - valorAnterior) / valorAnterior) * 100;
+  };
+
+  // Formatear números con precisión dinámica (elimina ceros innecesarios)
+  const formatearNumero = (n) => {
+    const num = Number(n || 0);
+    // Mostrar hasta 8 decimales pero eliminar ceros innecesarios al final
+    return num.toFixed(8).replace(/\.?0+$/, '') || '0';
   };
 
   // Filtrar y paginar datos de la tabla
@@ -780,9 +689,18 @@ export default function Reportes() {
 
   // Función para exportar reporte a Excel
   const exportarAExcel = async () => {
-    if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) {
-      alert("No hay datos para exportar");
-      return;
+    // Validación especial para consolidado
+    if (reporte === 'consolidado' && literal === 'linea_base') {
+      if (!consolidadoF || !consolidadoF.datosRaw || consolidadoF.datosRaw.length === 0) {
+        alert("No hay datos de consolidado para exportar");
+        return;
+      }
+    } else {
+      // Validación para otros reportes
+      if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) {
+        alert("No hay datos para exportar");
+        return;
+      }
     }
 
     try {
@@ -918,6 +836,194 @@ export default function Reportes() {
           empresa.correo_facturacion || empresa.correoFacturacion || 'N/A',
           empresa.estado || 'Sin estado'
         ]);
+      } else if (reporte === 'consolidado' && literal === 'linea_base' && consolidadoF) {
+        // Reporte de consolidado - crear hojas por año
+        const datosRaw = consolidadoF.datosRaw || [];
+        if (datosRaw.length > 0) {
+          // Agrupar datos por año
+          const datosPorAnio = {};
+          datosRaw.forEach((cliente) => {
+            const anio = cliente.ano_reportado || 'Sin año';
+            if (!datosPorAnio[anio]) datosPorAnio[anio] = [];
+            datosPorAnio[anio].push(cliente);
+          });
+
+          const anios = Object.keys(datosPorAnio).sort();
+          
+          // Helper para convertir gramos * unidades a toneladas
+          const toTon = (gramos, unidades) => {
+            const g = Number(gramos || 0);
+            const u = Number(unidades || 0);
+            return (g * u) / 1000000;
+          };
+
+          // Calcular Primario+Secundario
+          const calcularPrimarioSecundario = (cliente) => {
+            let total = 0;
+            const primarios = cliente.primarios || [];
+            const secundarios = cliente.secundarios || [];
+            primarios.forEach((p) => { total += toTon(p.gramos, p.unidades); });
+            secundarios.forEach((s) => { total += toTon(s.gramos, s.unidades); });
+            return total;
+          };
+
+          // Calcular plásticos
+          const calcularPlasticos = (cliente) => {
+            const plasticos = cliente.plasticos || [];
+            const result = { petAgua: 0, petOtros: 0, pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 };
+            plasticos.forEach((p) => {
+              const tons = toTon(p.gramos, p.unidades);
+              const material = (p.material || '').toLowerCase();
+              const tipo = (p.tipo || '').toLowerCase();
+              if (tipo === 'liquidos') {
+                if (material === 'pet agua') result.petAgua += tons;
+                else if (material === 'pet otros') result.petOtros += tons;
+                else if (material === 'pet') result.petOtros += tons;
+                else if (material === 'hdpe') result.hdpe += tons;
+                else if (material === 'pvc') result.pvc += tons;
+                else if (material === 'ldpe') result.ldpe += tons;
+                else if (material === 'pp') result.pp += tons;
+                else if (material === 'ps') result.ps += tons;
+                else if (material === 'otros') result.otros += tons;
+              } else if (tipo === 'otros') {
+                if (material === 'pet') result.pet += tons;
+                else if (material === 'hdpe') result.hdpe += tons;
+                else if (material === 'pvc') result.pvc += tons;
+                else if (material === 'ldpe') result.ldpe += tons;
+                else if (material === 'pp') result.pp += tons;
+                else if (material === 'ps') result.ps += tons;
+                else if (material === 'otros') result.otros += tons;
+              } else if (tipo === 'construccion') {
+                if (material === 'pet') result.pet += tons;
+                else if (material === 'hdpe') result.hdpe += tons;
+                else if (material === 'pvc') result.pvc += tons;
+                else if (material === 'ldpe') result.ldpe += tons;
+                else if (material === 'pp') result.pp += tons;
+                else if (material === 'ps') result.ps += tons;
+                else if (material === 'otros') result.otros += tons;
+              }
+            });
+            return result;
+          };
+
+          // Crear una hoja por año
+          anios.forEach((anio) => {
+            const clientes = datosPorAnio[anio] || [];
+            const hojaAnio = workbook.addWorksheet(`Año ${anio}`);
+            
+            // Encabezados
+            const encabezadosConsolidado = [
+              'Cliente', 'NIT', 'Primario+Secundario (ton)',
+              'PET Agua (ton)', 'PET Otros (ton)', 'PET (ton)',
+              'HDPE (ton)', 'PVC (ton)', 'LDPE (ton)',
+              'PP (ton)', 'PS (ton)', 'Otros (ton)', 'Total (ton)'
+            ];
+            
+            const headerRow = hojaAnio.addRow(encabezadosConsolidado);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+            headerRow.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: '4472C4' }
+            };
+
+            // Datos y totales
+            const totales = {
+              primarioSecundario: 0, petAgua: 0, petOtros: 0, pet: 0,
+              hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0, total: 0
+            };
+
+            clientes.forEach((cliente) => {
+              const primSec = calcularPrimarioSecundario(cliente);
+              const plast = calcularPlasticos(cliente);
+              const totalCliente = primSec + plast.petAgua + plast.petOtros + plast.pet +
+                                   plast.hdpe + plast.pvc + plast.ldpe + plast.pp + plast.ps + plast.otros;
+
+              totales.primarioSecundario += primSec;
+              totales.petAgua += plast.petAgua;
+              totales.petOtros += plast.petOtros;
+              totales.pet += plast.pet;
+              totales.hdpe += plast.hdpe;
+              totales.pvc += plast.pvc;
+              totales.ldpe += plast.ldpe;
+              totales.pp += plast.pp;
+              totales.ps += plast.ps;
+              totales.otros += plast.otros;
+              totales.total += totalCliente;
+
+              const fila = [
+                cliente.nombre || 'Sin nombre',
+                cliente.nit || '',
+                Number(primSec.toFixed(5)),
+                Number(plast.petAgua.toFixed(5)),
+                Number(plast.petOtros.toFixed(5)),
+                Number(plast.pet.toFixed(5)),
+                Number(plast.hdpe.toFixed(5)),
+                Number(plast.pvc.toFixed(5)),
+                Number(plast.ldpe.toFixed(5)),
+                Number(plast.pp.toFixed(5)),
+                Number(plast.ps.toFixed(5)),
+                Number(plast.otros.toFixed(5)),
+                Number(totalCliente.toFixed(5))
+              ];
+              hojaAnio.addRow(fila);
+            });
+
+            // Fila de totales
+            const totalRow = hojaAnio.addRow([
+              'TOTAL', '',
+              Number(totales.primarioSecundario.toFixed(5)),
+              Number(totales.petAgua.toFixed(5)),
+              Number(totales.petOtros.toFixed(5)),
+              Number(totales.pet.toFixed(5)),
+              Number(totales.hdpe.toFixed(5)),
+              Number(totales.pvc.toFixed(5)),
+              Number(totales.ldpe.toFixed(5)),
+              Number(totales.pp.toFixed(5)),
+              Number(totales.ps.toFixed(5)),
+              Number(totales.otros.toFixed(5)),
+              Number(totales.total.toFixed(5))
+            ]);
+            totalRow.font = { bold: true };
+            totalRow.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFD966' }
+            };
+
+            // Ajustar ancho de columnas
+            hojaAnio.columns.forEach(column => {
+              column.width = 18;
+            });
+          });
+
+          // Crear hoja de resumen
+          const hojaResumen = workbook.addWorksheet('Resumen');
+          const resumenData = [
+            ['CONSOLIDADO LÍNEA BASE'],
+            ['Fecha:', new Date().toLocaleString('es-CO')],
+            ['Total de Registros:', datosRaw.length],
+            ['Años incluidos:', anios.join(', ')],
+            [],
+            ['DESCRIPCIÓN:'],
+            ['Reporte consolidado con datos agrupados por año'],
+            ['Incluye primarios, secundarios y plásticos por cliente']
+          ];
+          resumenData.forEach((row, index) => {
+            const excelRow = hojaResumen.addRow(row);
+            if (index === 0) excelRow.font = { bold: true, size: 14 };
+          });
+
+          // Generar y descargar
+          const nombreArchivo = `Consolidado_Linea_Base_${new Date().toISOString().split('T')[0]}.xlsx`;
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+          });
+          saveAs(blob, nombreArchivo);
+          alert(`Consolidado exportado exitosamente como: ${nombreArchivo}`);
+          return; // Salir temprano ya que no necesitamos el flujo normal
+        }
       }
 
   // Crear hoja de datos
@@ -2010,9 +2116,9 @@ export default function Reportes() {
                 ))}
               </select>
             </div>
-            {/* Selector Cliente - oculto también para Consolidado */}
-      {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "consolidado")) ||
-        (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado")))) && (
+            {/* Selector Cliente - oculto para reportes que no necesitan cliente específico */}
+      {!(((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado")) ||
+        (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado")))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Cliente</label>
                 <select
@@ -2089,7 +2195,18 @@ export default function Reportes() {
                 </div>
               )}
               {!cargandoConsolidado && literal === 'linea_base' && consolidadoF && (
-                <ConsolidadoF resumenBase={consolidadoF.resumenBase} resumenPlasticos={consolidadoF.resumenPlasticos} />
+                <>
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={exportarAExcel}
+                      className="bg-green h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150"
+                      title="Exportar consolidado a Excel"
+                    >
+                      📊 Exportar Excel
+                    </button>
+                  </div>
+                  <ConsolidadoF datosRaw={consolidadoF.datosRaw} />
+                </>
               )}
               {!cargandoConsolidado && literal === 'literal_b' && consolidadoB && (
                 <ConsolidadoB filas={consolidadoB.filas} total={consolidadoB.total} />
@@ -2289,7 +2406,7 @@ export default function Reportes() {
                                 <td className="px-4 py-2 border">{empresa.ciudad}</td>
                                 {anosDisponiblesOrdenados.map(year => (
                                   <td key={year} className="px-4 py-2 border">
-                                    {empresa.toneladas[year.toString()].toFixed(2)}
+                                    {formatearNumero(empresa.toneladas[year.toString()])}
                                   </td>
                                 ))}
                                 {cambio !== null && (
@@ -2491,6 +2608,7 @@ export default function Reportes() {
                             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
                             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Correo Facturación</th>
                             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Estado</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Documento Adjunto</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2507,6 +2625,18 @@ export default function Reportes() {
                               if (estadoLower.includes('rechazado')) return 'bg-red-100 text-red-800';
                               return 'bg-gray-100 text-gray-600';
                             };
+                            
+                            // Verificar si tiene documento adjunto (carta firmada)
+                            const tieneDocumento = empresa.urlDoc || empresa.urldoc || empresa.cartaFirmada;
+                            const esFinalizadoOFirmado = empresa.estado?.toLowerCase().includes('finalizado') || 
+                                                          empresa.estado?.toLowerCase().includes('firmado');
+                            
+                            // Construir URL completa para el documento
+                            const urlDocumento = tieneDocumento 
+                              ? (tieneDocumento.startsWith('http') 
+                                  ? tieneDocumento 
+                                  : `${API_BASE_URL}${tieneDocumento}`)
+                              : null;
 
                             return (
                               <tr key={index} className="hover:bg-gray-50">
@@ -2523,6 +2653,25 @@ export default function Reportes() {
                                   <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(empresa.estado)}`}>
                                     {empresa.estado || 'Sin estado'}
                                   </span>
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {urlDocumento ? (
+                                    <a
+                                      href={urlDocumento}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      Ver Carta
+                                    </a>
+                                  ) : esFinalizadoOFirmado ? (
+                                    <span className="text-yellow-600 text-sm italic">Sin documento</span>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">-</span>
+                                  )}
                                 </td>
                               </tr>
                             );
@@ -2945,6 +3094,7 @@ export default function Reportes() {
                             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">NIT</th>
                             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Correo Facturación</th>
                             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Estado</th>
+                            <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Documento Adjunto</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2960,6 +3110,17 @@ export default function Reportes() {
                               if (estadoLower.includes('iniciado')) return 'bg-gray-100 text-gray-800';
                               return 'bg-gray-100 text-gray-600';
                             };
+                            
+                            // Verificar si tiene documento adjunto (carta firmada)
+                            const tieneDocumento = empresa.urlDoc || empresa.urldoc || empresa.cartaFirmada;
+                            const esAprobado = empresa.estado?.toLowerCase().includes('aprobado');
+                            
+                            // Construir URL completa para el documento
+                            const urlDocumento = tieneDocumento 
+                              ? (tieneDocumento.startsWith('http') 
+                                  ? tieneDocumento 
+                                  : `${API_BASE_URL}${tieneDocumento}`)
+                              : null;
 
                             return (
                               <tr key={index} className="hover:bg-gray-50">
@@ -2976,6 +3137,25 @@ export default function Reportes() {
                                   <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(empresa.estado)}`}>
                                     {empresa.estado || 'Sin estado'}
                                   </span>
+                                </td>
+                                <td className="border border-gray-300 px-4 py-3 text-center">
+                                  {urlDocumento ? (
+                                    <a
+                                      href={urlDocumento}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      Ver Carta
+                                    </a>
+                                  ) : esAprobado ? (
+                                    <span className="text-yellow-600 text-sm italic">Sin documento</span>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">-</span>
+                                  )}
                                 </td>
                               </tr>
                             );

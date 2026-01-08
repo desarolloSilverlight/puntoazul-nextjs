@@ -22,6 +22,8 @@ export default function Sidebar() {
     { nombre: "Asociados", ruta: "/admin/asociados", icono: "fas fa-people-arrows" },
     { nombre: "Vinculados", ruta: "/admin/vinculados", icono: "fas fa-people-arrows" },
     { nombre: "Parametros", ruta: "/admin/parametros", icono: "fas fa-wand-magic" },
+    { nombre: "Limpiar Formularios", ruta: "/admin/limpiar-formularios", icono: "fas fa-trash-alt" },
+    { nombre: "Renovar Formularios B", ruta: "/admin/renovar-formularios-b", icono: "fas fa-sync-alt" },
   ];
 
   // Fetch para obtener los permisos del usuario o perfil actual

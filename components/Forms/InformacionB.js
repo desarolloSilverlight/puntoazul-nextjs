@@ -79,6 +79,9 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   // Años permitidos para anoReporte: año actual -2 y -1
   const currentYear = new Date().getFullYear();
   const allowedYearsReporte = [currentYear - 1, currentYear - 2];
+  
+  // Años permitidos para ano: año actual y año anterior
+  const allowedYears = [currentYear, currentYear - 1];
 
   // Asegurar valor inicial válido si no viene del backend
   useEffect(() => {
@@ -480,15 +483,19 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs font-semibold mb-1" htmlFor="ano">Año</label>
-              <input
+              <select
                 name="ano"
                 id="ano"
                 className="border p-2 w-full"
-                type="number"
-                placeholder="Año"
                 value={formData.ano}
-                disabled={true} // Siempre deshabilitado
-              />
+                onChange={(e) => setFormData({ ...formData, ano: e.target.value })}
+                disabled={isDisabled}
+                required
+              >
+                {allowedYears.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" htmlFor="anoReporte">Año reporte</label>

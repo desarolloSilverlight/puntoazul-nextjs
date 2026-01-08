@@ -13,6 +13,7 @@ export default function CardVinculados({ color }) {
   const [selectedIdUsuario, setSelectedIdUsuario] = useState(null);
   const [activeTab, setActiveTab] = useState("informacion");
   const [idInformacionF, setIdInformacionF] = useState(null);
+  const [estadosByUsuario, setEstadosByUsuario] = useState({});
   // Buscador y paginación para la tabla principal
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,6 +33,42 @@ export default function CardVinculados({ color }) {
       .catch(() => setLoading(false));
   }, []);
 
+  // Al cargar la lista de vinculados, intentar obtener el estado del formulario (informacion-f) de cada uno
+  useEffect(() => {
+    const fetchEstados = async () => {
+      if (!Array.isArray(vinculados) || vinculados.length === 0) return;
+      const resultados = await Promise.all(
+        vinculados.map(async (v) => {
+          try {
+            const resp = await fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${v.idUsuario}`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            });
+            if (resp.status === 404) {
+              return { idUsuario: v.idUsuario, estado: null, idInformacionF: null };
+            }
+            if (!resp.ok) throw new Error(`Error ${resp.status}`);
+            const data = await resp.json();
+            return {
+              idUsuario: v.idUsuario,
+              estado: data.estado || null,
+              idInformacionF: data.idInformacionF || null,
+            };
+          } catch (e) {
+            console.warn("No se pudo obtener estado para vinculado", v.idUsuario, e);
+            return { idUsuario: v.idUsuario, estado: null, idInformacionF: null };
+          }
+        })
+      );
+      const map = resultados.reduce((acc, r) => {
+        acc[r.idUsuario] = { estado: r.estado, idInformacionF: r.idInformacionF };
+        return acc;
+      }, {});
+      setEstadosByUsuario(map);
+    };
+    fetchEstados();
+  }, [vinculados]);
+
   useEffect(() => {
     if (selectedIdUsuario) {
       fetch(`${API_BASE_URL}/informacion-f/getByIdUsuario/${selectedIdUsuario}`)
@@ -43,6 +80,22 @@ export default function CardVinculados({ color }) {
       setIdInformacionF(null);
     }
   }, [selectedIdUsuario]);
+
+  const EstadoPill = ({ estado }) => {
+    if (!estado) {
+      return <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">Sin información</span>;
+    }
+    const styles = {
+      Iniciado: "bg-gray-100 text-gray-700",
+      Guardado: "bg-gray-100 text-gray-700",
+      Pendiente: "bg-yellow-100 text-yellow-800",
+      Rechazado: "bg-red-100 text-red-800",
+      Aprobado: "bg-green-100 text-green-800",
+      Finalizado: "bg-blue-100 text-blue-800",
+    };
+    const cls = styles[estado] || "bg-gray-100 text-gray-700";
+    return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{estado}</span>;
+  };
 
   // Buscador y paginación para la tabla principal
   const filteredVinculados = vinculados.filter(v => {
@@ -211,6 +264,7 @@ export default function CardVinculados({ color }) {
                   <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">NIT</th>
                   <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Celular</th>
                   <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Email</th>
+                  <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Estado</th>
                   <th className="px-6 py-3 text-xs uppercase border-l-0 border-r-0 font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">Acciones</th>
                 </tr>
               </thead>
@@ -219,9 +273,12 @@ export default function CardVinculados({ color }) {
                   paginatedVinculados.map((vinculado) => (
                     <tr key={vinculado.idUsuario} className="border-t">
                       <td className="p-2">{vinculado.nombre}</td>
-                      <td className="p-2">{vinculado.nit}</td>
+                      <td className="p-2">{vinculado.identificacion}</td>
                       <td className="p-2">{vinculado.celular}</td>
                       <td className="p-2">{vinculado.email}</td>
+                      <td className="p-2">
+                        <EstadoPill estado={(estadosByUsuario[vinculado.idUsuario] || {}).estado} />
+                      </td>
                       <td className="p-2">
                         <button
                           className="bg-blueGray-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 ease-linear transition-all duration-150"
@@ -235,7 +292,7 @@ export default function CardVinculados({ color }) {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="p-4 text-center text-gray-500">
+                    <td colSpan={6} className="p-4 text-center text-gray-500">
                       No hay vinculados para mostrar.
                     </td>
                   </tr>

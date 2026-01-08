@@ -1,219 +1,365 @@
-import React from "react";
+import React, { useMemo } from "react";
 
-// Muestra dos tablas: Resumen Base global y Resumen Plásticos global
-export default function ConsolidadoF({ resumenBase, resumenPlasticos }) {
-  // resumenBase: { primarios: {papel, metalFerroso, metalNoFerroso, carton, vidrio, total},
-  //                secundarios: {...}, total: {...} }
-  // resumenPlasticos: { liquidos: { petAgua, petOtros, pet, hdpe, pvc, ldpe, pp, ps, otros, total },
-  //                     otros: { pet, hdpe, pvc, ldpe, pp, ps, otros, total },
-  //                     construccion: { pet, hdpe, pvc, ldpe, pp, ps, otros, total },
-  //                     totales: { totalLiquidos, totalOtros, totalConstruccion, totalGeneral } }
+// Muestra una tabla por año con filas de clientes y sus datos consolidados
+// datosRaw: [{ idInformacionF, nombre, nit, ano_reportado, primarios: [], secundarios: [], plasticos: [] }]
+export default function ConsolidadoF({ datosRaw }) {
+  console.log('ConsolidadoF - datosRaw recibidos:', datosRaw);
+  console.log('ConsolidadoF - tipo de datosRaw:', typeof datosRaw, Array.isArray(datosRaw));
+  
+  // Agrupar datos por año
+  const datosPorAnio = useMemo(() => {
+    if (!datosRaw || !Array.isArray(datosRaw)) return {};
+    const grupos = {};
+    datosRaw.forEach((cliente) => {
+      const anio = cliente.ano_reportado || "Sin año";
+      if (!grupos[anio]) grupos[anio] = [];
+      grupos[anio].push(cliente);
+    });
+    return grupos;
+  }, [datosRaw]);
 
-  if (!resumenBase && !resumenPlasticos) {
-    return <div className="p-4 text-center text-gray-600">No hay datos de consolidado para mostrar.</div>;
+  const anios = Object.keys(datosPorAnio).sort();
+
+  if (anios.length === 0) {
+    return (
+      <div className="p-4 text-center text-gray-600">
+        No hay datos de consolidado para mostrar.
+      </div>
+    );
   }
 
-  const fmt5 = (n) => (Number(n || 0)).toFixed(5);
+  const fmt = (n) => {
+    const num = Number(n || 0);
+    // Mostrar hasta 8 decimales pero eliminar ceros innecesarios al final
+    return num.toFixed(8).replace(/\.?0+$/, '') || '0';
+  };
+
+  // Convertir gramos * unidades a toneladas
+  const toTon = (gramos, unidades) => {
+    const g = Number(gramos || 0);
+    const u = Number(unidades || 0);
+    return (g * u) / 1000000;
+  };
+
+  // Calcular Primario+Secundario (suma de todos los materiales base)
+  const calcularPrimarioSecundario = (cliente) => {
+    let total = 0;
+    const primarios = cliente.primarios || [];
+    const secundarios = cliente.secundarios || [];
+    
+    primarios.forEach((p) => {
+      total += toTon(p.gramos, p.unidades);
+    });
+    secundarios.forEach((s) => {
+      total += toTon(s.gramos, s.unidades);
+    });
+    
+    return total;
+  };
+
+  // Calcular plásticos con lógica especial para PET
+  const calcularPlasticos = (cliente) => {
+    const plasticos = cliente.plasticos || [];
+    
+    // Inicializar contadores
+    const result = {
+      petAgua: 0,
+      petOtros: 0,
+      pet: 0,
+      hdpe: 0,
+      pvc: 0,
+      ldpe: 0,
+      pp: 0,
+      ps: 0,
+      otros: 0,
+    };
+
+    plasticos.forEach((p) => {
+      const tons = toTon(p.gramos, p.unidades);
+      const material = (p.material || "").toLowerCase();
+      const tipo = (p.tipo || "").toLowerCase();
+
+      // Parsear liquidos, otros, construccion
+      let liquidos = {};
+      let otros = {};
+      let construccion = {};
+      
+      try {
+        liquidos = JSON.parse(p.liquidos || "{}");
+      } catch (e) {
+        liquidos = {};
+      }
+      try {
+        otros = JSON.parse(p.otros || "{}");
+      } catch (e) {
+        otros = {};
+      }
+      try {
+        construccion = JSON.parse(p.construccion || "{}");
+      } catch (e) {
+        construccion = {};
+      }
+
+      // Lógica especial para PET:
+      // PET Agua: solo de liquidos.petAgua
+      // PET Otros: liquidos.petOtros + liquidos.pet
+      // PET: otros.pet + construccion.pet
+      
+      if (tipo === "liquidos") {
+        if (material === "pet agua") {
+          result.petAgua += tons;
+        } else if (material === "pet otros") {
+          result.petOtros += tons;
+        } else if (material === "pet") {
+          result.petOtros += tons; // liquidos.pet va a PET Otros
+        } else if (material === "hdpe") {
+          result.hdpe += tons;
+        } else if (material === "pvc") {
+          result.pvc += tons;
+        } else if (material === "ldpe") {
+          result.ldpe += tons;
+        } else if (material === "pp") {
+          result.pp += tons;
+        } else if (material === "ps") {
+          result.ps += tons;
+        } else if (material === "otros") {
+          result.otros += tons;
+        }
+      } else if (tipo === "otros") {
+        if (material === "pet") {
+          result.pet += tons; // otros.pet va a PET
+        } else if (material === "hdpe") {
+          result.hdpe += tons;
+        } else if (material === "pvc") {
+          result.pvc += tons;
+        } else if (material === "ldpe") {
+          result.ldpe += tons;
+        } else if (material === "pp") {
+          result.pp += tons;
+        } else if (material === "ps") {
+          result.ps += tons;
+        } else if (material === "otros") {
+          result.otros += tons;
+        }
+      } else if (tipo === "construccion") {
+        if (material === "pet") {
+          result.pet += tons; // construccion.pet va a PET
+        } else if (material === "hdpe") {
+          result.hdpe += tons;
+        } else if (material === "pvc") {
+          result.pvc += tons;
+        } else if (material === "ldpe") {
+          result.ldpe += tons;
+        } else if (material === "pp") {
+          result.pp += tons;
+        } else if (material === "ps") {
+          result.ps += tons;
+        } else if (material === "otros") {
+          result.otros += tons;
+        }
+      }
+    });
+
+    return result;
+  };
+
+  // Renderizar tabla para un año específico
+  const renderTabla = (anio) => {
+    const clientes = datosPorAnio[anio] || [];
+    
+    // Calcular totales para cada columna
+    const totales = {
+      primarioSecundario: 0,
+      petAgua: 0,
+      petOtros: 0,
+      pet: 0,
+      hdpe: 0,
+      pvc: 0,
+      ldpe: 0,
+      pp: 0,
+      ps: 0,
+      otros: 0,
+      total: 0,
+    };
+
+    const filas = clientes.map((cliente) => {
+      const primSec = calcularPrimarioSecundario(cliente);
+      const plast = calcularPlasticos(cliente);
+      
+      const totalCliente =
+        primSec +
+        plast.petAgua +
+        plast.petOtros +
+        plast.pet +
+        plast.hdpe +
+        plast.pvc +
+        plast.ldpe +
+        plast.pp +
+        plast.ps +
+        plast.otros;
+
+      // Acumular totales
+      totales.primarioSecundario += primSec;
+      totales.petAgua += plast.petAgua;
+      totales.petOtros += plast.petOtros;
+      totales.pet += plast.pet;
+      totales.hdpe += plast.hdpe;
+      totales.pvc += plast.pvc;
+      totales.ldpe += plast.ldpe;
+      totales.pp += plast.pp;
+      totales.ps += plast.ps;
+      totales.otros += plast.otros;
+      totales.total += totalCliente;
+
+      return {
+        nombre: cliente.nombre || "Sin nombre",
+        nit: cliente.nit || "",
+        primSec,
+        plast,
+        totalCliente,
+      };
+    });
+
+    return (
+      <div key={anio} className="mb-8">
+        <h3 className="text-lg font-semibold mb-3 text-center">
+          Consolidado Línea Base - Año {anio} (Todos los estados)
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full table-auto border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-blue-100">
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  Cliente
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  Primario+Secundario (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  PET Agua (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  PET Otros (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  PET (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  HDPE (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  PVC (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  LDPE (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  PP (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  PS (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  Otros (ton)
+                </th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  Total (ton)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((fila, idx) => (
+                <tr key={idx} className="text-center hover:bg-gray-50">
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fila.nombre}
+                    {fila.nit && (
+                      <span className="text-gray-500"> ({fila.nit})</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.primSec)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.petAgua)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.petOtros)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.pet)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.hdpe)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.pvc)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.ldpe)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.pp)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.ps)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">
+                    {fmt(fila.plast.otros)}
+                  </td>
+                  <td className="px-2 py-1 text-xs border border-gray-300 font-semibold">
+                    {fmt(fila.totalCliente)}
+                  </td>
+                </tr>
+              ))}
+              {/* Fila de totales */}
+              <tr className="bg-yellow-200 font-bold text-center">
+                <td className="px-2 py-2 text-xs font-bold border border-gray-300">
+                  TOTAL
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.primarioSecundario)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.petAgua)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.petOtros)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.pet)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.hdpe)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.pvc)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.ldpe)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.pp)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.ps)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.otros)}
+                </td>
+                <td className="px-2 py-2 text-xs border border-gray-300">
+                  {fmt(totales.total)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-8">
-      {resumenBase && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3 text-center">Consolidado Línea Base - Resumen Base (Todos los finalizados)</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full table-auto border-separate border-spacing-1 border border-gray-300">
-              <thead>
-                <tr className="bg-yellow-100">
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Resumen</th>
-                  <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Papel</th>
-                  <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Metal Ferroso</th>
-                  <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Metal No Ferroso</th>
-                  <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Cartón</th>
-                  <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Vidrio</th>
-                  <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Total</th>
-                </tr>
-                <tr className="bg-yellow-50">
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300"></th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Ton</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">%</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Ton</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">%</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Ton</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">%</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Ton</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">%</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Ton</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">%</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Ton</th>
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const prim = resumenBase.primarios || {};
-                  const sec = resumenBase.secundarios || {};
-                  const tot = resumenBase.total || {};
-                  const totalPorMaterial = {
-                    papel: (prim.papel || 0) + (sec.papel || 0),
-                    metalFerroso: (prim.metalFerroso || 0) + (sec.metalFerroso || 0),
-                    metalNoFerroso: (prim.metalNoFerroso || 0) + (sec.metalNoFerroso || 0),
-                    carton: (prim.carton || 0) + (sec.carton || 0),
-                    vidrio: (prim.vidrio || 0) + (sec.vidrio || 0),
-                  };
-                  const totalGeneral = (tot.total || 0);
-                  const pct = (num, den) => den > 0 ? ((num / den) * 100).toFixed(2) : '0.00';
-                  return (
-                    <>
-                      <tr className="text-center bg-blue-50">
-                        <td className="px-2 py-1 text-xs font-semibold border border-gray-300">Primarios</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(prim.papel)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(prim.papel || 0, totalPorMaterial.papel || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(prim.metalFerroso)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(prim.metalFerroso || 0, totalPorMaterial.metalFerroso || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(prim.metalNoFerroso)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(prim.metalNoFerroso || 0, totalPorMaterial.metalNoFerroso || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(prim.carton)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(prim.carton || 0, totalPorMaterial.carton || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(prim.vidrio)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(prim.vidrio || 0, totalPorMaterial.vidrio || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(prim.total)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(prim.total || 0, totalGeneral || 0)}%</td>
-                      </tr>
-                      <tr className="text-center bg-green-50">
-                        <td className="px-2 py-1 text-xs font-semibold border border-gray-300">Secundarios</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(sec.papel)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(sec.papel || 0, totalPorMaterial.papel || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(sec.metalFerroso)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(sec.metalFerroso || 0, totalPorMaterial.metalFerroso || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(sec.metalNoFerroso)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(sec.metalNoFerroso || 0, totalPorMaterial.metalNoFerroso || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(sec.carton)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(sec.carton || 0, totalPorMaterial.carton || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(sec.vidrio)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(sec.vidrio || 0, totalPorMaterial.vidrio || 0)}%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(sec.total)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{pct(sec.total || 0, totalGeneral || 0)}%</td>
-                      </tr>
-                      <tr className="text-center bg-yellow-200 font-bold">
-                        <td className="px-2 py-1 text-xs font-bold border border-gray-300">Total</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(totalPorMaterial.papel)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">100%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(totalPorMaterial.metalFerroso)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">100%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(totalPorMaterial.metalNoFerroso)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">100%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(totalPorMaterial.carton)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">100%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(totalPorMaterial.vidrio)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">100%</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">{fmt5(totalGeneral)}</td>
-                        <td className="px-2 py-1 text-xs border border-gray-300">100%</td>
-                      </tr>
-                    </>
-                  );
-                })()}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {resumenPlasticos && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3 text-center">Consolidado Línea Base - Resumen Plásticos (Todos los finalizados)</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full table-auto border-separate border-spacing-1 border border-gray-300">
-              <thead>
-                <tr className="bg-indigo-100">
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Categoría</th>
-                  <th colSpan={9} className="px-2 py-1 text-xs font-semibold border border-gray-300">Líquidos (ton)</th>
-                  <th colSpan={7} className="px-2 py-1 text-xs font-semibold border border-gray-300">Otros (ton)</th>
-                  <th colSpan={7} className="px-2 py-1 text-xs font-semibold border border-gray-300">Construcción (ton)</th>
-                  <th colSpan={4} className="px-2 py-1 text-xs font-semibold border border-gray-300">Totales (ton)</th>
-                </tr>
-                <tr className="bg-indigo-50">
-                  <th className="px-2 py-1 text-xs font-semibold border border-gray-300"></th>
-                  {/* Líquidos */}
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PET Agua</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PET Otros</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PET</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">HDPE</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PVC</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">LDPE</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PP</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PS</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Otros</th>
-                  {/* Otros */}
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PET</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">HDPE</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PVC</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">LDPE</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PP</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PS</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Otros</th>
-                  {/* Construcción */}
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PET</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">HDPE</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PVC</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">LDPE</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PP</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">PS</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Otros</th>
-                  {/* Totales */}
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total Líquidos</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total Otros</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total Construcción</th>
-                  <th className="px-1 py-1 text-xs font-semibold border border-gray-300">Total General</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const L = resumenPlasticos.liquidos || {};
-                  const O = resumenPlasticos.otros || {};
-                  const C = resumenPlasticos.construccion || {};
-                  const T = resumenPlasticos.totales || {};
-                  return (
-                    <tr className="text-center bg-gray-100 font-bold">
-                      <td className="px-2 py-1 text-xs font-bold border border-gray-300">TOTAL</td>
-                      {/* Líquidos */}
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.petAgua)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.petOtros)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.pet)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.hdpe)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.pvc)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.ldpe)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.pp)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.ps)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(L.otros)}</td>
-                      {/* Otros */}
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(O.pet)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(O.hdpe)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(O.pvc)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(O.ldpe)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(O.pp)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(O.ps)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(O.otros)}</td>
-                      {/* Construcción */}
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(C.pet)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(C.hdpe)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(C.pvc)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(C.ldpe)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(C.pp)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(C.ps)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300">{fmt5(C.otros)}</td>
-                      {/* Totales */}
-                      <td className="px-1 py-1 text-xs border border-gray-300 bg-blue-200 font-bold">{fmt5(T.totalLiquidos)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300 bg-green-200 font-bold">{fmt5(T.totalOtros)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300 bg-orange-200 font-bold">{fmt5(T.totalConstruccion)}</td>
-                      <td className="px-1 py-1 text-xs border border-gray-300 bg-red-300 font-bold">{fmt5(T.totalGeneral)}</td>
-                    </tr>
-                  );
-                })()}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {anios.map((anio) => renderTabla(anio))}
     </div>
   );
 }

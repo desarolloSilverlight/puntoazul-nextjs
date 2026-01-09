@@ -57,105 +57,105 @@ export default function ConsolidadoF({ datosRaw }) {
     return total;
   };
 
-  // Calcular plásticos con lógica especial para PET
-  const calcularPlasticos = (cliente) => {
+  // Calcular plásticos desglosados por categoría (líquidos, otros, construcción)
+  const calcularPlasticosDesglosados = (cliente) => {
     const plasticos = cliente.plasticos || [];
     
-    // Inicializar contadores
+    // Inicializar contadores para cada categoría y material
     const result = {
-      petAgua: 0,
-      petOtros: 0,
-      pet: 0,
-      hdpe: 0,
-      pvc: 0,
-      ldpe: 0,
-      pp: 0,
-      ps: 0,
-      otros: 0,
+      // Líquidos
+      liquidos: {
+        petAgua: 0,
+        petOtros: 0,
+        pet: 0,
+        hdpe: 0,
+        pvc: 0,
+        ldpe: 0,
+        pp: 0,
+        ps: 0,
+        otros: 0,
+      },
+      // Otros Productos
+      otrosProductos: {
+        pet: 0,
+        hdpe: 0,
+        pvc: 0,
+        ldpe: 0,
+        pp: 0,
+        ps: 0,
+        otros: 0,
+      },
+      // Construcción
+      construccion: {
+        pet: 0,
+        hdpe: 0,
+        pvc: 0,
+        ldpe: 0,
+        pp: 0,
+        ps: 0,
+        otros: 0,
+      }
     };
 
     plasticos.forEach((p) => {
-      const tons = toTon(p.gramos, p.unidades);
-      const material = (p.material || "").toLowerCase();
-      const tipo = (p.tipo || "").toLowerCase();
+      const material = (p.material || "").toUpperCase().trim();
+      const tipo = (p.tipo || "").toLowerCase().trim();
+      const gramos = Number(p.gramos || 0);
+      const unidades = Number(p.unidades || 0);
+      const tons = toTon(gramos, unidades);
 
-      // Parsear liquidos, otros, construccion
-      let liquidos = {};
-      let otros = {};
-      let construccion = {};
-      
-      try {
-        liquidos = JSON.parse(p.liquidos || "{}");
-      } catch (e) {
-        liquidos = {};
-      }
-      try {
-        otros = JSON.parse(p.otros || "{}");
-      } catch (e) {
-        otros = {};
-      }
-      try {
-        construccion = JSON.parse(p.construccion || "{}");
-      } catch (e) {
-        construccion = {};
-      }
-
-      // Lógica especial para PET:
-      // PET Agua: solo de liquidos.petAgua
-      // PET Otros: liquidos.petOtros + liquidos.pet
-      // PET: otros.pet + construccion.pet
-      
+      // Clasificar según el tipo y material
       if (tipo === "liquidos") {
-        if (material === "pet agua") {
-          result.petAgua += tons;
-        } else if (material === "pet otros") {
-          result.petOtros += tons;
-        } else if (material === "pet") {
-          result.petOtros += tons; // liquidos.pet va a PET Otros
-        } else if (material === "hdpe") {
-          result.hdpe += tons;
-        } else if (material === "pvc") {
-          result.pvc += tons;
-        } else if (material === "ldpe") {
-          result.ldpe += tons;
-        } else if (material === "pp") {
-          result.pp += tons;
-        } else if (material === "ps") {
-          result.ps += tons;
-        } else if (material === "otros") {
-          result.otros += tons;
+        if (material === "PET AGUA") {
+          result.liquidos.petAgua += tons;
+        } else if (material === "PET OTROS") {
+          result.liquidos.petOtros += tons;
+        } else if (material === "PET") {
+          result.liquidos.pet += tons;
+        } else if (material === "HDPE") {
+          result.liquidos.hdpe += tons;
+        } else if (material === "PVC") {
+          result.liquidos.pvc += tons;
+        } else if (material === "LDPE") {
+          result.liquidos.ldpe += tons;
+        } else if (material === "PP") {
+          result.liquidos.pp += tons;
+        } else if (material === "PS") {
+          result.liquidos.ps += tons;
+        } else if (material === "OTROS") {
+          result.liquidos.otros += tons;
         }
       } else if (tipo === "otros") {
-        if (material === "pet") {
-          result.pet += tons; // otros.pet va a PET
-        } else if (material === "hdpe") {
-          result.hdpe += tons;
-        } else if (material === "pvc") {
-          result.pvc += tons;
-        } else if (material === "ldpe") {
-          result.ldpe += tons;
-        } else if (material === "pp") {
-          result.pp += tons;
-        } else if (material === "ps") {
-          result.ps += tons;
-        } else if (material === "otros") {
-          result.otros += tons;
+        if (material === "PET") {
+          result.otrosProductos.pet += tons;
+        } else if (material === "HDPE") {
+          result.otrosProductos.hdpe += tons;
+        } else if (material === "PVC") {
+          result.otrosProductos.pvc += tons;
+        } else if (material === "LDPE") {
+          result.otrosProductos.ldpe += tons;
+        } else if (material === "PP") {
+          result.otrosProductos.pp += tons;
+        } else if (material === "PS") {
+          result.otrosProductos.ps += tons;
+        } else if (material === "OTROS") {
+          result.otrosProductos.otros += tons;
         }
       } else if (tipo === "construccion") {
-        if (material === "pet") {
-          result.pet += tons; // construccion.pet va a PET
-        } else if (material === "hdpe") {
-          result.hdpe += tons;
-        } else if (material === "pvc") {
-          result.pvc += tons;
-        } else if (material === "ldpe") {
-          result.ldpe += tons;
-        } else if (material === "pp") {
-          result.pp += tons;
-        } else if (material === "ps") {
-          result.ps += tons;
-        } else if (material === "otros") {
-          result.otros += tons;
+        if (material === "PET") {
+          result.construccion.pet += tons;
+        } else if (material === "HDPE") {
+          result.construccion.hdpe += tons;
+        } else if (material === "PVC") {
+          result.construccion.pvc += tons;
+        } else if (material === "LDPE") {
+          result.construccion.ldpe += tons;
+        } else if (material === "PP") {
+          result.construccion.pp += tons;
+        } else if (material === "PS") {
+          result.construccion.ps += tons;
+        } else if (material === "OTROS") {
+          result.construccion.otros += tons;
         }
       }
     });
@@ -170,45 +170,79 @@ export default function ConsolidadoF({ datosRaw }) {
     // Calcular totales para cada columna
     const totales = {
       primarioSecundario: 0,
-      petAgua: 0,
-      petOtros: 0,
-      pet: 0,
-      hdpe: 0,
-      pvc: 0,
-      ldpe: 0,
-      pp: 0,
-      ps: 0,
-      otros: 0,
+      liquidos: {
+        petAgua: 0,
+        petOtros: 0,
+        pet: 0,
+        hdpe: 0,
+        pvc: 0,
+        ldpe: 0,
+        pp: 0,
+        ps: 0,
+        otros: 0,
+      },
+      otrosProductos: {
+        pet: 0,
+        hdpe: 0,
+        pvc: 0,
+        ldpe: 0,
+        pp: 0,
+        ps: 0,
+        otros: 0,
+      },
+      construccion: {
+        pet: 0,
+        hdpe: 0,
+        pvc: 0,
+        ldpe: 0,
+        pp: 0,
+        ps: 0,
+        otros: 0,
+      },
       total: 0,
     };
 
     const filas = clientes.map((cliente) => {
       const primSec = calcularPrimarioSecundario(cliente);
-      const plast = calcularPlasticos(cliente);
+      const plast = calcularPlasticosDesglosados(cliente);
       
-      const totalCliente =
-        primSec +
-        plast.petAgua +
-        plast.petOtros +
-        plast.pet +
-        plast.hdpe +
-        plast.pvc +
-        plast.ldpe +
-        plast.pp +
-        plast.ps +
-        plast.otros;
+      // Calcular total del cliente
+      const totalCliente = primSec +
+        plast.liquidos.petAgua + plast.liquidos.petOtros + plast.liquidos.pet +
+        plast.liquidos.hdpe + plast.liquidos.pvc + plast.liquidos.ldpe +
+        plast.liquidos.pp + plast.liquidos.ps + plast.liquidos.otros +
+        plast.otrosProductos.pet + plast.otrosProductos.hdpe + plast.otrosProductos.pvc +
+        plast.otrosProductos.ldpe + plast.otrosProductos.pp + plast.otrosProductos.ps +
+        plast.otrosProductos.otros +
+        plast.construccion.pet + plast.construccion.hdpe + plast.construccion.pvc +
+        plast.construccion.ldpe + plast.construccion.pp + plast.construccion.ps +
+        plast.construccion.otros;
 
       // Acumular totales
       totales.primarioSecundario += primSec;
-      totales.petAgua += plast.petAgua;
-      totales.petOtros += plast.petOtros;
-      totales.pet += plast.pet;
-      totales.hdpe += plast.hdpe;
-      totales.pvc += plast.pvc;
-      totales.ldpe += plast.ldpe;
-      totales.pp += plast.pp;
-      totales.ps += plast.ps;
-      totales.otros += plast.otros;
+      totales.liquidos.petAgua += plast.liquidos.petAgua;
+      totales.liquidos.petOtros += plast.liquidos.petOtros;
+      totales.liquidos.pet += plast.liquidos.pet;
+      totales.liquidos.hdpe += plast.liquidos.hdpe;
+      totales.liquidos.pvc += plast.liquidos.pvc;
+      totales.liquidos.ldpe += plast.liquidos.ldpe;
+      totales.liquidos.pp += plast.liquidos.pp;
+      totales.liquidos.ps += plast.liquidos.ps;
+      totales.liquidos.otros += plast.liquidos.otros;
+      totales.otrosProductos.pet += plast.otrosProductos.pet;
+      totales.otrosProductos.hdpe += plast.otrosProductos.hdpe;
+      totales.otrosProductos.pvc += plast.otrosProductos.pvc;
+      totales.otrosProductos.ldpe += plast.otrosProductos.ldpe;
+      totales.otrosProductos.pp += plast.otrosProductos.pp;
+      totales.otrosProductos.ps += plast.otrosProductos.ps;
+      totales.otrosProductos.otros += plast.otrosProductos.otros;
+      totales.construccion.pet += plast.construccion.pet;
+      totales.construccion.hdpe += plast.construccion.hdpe;
+      totales.construccion.pvc += plast.construccion.pvc;
+      totales.construccion.ldpe += plast.construccion.ldpe;
+      totales.construccion.pp += plast.construccion.pp;
+      totales.construccion.ps += plast.construccion.ps;
+      totales.construccion.otros += plast.construccion.otros;
       totales.total += totalCliente;
 
       return {
@@ -228,49 +262,61 @@ export default function ConsolidadoF({ datosRaw }) {
         <div className="overflow-x-auto">
           <table className="w-full table-auto border-collapse border border-gray-300">
             <thead>
+              {/* Primera fila: agrupaciones de columnas */}
               <tr className="bg-blue-100">
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                <th rowSpan="2" className="px-2 py-2 text-xs font-semibold border border-gray-300">
                   Cliente
                 </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  Primario+Secundario (ton)
+                <th rowSpan="2" className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  Primario+Secundario<br/>(ton)
                 </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  PET Agua (ton)
+                <th colSpan="9" className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">
+                  Líquidos (ton)
                 </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  PET Otros (ton)
+                <th colSpan="7" className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">
+                  Otros Productos Plásticos (ton)
                 </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  PET (ton)
+                <th colSpan="7" className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">
+                  Plásticos de Construcción (ton)
                 </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  HDPE (ton)
+                <th rowSpan="2" className="px-2 py-2 text-xs font-semibold border border-gray-300">
+                  Total<br/>(ton)
                 </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  PVC (ton)
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  LDPE (ton)
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  PP (ton)
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  PS (ton)
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  Otros (ton)
-                </th>
-                <th className="px-2 py-2 text-xs font-semibold border border-gray-300">
-                  Total (ton)
-                </th>
+              </tr>
+              {/* Segunda fila: columnas individuales */}
+              <tr className="bg-blue-100">
+                {/* Líquidos */}
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">PET Agua</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">PET Otros</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">PET</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">HDPE</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">PVC</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">LDPE</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">PP</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">PS</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-green-50">Otros</th>
+                {/* Otros Productos */}
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">PET</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">HDPE</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">PVC</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">LDPE</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">PP</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">PS</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-blue-50">Otros</th>
+                {/* Construcción */}
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">PET</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">HDPE</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">PVC</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">LDPE</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">PP</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">PS</th>
+                <th className="px-2 py-2 text-xs font-semibold border border-gray-300 bg-purple-50">Otros</th>
               </tr>
             </thead>
             <tbody>
               {filas.map((fila, idx) => (
                 <tr key={idx} className="text-center hover:bg-gray-50">
-                  <td className="px-2 py-1 text-xs border border-gray-300">
+                  <td className="px-2 py-1 text-xs border border-gray-300 text-left">
                     {fila.nombre}
                     {fila.nit && (
                       <span className="text-gray-500"> ({fila.nit})</span>
@@ -279,33 +325,33 @@ export default function ConsolidadoF({ datosRaw }) {
                   <td className="px-2 py-1 text-xs border border-gray-300">
                     {fmt(fila.primSec)}
                   </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.petAgua)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.petOtros)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.pet)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.hdpe)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.pvc)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.ldpe)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.pp)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.ps)}
-                  </td>
-                  <td className="px-2 py-1 text-xs border border-gray-300">
-                    {fmt(fila.plast.otros)}
-                  </td>
+                  {/* Líquidos */}
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.petAgua)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.petOtros)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.pet)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.hdpe)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.pvc)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.ldpe)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.pp)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.ps)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.liquidos.otros)}</td>
+                  {/* Otros Productos */}
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.otrosProductos.pet)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.otrosProductos.hdpe)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.otrosProductos.pvc)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.otrosProductos.ldpe)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.otrosProductos.pp)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.otrosProductos.ps)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.otrosProductos.otros)}</td>
+                  {/* Construcción */}
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.construccion.pet)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.construccion.hdpe)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.construccion.pvc)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.construccion.ldpe)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.construccion.pp)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.construccion.ps)}</td>
+                  <td className="px-2 py-1 text-xs border border-gray-300">{fmt(fila.plast.construccion.otros)}</td>
+                  {/* Total */}
                   <td className="px-2 py-1 text-xs border border-gray-300 font-semibold">
                     {fmt(fila.totalCliente)}
                   </td>
@@ -319,33 +365,33 @@ export default function ConsolidadoF({ datosRaw }) {
                 <td className="px-2 py-2 text-xs border border-gray-300">
                   {fmt(totales.primarioSecundario)}
                 </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.petAgua)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.petOtros)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.pet)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.hdpe)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.pvc)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.ldpe)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.pp)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.ps)}
-                </td>
-                <td className="px-2 py-2 text-xs border border-gray-300">
-                  {fmt(totales.otros)}
-                </td>
+                {/* Líquidos */}
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.petAgua)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.petOtros)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.pet)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.hdpe)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.pvc)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.ldpe)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.pp)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.ps)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.liquidos.otros)}</td>
+                {/* Otros Productos */}
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.otrosProductos.pet)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.otrosProductos.hdpe)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.otrosProductos.pvc)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.otrosProductos.ldpe)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.otrosProductos.pp)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.otrosProductos.ps)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.otrosProductos.otros)}</td>
+                {/* Construcción */}
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.construccion.pet)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.construccion.hdpe)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.construccion.pvc)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.construccion.ldpe)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.construccion.pp)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.construccion.ps)}</td>
+                <td className="px-2 py-2 text-xs border border-gray-300">{fmt(totales.construccion.otros)}</td>
+                {/* Total */}
                 <td className="px-2 py-2 text-xs border border-gray-300">
                   {fmt(totales.total)}
                 </td>

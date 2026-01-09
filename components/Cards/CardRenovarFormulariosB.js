@@ -150,30 +150,51 @@ export default function CardRenovarFormulariosB() {
         </div>
       </div>
 
-      {/* Controles */}
-      <div className="px-4 py-3 border-t border-blueGray-200">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex-1 min-w-[200px]">
-            <input
-              type="text"
-              placeholder="Buscar por nombre, NIT o año..."
-              value={busqueda}
-              onChange={(e) => {
-                setBusqueda(e.target.value);
-                setPaginaActual(1);
-              }}
-              className="border border-blueGray-300 rounded px-3 py-2 text-sm w-full focus:outline-none focus:border-blue-500"
-            />
+      {/* Stats y Acciones */}
+      <div className="px-6 py-4 border-t border-blueGray-200 bg-blueGray-50">
+        <div className="flex flex-wrap items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="text-sm">
+              <span className="font-semibold text-blueGray-700">Total formularios:</span>{" "}
+              <span className="text-blueGray-600">{formulariosFiltrados.length}</span>
+            </div>
+            <div className="text-sm">
+              <span className="font-semibold text-green-600">Finalizados:</span>{" "}
+              <span className="text-green-700">{formulariosFiltrados.filter(f => f.estado === 'Finalizado').length}</span>
+            </div>
+            <div className="text-sm">
+              <span className="font-semibold text-blue-600">Seleccionados:</span>{" "}
+              <span className="text-blue-700">{seleccionados.length}</span>
+            </div>
           </div>
-          
-          <button
-            onClick={handleRenovar}
-            disabled={seleccionados.length === 0}
-            className="bg-blue-600 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
-          >
-            🔄 Renovar Seleccionados ({seleccionados.length})
-          </button>
+          <div>
+            <button
+              onClick={handleRenovar}
+              disabled={seleccionados.length === 0}
+              className={`px-4 py-2 rounded font-medium transition-colors ${
+                seleccionados.length === 0
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-red-600 text-white hover:bg-red-700"
+              }`}
+            >
+              🔄 Renovar Seleccionados ({seleccionados.length})
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* Buscador */}
+      <div className="px-6 py-3 border-t border-blueGray-200">
+        <input
+          type="text"
+          placeholder="🔍 Buscar por nombre, NIT o año..."
+          value={busqueda}
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            setPaginaActual(1);
+          }}
+          className="w-full px-4 py-2 border border-blueGray-300 rounded focus:outline-none focus:border-blue-500"
+        />
       </div>
 
       {/* Tabla */}

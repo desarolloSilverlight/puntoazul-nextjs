@@ -584,6 +584,19 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1" htmlFor="titulares">Titulares Representados</label>
+              <input
+                name="titulares"
+                id="titulares"
+                className="border p-2 w-full"
+                type="number"
+                placeholder="Titulares Representados"
+                value={formData.titulares}
+                onChange={(e) => setFormData({ ...formData, titulares: e.target.value })}
+                disabled={isDisabled}
+              />
+            </div>
           </div>
           
           {/* Mensaje de error de duplicados */}
@@ -605,19 +618,6 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
 
           {/* Quinta fila */}
           <div className="grid grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1" htmlFor="titulares">Titulares Representados</label>
-              <input
-                name="titulares"
-                id="titulares"
-                className="border p-2 w-full"
-                type="number"
-                placeholder="Titulares Representados"
-                value={formData.titulares}
-                onChange={(e) => setFormData({ ...formData, titulares: e.target.value })}
-                disabled={isDisabled}
-              />
-            </div>
           </div>
 
           {/* Quinta fila */}

@@ -126,8 +126,9 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
   const validarAnosDuplicados = async (anoDiligenciamiento, anoReportado) => {
     if (!anoDiligenciamiento || !anoReportado) return true; // Si no hay valores, no validar
     
-    const idUsuario = localStorage.getItem("id");
-    if (!idUsuario) return true;
+    // Usar el NIT del formulario en lugar del ID
+    const nit = formData.nit;
+    if (!nit) return true;
 
     try {
       setValidandoDuplicado(true);
@@ -137,7 +138,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          idUsuario: idUsuario,
+          idUsuario: nit,
           anoDiligenciamiento: anoDiligenciamiento,
           anoReportado: anoReportado
         }),

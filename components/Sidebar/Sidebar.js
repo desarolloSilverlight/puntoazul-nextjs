@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import Image from "next/image";
+import { API_BASE_URL } from "../../utils/config";
 
 export default function Sidebar() {
   const [permisos, setPermisos] = useState([]); // Estado para almacenar los permisos del usuario
@@ -36,7 +37,7 @@ export default function Sidebar() {
           router.push("/auth/login");
           return;
         }
-        const response = await fetch("https://nestbackend.fidare.com/users/accesos?idPerfil="+nombre, {
+        const response = await fetch(`${API_BASE_URL}/users/accesos?idPerfil=${nombre}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -61,7 +62,7 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch("https://nestbackend.fidare.com/auth/logout", {
+      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

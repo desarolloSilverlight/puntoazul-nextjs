@@ -34,6 +34,8 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorDuplicado, setErrorDuplicado] = useState(""); // Estado para error de años duplicados
+  const [validandoDuplicado, setValidandoDuplicado] = useState(false); // Estado para indicar validación en curso
   
   // Actualizar estado cuando cambie el prop
   useEffect(() => {
@@ -100,6 +102,13 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
       }
       return newData;
     });
+    
+    // Validar duplicados cuando cambia anioReportado
+    if (name === "anioReportado" && value) {
+      const fechaDiligenciamiento = formData.fechaDiligenciamiento || new Date().toISOString().split('T')[0];
+      const anoDiligenciamiento = new Date(fechaDiligenciamiento).getFullYear().toString();
+      validarAnosDuplicados(anoDiligenciamiento, value);
+    }
   };
 
   // Funciones para el modal de tratamiento de datos
@@ -111,6 +120,53 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
   const rechazarTratamiento = () => {
     // Redirigir al dashboard si rechaza
     window.location.href = '/admin/dashboard';
+  };
+
+  // Función para validar años duplicados
+  const validarAnosDuplicados = async (anoDiligenciamiento, anoReportado) => {
+    if (!anoDiligenciamiento || !anoReportado) return true; // Si no hay valores, no validar
+    
+    const idUsuario = localStorage.getItem("id");
+    if (!idUsuario) return true;
+
+    try {
+      setValidandoDuplicado(true);
+      setErrorDuplicado("");
+      
+      const response = await fetch(`${API_BASE_URL}/informacion-f/validarAnosDuplicados`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idUsuario: idUsuario,
+          anoDiligenciamiento: anoDiligenciamiento,
+          anoReportado: anoReportado
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        if (response.status === 400 && !data.valido) {
+          setErrorDuplicado(data.mensaje);
+          return false;
+        }
+        throw new Error(data.message || "Error al validar años duplicados");
+      }
+
+      if (!data.valido) {
+        setErrorDuplicado(data.mensaje);
+        return false;
+      }
+
+      setErrorDuplicado("");
+      return true;
+    } catch (error) {
+      console.error("Error al validar años duplicados:", error);
+      // En caso de error del servidor, permitir continuar
+      return true;
+    } finally {
+      setValidandoDuplicado(false);
+    }
   };
 
   // Años permitidos para anioReportado: año actual -2 y -3
@@ -264,6 +320,16 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
     if (!fechaFinal) {
       fechaFinal = new Date().toISOString().split('T')[0];
     }
+    
+    // Validar años duplicados antes de enviar
+    const anoDiligenciamiento = new Date(fechaFinal).getFullYear().toString();
+    const anosDuplicadosValidos = await validarAnosDuplicados(anoDiligenciamiento, formData.anioReportado);
+    if (!anosDuplicadosValidos) {
+      alert("No se puede guardar el formulario: " + errorDuplicado);
+      setIsLoading(false);
+      return;
+    }
+    
     // Validar que ningún campo esté vacío (excepto fecha, que ya se corrige)
     const camposRequeridos = [
       'nombre', 'nit', 'direccion', 'ciudad', 'pais', 
@@ -774,6 +840,24 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
               </select>
             </div>
           </div>
+          
+          {/* Mensaje de error de duplicados */}
+          {errorDuplicado && (
+            <div className="mb-4">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <strong className="font-bold">Error: </strong>
+                <span className="block sm:inline">{errorDuplicado}</span>
+              </div>
+            </div>
+          )}
+          {validandoDuplicado && (
+            <div className="mb-4">
+              <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
+                <span className="block sm:inline">Validando años...</span>
+              </div>
+            </div>
+          )}
+          
           <div className="mt-4">
             <label className="mr-4">
               <input

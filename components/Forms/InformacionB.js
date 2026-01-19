@@ -29,6 +29,8 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   const [isDisabled, setIsDisabled] = useState(readonly); // Controlar si los campos están bloqueados
   const [isSaveDisabled, setIsSaveDisabled] = useState(false); // Controlar si el botón "Guardar" está deshabilitado
   const [isOpen, setIsOpen] = useState(false); // Estado para el modal
+  const [errorDuplicado, setErrorDuplicado] = useState(""); // Estado para error de años duplicados
+  const [validandoDuplicado, setValidandoDuplicado] = useState(false); // Estado para indicar validación en curso
   
   // Estados para modal de tratamiento de datos
   const [consentOpen, setConsentOpen] = useState(false);
@@ -74,6 +76,53 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   const rechazarTratamiento = () => {
     // Redirigir al dashboard si rechaza
     window.location.href = '/admin/dashboard';
+  };
+
+  // Función para validar años duplicados
+  const validarAnosDuplicados = async (ano, anoReporte) => {
+    if (!ano || !anoReporte) return true; // Si no hay valores, no validar
+    
+    const idUsuario = propIdUsuario || localStorage.getItem("id");
+    if (!idUsuario) return true;
+
+    try {
+      setValidandoDuplicado(true);
+      setErrorDuplicado("");
+      
+      const response = await fetch(`${API_BASE_URL}/informacion-b/validarAnosDuplicados`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idUsuario: idUsuario,
+          ano: ano,
+          anoReporte: anoReporte
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        if (response.status === 400 && !data.valido) {
+          setErrorDuplicado(data.mensaje);
+          return false;
+        }
+        throw new Error(data.message || "Error al validar años duplicados");
+      }
+
+      if (!data.valido) {
+        setErrorDuplicado(data.mensaje);
+        return false;
+      }
+
+      setErrorDuplicado("");
+      return true;
+    } catch (error) {
+      console.error("Error al validar años duplicados:", error);
+      // En caso de error del servidor, permitir continuar
+      return true;
+    } finally {
+      setValidandoDuplicado(false);
+    }
   };
 
   // Años permitidos para anoReporte: año actual -2 y -1
@@ -212,6 +261,14 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
   // Manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validar años duplicados antes de enviar
+    const anosDuplicadosValidos = await validarAnosDuplicados(formData.ano, formData.anoReporte);
+    if (!anosDuplicadosValidos) {
+      alert("No se puede guardar el formulario: " + errorDuplicado);
+      return;
+    }
+    
     // Validar teléfono y telefonoRe de 10 dígitos
     const telefono = formData.telefono ? formData.telefono.trim() : "";
     const telefonoRe = formData.telefonoRe ? formData.telefonoRe.trim() : "";
@@ -488,7 +545,14 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 id="ano"
                 className="border p-2 w-full"
                 value={formData.ano}
-                onChange={(e) => setFormData({ ...formData, ano: e.target.value })}
+                onChange={(e) => {
+                  const nuevoAno = e.target.value;
+                  setFormData({ ...formData, ano: nuevoAno });
+                  // Validar duplicados cuando cambia el año
+                  if (nuevoAno && formData.anoReporte) {
+                    validarAnosDuplicados(nuevoAno, formData.anoReporte);
+                  }
+                }}
                 disabled={isDisabled}
                 required
               >
@@ -504,7 +568,14 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 id="anoReporte"
                 className="border p-2 w-full"
                 value={formData.anoReporte}
-                onChange={(e) => setFormData({ ...formData, anoReporte: e.target.value })}
+                onChange={(e) => {
+                  const nuevoAnoReporte = e.target.value;
+                  setFormData({ ...formData, anoReporte: nuevoAnoReporte });
+                  // Validar duplicados cuando cambia el año reporte
+                  if (formData.ano && nuevoAnoReporte) {
+                    validarAnosDuplicados(formData.ano, nuevoAnoReporte);
+                  }
+                }}
                 disabled={isDisabled}
                 required
               >
@@ -513,6 +584,27 @@ export default function FormularioAfiliado({ color, idUsuario: propIdUsuario, es
                 ))}
               </select>
             </div>
+          </div>
+          
+          {/* Mensaje de error de duplicados */}
+          {errorDuplicado && (
+            <div className="mb-4">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <strong className="font-bold">Error: </strong>
+                <span className="block sm:inline">{errorDuplicado}</span>
+              </div>
+            </div>
+          )}
+          {validandoDuplicado && (
+            <div className="mb-4">
+              <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
+                <span className="block sm:inline">Validando años...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Quinta fila */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs font-semibold mb-1" htmlFor="titulares">Titulares Representados</label>
               <input

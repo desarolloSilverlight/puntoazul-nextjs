@@ -156,14 +156,14 @@ export default function Reportes() {
       setCliente(""); // Limpiar cliente para toneladas y rangos
     }
 
-  // Si es grupo, peso o facturacion de literal B, limpiar cliente ya que no se usa
-  if (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion")) {
-      setCliente(""); // Limpiar cliente para grupo y peso
+  // Si es grupo, peso, facturacion o consolidado de literal B, limpiar cliente ya que no se usa
+  if (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion" || value === "consolidado")) {
+      setCliente(""); // Limpiar cliente para grupo, peso, facturacion y consolidado
     }
 
     // Cargar años disponibles para reportes que los requieren
   if ((literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion")) ||
-    (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion"))) {
+    (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion" || value === "consolidado"))) {
       try {
         const endpoint = literal === "linea_base" 
           ? `${API_BASE_URL}/informacion-f/getAnosReporte`
@@ -226,7 +226,7 @@ export default function Reportes() {
     
     // Validar año para reportes que lo requieren
   if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-     (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion"))) && !ano) {
+     (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado"))) && !ano) {
       alert("Por favor selecciona el Año para este reporte");
       return;
     }
@@ -278,34 +278,37 @@ export default function Reportes() {
           } else if (literal === 'literal_b') {
             setCargandoConsolidado(true);
             try {
-              // 1) Preferido: obtener finalizados Literal B por endpoint dedicado
-              let candidatos = [];
-              try {
-                const respFinish = await fetch(`${API_BASE_URL}/informacion-b/getFinishB`, { credentials: 'include' });
-                if (respFinish.ok) {
-                  const list = await respFinish.json();
-                  const arr = Array.isArray(list?.data) ? list.data : (Array.isArray(list) ? list : []);
-                  const getIdFinishB = (e) => {
-                    const direct = e?.idInformacionB ?? e?.informacionB_idInformacionB ?? e?.id_informacion_b ?? e?.id;
-                    if (direct !== undefined && direct !== null && direct !== '') return direct;
-                    if (typeof e?.idInformacion === 'object') {
-                      if (e.idInformacion.idInformacionB !== undefined) return e.idInformacion.idInformacionB;
-                      if (e.idInformacion.id !== undefined) return e.idInformacion.id;
-                    }
-                    return null;
-                  };
-                  candidatos = arr.map(e => ({ id: getIdFinishB(e), nombre: e.nombre || e.empresa || '', nit: e.nit || e.NIT || '', origen: e.origen || '' }))
-                                   .filter(x => x.id !== null && x.id !== undefined && x.id !== '');
-                }
-              } catch {}
-              if (!candidatos.length) {
-                alert('No se pudieron obtener clientes finalizados desde getFinishB para Literal B. Verifique que existan finalizados y que su sesión tenga permisos.');
+              // Validar que se haya seleccionado un año
+              if (!ano || ano === '') {
+                alert('Por favor seleccione un año para generar el consolidado de Literal B.');
                 setConsolidadoB(null);
                 setCargandoConsolidado(false);
                 return;
               }
-              const limit = 4;
-              const chunk = (arr, n) => arr.reduce((acc, item, idx) => { if (idx % n === 0) acc.push([]); acc[acc.length - 1].push(item); return acc; }, []);
+              
+              const añoReporte = parseInt(ano);
+              console.log('Generando consolidado para año:', añoReporte);
+              
+              // Obtener datos del histórico para el año seleccionado
+              const response = await fetch(`${API_BASE_URL}/informacion-b/getConsolidadoHistorico/${añoReporte}`, {
+                credentials: 'include'
+              });
+              
+              if (!response.ok) {
+                throw new Error(`Error al obtener consolidado histórico: ${response.status}`);
+              }
+              
+              const datosHistoricos = await response.json();
+              console.log('Datos históricos obtenidos:', datosHistoricos);
+              
+              if (!Array.isArray(datosHistoricos) || datosHistoricos.length === 0) {
+                alert(`No se encontraron datos históricos para el año ${añoReporte}`);
+                setConsolidadoB(null);
+                setCargandoConsolidado(false);
+                return;
+              }
+              
+              // Procesar los datos históricos
               const totalInit = {
                 pesoEmpaqueComercialRX: 0, pesoTotalComercialRX: 0,
                 pesoEmpaqueComercialOTC: 0, pesoTotalComercialOTC: 0,
@@ -314,56 +317,51 @@ export default function Reportes() {
                 pesoEmpaqueMuestrasMedicas: 0, pesoTotalMuestrasMedicas: 0,
                 totalPesoEmpaques: 0, totalPesoProducto: 0, totalFormula: 0
               };
+              
               const filas = [];
               let total = { ...totalInit };
-              for (const grupo of chunk(candidatos, limit)) {
-                const results = await Promise.all(grupo.map(async (c) => {
-                  try {
-                    const idStr = typeof c.id === 'object' ? (c.id?.idInformacionB || c.id?.id || '') : String(c.id);
-                    const safeId = encodeURIComponent(idStr);
-                    const r = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${safeId}`, { credentials: 'include' });
-                    const prods = r.ok ? await r.json() : [];
-                    return { cliente: c, productos: prods };
-                  } catch { return { cliente: c, productos: [] }; }
-                }));
-                results.forEach(({ cliente, productos }) => {
-                  if (!Array.isArray(productos) || !productos.length) return;
-                  // Reutilizar sumas de CardValidarB
-                  const resumen = productos.reduce((acc, p) => ({
-                    pesoEmpaqueComercialRX: (acc.pesoEmpaqueComercialRX || 0) + (Number(p.pesoEmpaqueComercialRX) || 0),
-                    pesoTotalComercialRX: (acc.pesoTotalComercialRX || 0) + (Number(p.pesoTotalComercialRX) || 0),
-                    pesoEmpaqueComercialOTC: (acc.pesoEmpaqueComercialOTC || 0) + (Number(p.pesoEmpaqueComercialOTC) || 0),
-                    pesoTotalComercialOTC: (acc.pesoTotalComercialOTC || 0) + (Number(p.pesoTotalComercialOTC) || 0),
-                    pesoEmpaqueInstitucional: (acc.pesoEmpaqueInstitucional || 0) + (Number(p.pesoEmpaqueInstitucional) || 0),
-                    pesoTotalInstitucional: (acc.pesoTotalInstitucional || 0) + (Number(p.pesoTotalInstitucional) || 0),
-                    pesoEmpaqueIntrahospitalario: (acc.pesoEmpaqueIntrahospitalario || 0) + (Number(p.pesoEmpaqueIntrahospitalario) || 0),
-                    pesoTotalIntrahospitalario: (acc.pesoTotalIntrahospitalario || 0) + (Number(p.pesoTotalIntrahospitalario) || 0),
-                    pesoEmpaqueMuestrasMedicas: (acc.pesoEmpaqueMuestrasMedicas || 0) + (Number(p.pesoEmpaqueMuestrasMedicas) || 0),
-                    pesoTotalMuestrasMedicas: (acc.pesoTotalMuestrasMedicas || 0) + (Number(p.pesoTotalMuestrasMedicas) || 0),
-                    totalPesoEmpaques: (acc.totalPesoEmpaques || 0) + (Number(p.totalPesoEmpaques) || 0),
-                    totalPesoProducto: (acc.totalPesoProducto || 0) + (Number(p.totalPesoProducto) || 0),
-                  }), {});
-                  const totalFormula = (
-                    (Number(resumen.pesoTotalComercialRX) || 0) +
-                    (Number(resumen.pesoTotalComercialOTC) || 0) +
-                    ((Number(resumen.pesoTotalInstitucional) || 0) / 2) +
-                    (Number(resumen.pesoTotalMuestrasMedicas) || 0)
-                  );
-                  const fila = {
-                    nombre: productos[0]?.idInformacionB?.nombre || cliente.nombre || 'Cliente',
-                    nit: productos[0]?.idInformacionB?.nit || cliente.nit || '-',
-                    origen: productos[0]?.idInformacionB?.origen || cliente.origen || '-',
-                    resumen: { ...resumen, totalFormula }
-                  };
-                  filas.push(fila);
-                  // Acumular al total
-                  Object.keys(totalInit).forEach(k => { total[k] += Number(fila.resumen[k] || 0); });
+              
+              datosHistoricos.forEach(hist => {
+                const resumen = {
+                  pesoEmpaqueComercialRX: Number(hist.pesoEmpaqueComercialRX) || 0,
+                  pesoTotalComercialRX: Number(hist.pesoTotalComercialRX) || 0,
+                  pesoEmpaqueComercialOTC: Number(hist.pesoEmpaqueComercialOTC) || 0,
+                  pesoTotalComercialOTC: Number(hist.pesoTotalComercialOTC) || 0,
+                  pesoEmpaqueInstitucional: Number(hist.pesoEmpaqueInstitucional) || 0,
+                  pesoTotalInstitucional: Number(hist.pesoTotalInstitucional) || 0,
+                  pesoEmpaqueIntrahospitalario: Number(hist.pesoEmpaqueIntrahospitalario) || 0,
+                  pesoTotalIntrahospitalario: Number(hist.pesoTotalIntrahospitalario) || 0,
+                  pesoEmpaqueMuestrasMedicas: Number(hist.pesoEmpaqueMuestrasMedicas) || 0,
+                  pesoTotalMuestrasMedicas: Number(hist.pesoTotalMuestrasMedicas) || 0,
+                  totalPesoEmpaques: Number(hist.totalPesoEmpaques) || 0,
+                  totalPesoProducto: Number(hist.totalPesoProducto) || 0,
+                  totalFormula: Number(hist.totalPesoFacturacion) || 0
+                };
+                
+                const fila = {
+                  nombre: hist.nombre || 'Cliente',
+                  nit: hist.nit || '-',
+                  origen: hist.origen || '-',
+                  grupo: hist.grupo || 'Sin grupo',
+                  anoReporte: hist.anoReporte || añoReporte,
+                  resumen,
+                  // Datos históricos de años anteriores
+                  historicoYear1: hist.historicoYear1 || null,
+                  historicoYear2: hist.historicoYear2 || null
+                };
+                
+                filas.push(fila);
+                
+                // Acumular al total
+                Object.keys(totalInit).forEach(k => { 
+                  total[k] += Number(resumen[k] || 0); 
                 });
-              }
-              setConsolidadoB({ filas, total });
+              });
+              
+              setConsolidadoB({ filas, total, año: añoReporte });
             } catch (e) {
-              console.error('Error construyendo consolidado B:', e);
-              alert('No se pudo construir el consolidado de Literal B.');
+              console.error('Error construyendo consolidado B desde histórico:', e);
+              alert('No se pudo construir el consolidado de Literal B. ' + e.message);
               setConsolidadoB(null);
             } finally {
               setCargandoConsolidado(false);
@@ -695,6 +693,11 @@ export default function Reportes() {
         alert("No hay datos de consolidado para exportar");
         return;
       }
+    } else if (reporte === 'consolidado' && literal === 'literal_b') {
+      if (!consolidadoB || !consolidadoB.filas || consolidadoB.filas.length === 0) {
+        alert("No hay datos de consolidado para exportar");
+        return;
+      }
     } else {
       // Validación para otros reportes
       if (!datosReporte || !Array.isArray(datosReporte) || datosReporte.length === 0) {
@@ -1023,6 +1026,124 @@ export default function Reportes() {
           saveAs(blob, nombreArchivo);
           alert(`Consolidado exportado exitosamente como: ${nombreArchivo}`);
           return; // Salir temprano ya que no necesitamos el flujo normal
+        }
+      } else if (reporte === 'consolidado' && literal === 'literal_b' && consolidadoB) {
+        // Reporte de consolidado Literal B
+        const filas = consolidadoB.filas || [];
+        const total = consolidadoB.total || {};
+        const añoActual = filas[0]?.anoReporte || consolidadoB.año || ano;
+        
+        if (filas.length > 0) {
+          const hoja = workbook.addWorksheet(`Consolidado ${añoActual}`);
+          
+          // Encabezados
+          const encabezados = [
+            'Razón Social', 'NIT', 'Origen',
+            `Grupo (${añoActual})`, 
+            `Grupo (${añoActual - 1})`, 
+            `Grupo (${añoActual - 2})`,
+            'Empaque RX', 'Total RX',
+            'Empaque OTC', 'Total OTC',
+            'Empaque Inst.', 'Total Inst.',
+            'Empaque Intrahosp.', 'Total Intrahosp.',
+            'Empaque Muestras', 'Total Muestras',
+            'Total Empaques', 'Total Producto',
+            `Total Facturación (${añoActual})`,
+            `Total Facturación (${añoActual - 1})`,
+            `Total Facturación (${añoActual - 2})`
+          ];
+          
+          const headerRow = hoja.addRow(encabezados);
+          headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+          headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: '366092' }
+          };
+          
+          // Agregar datos de filas
+          filas.forEach(fila => {
+            const row = hoja.addRow([
+              fila.nombre,
+              fila.nit,
+              fila.origen || '-',
+              fila.grupo || 'Sin grupo',
+              fila.historicoYear1?.grupo || '-',
+              fila.historicoYear2?.grupo || '-',
+              Number(fila.resumen.pesoEmpaqueComercialRX || 0).toFixed(2),
+              Number(fila.resumen.pesoTotalComercialRX || 0).toFixed(2),
+              Number(fila.resumen.pesoEmpaqueComercialOTC || 0).toFixed(2),
+              Number(fila.resumen.pesoTotalComercialOTC || 0).toFixed(2),
+              Number(fila.resumen.pesoEmpaqueInstitucional || 0).toFixed(2),
+              Number(fila.resumen.pesoTotalInstitucional || 0).toFixed(2),
+              Number(fila.resumen.pesoEmpaqueIntrahospitalario || 0).toFixed(2),
+              Number(fila.resumen.pesoTotalIntrahospitalario || 0).toFixed(2),
+              Number(fila.resumen.pesoEmpaqueMuestrasMedicas || 0).toFixed(2),
+              Number(fila.resumen.pesoTotalMuestrasMedicas || 0).toFixed(2),
+              Number(fila.resumen.totalPesoEmpaques || 0).toFixed(2),
+              Number(fila.resumen.totalPesoProducto || 0).toFixed(2),
+              Number(fila.resumen.totalFormula || 0).toFixed(2),
+              fila.historicoYear1?.totalPesoFacturacion ? Number(fila.historicoYear1.totalPesoFacturacion).toFixed(2) : '-',
+              fila.historicoYear2?.totalPesoFacturacion ? Number(fila.historicoYear2.totalPesoFacturacion).toFixed(2) : '-'
+            ]);
+          });
+          
+          // Agregar fila TOTAL
+          const totalRow = hoja.addRow([
+            'TOTAL', '-', '-', '-', '-', '-',
+            Number(total.pesoEmpaqueComercialRX || 0).toFixed(2),
+            Number(total.pesoTotalComercialRX || 0).toFixed(2),
+            Number(total.pesoEmpaqueComercialOTC || 0).toFixed(2),
+            Number(total.pesoTotalComercialOTC || 0).toFixed(2),
+            Number(total.pesoEmpaqueInstitucional || 0).toFixed(2),
+            Number(total.pesoTotalInstitucional || 0).toFixed(2),
+            Number(total.pesoEmpaqueIntrahospitalario || 0).toFixed(2),
+            Number(total.pesoTotalIntrahospitalario || 0).toFixed(2),
+            Number(total.pesoEmpaqueMuestrasMedicas || 0).toFixed(2),
+            Number(total.pesoTotalMuestrasMedicas || 0).toFixed(2),
+            Number(total.totalPesoEmpaques || 0).toFixed(2),
+            Number(total.totalPesoProducto || 0).toFixed(2),
+            Number(total.totalFormula || 0).toFixed(2),
+            '-', '-'
+          ]);
+          totalRow.font = { bold: true };
+          totalRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: '90EE90' }
+          };
+          
+          // Ajustar ancho de columnas
+          hoja.columns.forEach(column => {
+            column.width = 16;
+          });
+          
+          // Crear hoja de resumen
+          const hojaResumen = workbook.addWorksheet('Resumen');
+          const resumenData = [
+            ['CONSOLIDADO LITERAL B'],
+            ['Fecha:', new Date().toLocaleString('es-CO')],
+            ['Año:', añoActual],
+            ['Total de Clientes:', filas.length],
+            [],
+            ['DESCRIPCIÓN:'],
+            ['Reporte consolidado de Literal B con información histórica'],
+            ['Incluye datos del año actual y comparación con años anteriores']
+          ];
+          resumenData.forEach((row, index) => {
+            const excelRow = hojaResumen.addRow(row);
+            if (index === 0) excelRow.font = { bold: true, size: 14 };
+          });
+          
+          // Generar y descargar
+          const nombreArchivo = `Consolidado_Literal_B_${añoActual}_${new Date().toISOString().split('T')[0]}.xlsx`;
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+          });
+          saveAs(blob, nombreArchivo);
+          alert(`Consolidado exportado exitosamente como: ${nombreArchivo}`);
+          return; // Salir temprano
         }
       }
 
@@ -2138,7 +2259,7 @@ export default function Reportes() {
             )}
             {/* Selector Año (para reportes que requieren año) */}
             {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-              (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion"))) && (
+              (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado"))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Año</label>
                 <select
@@ -2161,10 +2282,10 @@ export default function Reportes() {
               <button
                 className="bg-blueGray-600 h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none  ease-linear transition-all duration-150"
                 onClick={handleBuscar}
-                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion"))) && !ano)}
+                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado"))) && !ano)}
                 title={
                   ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-                   (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion")))
+                   (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado")))
                     ? "Para estos reportes solo se requiere año"
                     : "Complete todos los campos requeridos"
                 }
@@ -2209,7 +2330,18 @@ export default function Reportes() {
                 </>
               )}
               {!cargandoConsolidado && literal === 'literal_b' && consolidadoB && (
-                <ConsolidadoB filas={consolidadoB.filas} total={consolidadoB.total} />
+                <>
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={exportarAExcel}
+                      className="bg-green h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150"
+                      title="Exportar consolidado a Excel"
+                    >
+                      📊 Exportar Excel
+                    </button>
+                  </div>
+                  <ConsolidadoB filas={consolidadoB.filas} total={consolidadoB.total} año={consolidadoB.año} />
+                </>
               )}
             </div>
           )}

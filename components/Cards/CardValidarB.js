@@ -17,6 +17,7 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
   const [selectedUsuario, setSelectedUsuario] = useState(null);
   const [productos, setProductos] = useState(propsProductos || []);
   const [grupoFormula, setGrupoFormula] = useState("Calculando...");
+  const [informacionB, setInformacionB] = useState(null);
 
   // Función para obtener usuarios pendientes de validación
   const fetchUsuariosInternal = async () => {
@@ -56,23 +57,40 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
     console.log("ID a usar para información:", usuario.informacionB_idInformacionB);
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${usuario.informacionB_idInformacionB}`, {
+      // Obtener productos
+      const responseProductos = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${usuario.informacionB_idInformacionB}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
 
-      if (!response.ok) {
-        console.error(`Error en la respuesta: ${response.status} - ${response.statusText}`);
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      if (!responseProductos.ok) {
+        console.error(`Error en la respuesta de productos: ${responseProductos.status} - ${responseProductos.statusText}`);
+        throw new Error(`Error ${responseProductos.status}: ${responseProductos.statusText}`);
       }
 
-      const productosData = await response.json();
+      const productosData = await responseProductos.json();
       console.log("Productos obtenidos:", productosData);
+
+      // Obtener información completa de informacionB
+      const responseInformacion = await fetch(`${API_BASE_URL}/informacion-b/getInformacion/${usuario.informacionB_idInformacionB}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!responseInformacion.ok) {
+        console.error(`Error en la respuesta de información: ${responseInformacion.status} - ${responseInformacion.statusText}`);
+        throw new Error(`Error ${responseInformacion.status}: ${responseInformacion.statusText}`);
+      }
+
+      const informacionData = await responseInformacion.json();
+      console.log("Información B obtenida:", informacionData);
+
       setProductos(productosData);
+      setInformacionB(informacionData);
       setSelectedUsuario(usuario);
     } catch (error) {
-      console.error("Error al obtener productos:", error);
-      alert(`Error al obtener productos: ${error.message}`);
+      console.error("Error al obtener datos:", error);
+      alert(`Error al obtener datos: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -105,25 +123,68 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
     (Number(resumen.pesoTotalMuestrasMedicas) || 0))
   ).toFixed(2) : "0.00";
 
-  // Busca el histórico correspondiente a cada año
-  const year1 = new Date().getFullYear() - 2;
-  const year2 = new Date().getFullYear() - 3;
-  const historicoYear1 = productos && productos.length > 0 ? productos[0]?.historico?.find(h => h.anoReporte === year1.toString()) : null;
-  const historicoYear2 = productos && productos.length > 0 ? productos[0]?.historico?.find(h => h.anoReporte === year2.toString()) : null;
+  // Busca el histórico correspondiente a cada año basándose en el anoReporte de informacionB
+  const anoReporteActual = informacionB?.anoReporte ? parseInt(informacionB.anoReporte) : null;
+  const year1 = anoReporteActual ? anoReporteActual - 1 : null;
+  const year2 = anoReporteActual ? anoReporteActual - 2 : null;
+  const historicoYear1 = productos && productos.length > 0 && year1 ? productos[0]?.historico?.find(h => h.anoReporte === year1.toString()) : null;
+  const historicoYear2 = productos && productos.length > 0 && year2 ? productos[0]?.historico?.find(h => h.anoReporte === year2.toString()) : null;
 
   // Fetch del parámetro y cálculo del grupo según el rango
   useEffect(() => {
     const fetchParametro = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/parametros/2`);
-        if (!response.ok) throw new Error("No se pudo obtener el parámetro");
-        const data = await response.json();
-        const rangos = JSON.parse(data.valor);
-        const grupo = rangos.find(r =>
-          Number(totalFormula) >= Number(r.rango_kg.min) && Number(totalFormula) < Number(r.rango_kg.max)
-        );
-        setGrupoFormula(grupo ? `Grupo ${grupo.grupo}` : "Sin grupo");
+        // Obtener todos los parámetros y buscar "Rango Toneladas Literal B"
+        const response = await fetch(`${API_BASE_URL}/parametros`);
+        if (!response.ok) throw new Error("No se pudo obtener los parámetros");
+        const parametros = await response.json();
+        const param = parametros.find(p => p.nombre === 'Rango Toneladas Literal B');
+        
+        if (!param) {
+          console.error("No se encontró el parámetro 'Rango Toneladas Literal B'");
+          setGrupoFormula("Sin grupo");
+          return;
+        }
+        
+        const json = JSON.parse(param.valor);
+        const rangos = json.data || [];
+        
+        console.log("=== DEBUG GRUPO ===");
+        console.log("Total Formula (KG):", totalFormula);
+        console.log("Parámetro completo:", param);
+        console.log("Rangos encontrados:", rangos);
+        
+        // Usar totalFormula directamente (en KG) sin conversión
+        const valorFormula = Number(totalFormula);
+        console.log("Valor a comparar (KG):", valorFormula);
+        
+        // Procesar rangos y buscar el correcto
+        const rangosProcesados = rangos.map(r => ({
+          grupo: (r.grupo ?? r.Grupo ?? '').toString(),
+          min: parseFloat(r.rango_ini ?? r.rangoini ?? r.RangoIni ?? 0),
+          max: parseFloat(r.rango_fin ?? r.rangofin ?? r.RangoFin ?? 0),
+          original: r
+        }));
+        
+        console.log("Rangos procesados:", rangosProcesados);
+        
+        // Buscar el rango que contiene el valor
+        const rangoEncontrado = rangosProcesados.find(r => {
+          const estaEnRango = valorFormula >= r.min && valorFormula <= r.max;
+          console.log(`Grupo ${r.grupo}: min=${r.min}, max=${r.max}, esta en rango=${estaEnRango}`);
+          return estaEnRango;
+        });
+        
+        if (rangoEncontrado) {
+          setGrupoFormula(`Grupo ${rangoEncontrado.grupo}`);
+          console.log(`✓ Grupo encontrado: Grupo ${rangoEncontrado.grupo} para ${valorFormula} KG`);
+        } else {
+          console.warn(`✗ No se encontró grupo para ${valorFormula} KG`);
+          setGrupoFormula("Sin grupo");
+        }
+        console.log("=== FIN DEBUG GRUPO ===");
       } catch (e) {
+        console.error("Error al calcular el grupo:", e);
         setGrupoFormula("Sin grupo");
       }
     };
@@ -231,6 +292,7 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
               onClick={() => {
                 setSelectedUsuario(null);
                 setProductos([]);
+                setInformacionB(null);
               }}
             >
               ← Volver a la lista
@@ -554,6 +616,7 @@ Equipo Punto Azul`);
       } else {
         setSelectedUsuario(null);
         setProductos([]);
+        setInformacionB(null);
       }
     } catch (error) {
       console.error("Error al actualizar el estado:", error);
@@ -588,9 +651,9 @@ Equipo Punto Azul`);
             <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Razón Social</th>
             <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">NIT</th>
             <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Origen de capital MULTINACIONAL / NACIONAL</th>
-            <th colSpan={10} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Distribución y comercialización AÑO {new Date().getFullYear() - 1}</th>
+            <th colSpan={10} rowSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Distribución y comercialización AÑO {anoReporteActual || 'N/A'}</th>
             <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
-            <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DEL PRODUCTO ({new Date().getFullYear() - 1})</th>
+            <th rowSpan={4} colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">TOTAL DE PESO DEL PRODUCTO ({anoReporteActual || 'N/A'})</th>
             <th colSpan={3} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Comparativo Peso Facturación</th>
             <th colSpan={3} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Grupo</th>
             <th colSpan={1} rowSpan={4} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Conformidad según literal</th>
@@ -605,12 +668,12 @@ Equipo Punto Azul`);
           <tr className="bg-gray-200">
             <th colSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">RX</th>
             <th colSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">OTC</th>
-            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {new Date().getFullYear() - 1} (KG)</th>
-            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {new Date().getFullYear() - 2} (KG)</th>
-            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {new Date().getFullYear() - 3} (KG)</th>
-            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{new Date().getFullYear() - 3}</th>
-            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{new Date().getFullYear() - 2}</th>
-            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{new Date().getFullYear() - 1}</th>
+            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {anoReporteActual || 'N/A'} (KG)</th>
+            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {year1 || 'N/A'} (KG)</th>
+            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Total Peso Facturación {year2 || 'N/A'} (KG)</th>
+            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{year2 || 'N/A'}</th>
+            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{year1 || 'N/A'}</th>
+            <th colSpan={1} rowSpan={2} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">{anoReporteActual || 'N/A'}</th>
           </tr>
           <tr className="bg-gray-200">
             <th colSpan={1} className="min-w-[160px] px-3 py-0.5 text-xs leading-snug whitespace-normal text-center font-semibold bg-gray-100 border border-gray-300 rounded-sm">Peso de empaques, envases y envolturas</th>
@@ -806,6 +869,7 @@ Equipo Punto Azul`);
                 } else {
                   setSelectedUsuario(null);
                   setProductos([]);
+                  setInformacionB(null);
                 }
               }}
             >

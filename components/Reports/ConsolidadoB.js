@@ -7,20 +7,15 @@ export default function ConsolidadoB({ filas, total, año }) {
   const [filasPorPagina, setFilasPorPagina] = useState(10);
   const [busqueda, setBusqueda] = useState("");
 
-  if (!Array.isArray(filas) || filas.length === 0) {
-    return <div className="p-4 text-center text-gray-600">No hay datos de consolidado para mostrar.</div>;
-  }
-
-  const fmt2 = (n) => (Number(n || 0)).toFixed(2);
-
   // Obtener el año actual y años históricos de los datos
-  const primeraFila = filas[0];
+  const primeraFila = filas?.[0];
   const añoActual = primeraFila?.anoReporte || año;
   const year1 = primeraFila?.historicoYear1?.anoReporte || (añoActual ? añoActual - 1 : null);
   const year2 = primeraFila?.historicoYear2?.anoReporte || (añoActual ? añoActual - 2 : null);
 
   // Filtrar filas según búsqueda
   const filasFiltradas = useMemo(() => {
+    if (!Array.isArray(filas) || filas.length === 0) return [];
     if (!busqueda.trim()) return filas;
     const busquedaLower = busqueda.toLowerCase();
     return filas.filter(f => 
@@ -41,6 +36,13 @@ export default function ConsolidadoB({ filas, total, año }) {
   React.useEffect(() => {
     setPaginaActual(1);
   }, [busqueda, filasPorPagina]);
+
+  // Early return después de todos los hooks
+  if (!Array.isArray(filas) || filas.length === 0) {
+    return <div className="p-4 text-center text-gray-600">No hay datos de consolidado para mostrar.</div>;
+  }
+
+  const fmt2 = (n) => (Number(n || 0)).toFixed(2);
 
   return (
     <div className="overflow-x-auto">

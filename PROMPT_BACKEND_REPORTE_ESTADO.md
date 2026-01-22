@@ -6,6 +6,8 @@ El reporte de estado necesita mostrar tanto datos históricos (años anteriores 
 ## Problema Actual
 Los endpoints de reporte de estado solo consultan una tabla (histórico o actual) pero no distinguen dinámicamente según el año solicitado.
 
+**IMPORTANTE:** Cuando un formulario llega a estado "Finalizado", puede existir temporalmente tanto en la tabla actual como en la histórica, causando duplicados. La consulta debe filtrar por registros únicos usando el NIT como clave.
+
 ## Solución Requerida
 
 ### 1. Endpoint: POST /informacion-f/reporteEstado (Línea Base)
@@ -79,15 +81,30 @@ if (parseInt(ano) >= yearActual) {
 
 const resultados = await db.query(query, params);
 
-// 3. Retornar datos con metadatos
+// 3. IMPORTANTE: Filtrar duplicados por NIT
+// Cuando un formulario se finaliza, puede estar en ambas tablas temporalmente
+const registrosUnicos = new Map();
+resultados.forEach(registro => {
+  const key = `${registro.nit}_${registro.anoReporte}`;
+  if (!registrosUnicos.has(key)) {
+    registrosUnicos.set(key, registro);
+  }
+  // Si ya existe, mantener el de la tabla actual (tiene prioridad)
+});
+
+const resultadosFiltrados = Array.from(registrosUnicos.values());
+
+// 4. Retornar datos con metadatos
 return {
   success: true,
-  data: resultados,
+  data: resultadosFiltrados,
   metadata: {
     ano: parseInt(ano),
     esAnoActual: parseInt(ano) >= yearActual,
     fuente: parseInt(ano) >= yearActual ? 'informacionF' : 'histInformacionF',
-    totalRegistros: resultados.length
+    totalRegistros: resultadosFiltrados.length,
+    registrosOriginales: resultados.length,
+    duplicadosEliminados: resultados.length - resultadosFiltrados.length
   }
 };
 ```
@@ -169,15 +186,30 @@ if (parseInt(ano) >= yearActual) {
 
 const resultados = await db.query(query, params);
 
-// 3. Retornar datos con metadatos
+// 3. IMPORTANTE: Filtrar duplicados por NIT
+// Cuando un formulario se finaliza, puede estar en ambas tablas temporalmente
+const registrosUnicos = new Map();
+resultados.forEach(registro => {
+  const key = `${registro.nit}_${registro.anoReporte}`;
+  if (!registrosUnicos.has(key)) {
+    registrosUnicos.set(key, registro);
+  }
+  // Si ya existe, mantener el de la tabla actual (tiene prioridad)
+});
+
+const resultadosFiltrados = Array.from(registrosUnicos.values());
+
+// 4. Retornar datos con metadatos
 return {
   success: true,
-  data: resultados,
+  data: resultadosFiltrados,
   metadata: {
     ano: parseInt(ano),
     esAnoActual: parseInt(ano) >= yearActual,
     fuente: parseInt(ano) >= yearActual ? 'informacionB' : 'histInformacionB',
-    totalRegistros: resultados.length
+    totalRegistros: resultadosFiltrados.length,
+    registrosOriginales: resultados.length,
+    duplicadosEliminados: resultados.length - resultadosFiltrados.length
   }
 };
 ```

@@ -532,6 +532,30 @@ export default function Reportes() {
         
         console.log("=== Datos parseados para tabla ===", datosParaTabla);
         
+        // FILTRAR DUPLICADOS en reporte de estado
+        // Cuando un formulario se finaliza, puede estar tanto en tabla actual como en histórico
+        // Filtrar por NIT único para evitar duplicados
+        if (reporte === 'estado' && Array.isArray(datosParaTabla)) {
+          const registrosUnicos = new Map();
+          datosParaTabla.forEach(registro => {
+            const key = `${registro.nit}_${registro.anoReporte || ano}`;
+            // Si ya existe, mantener el que tenga idInformacionB o idInformacionF (tabla actual tiene prioridad)
+            if (!registrosUnicos.has(key)) {
+              registrosUnicos.set(key, registro);
+            } else {
+              const existente = registrosUnicos.get(key);
+              // Priorizar el que tenga id de tabla actual (sin prefijo "hist")
+              const idActual = registro.idInformacionB || registro.idInformacionF;
+              const idExistente = existente.idInformacionB || existente.idInformacionF;
+              if (idActual && !String(idActual).includes('hist')) {
+                registrosUnicos.set(key, registro);
+              }
+            }
+          });
+          datosParaTabla = Array.from(registrosUnicos.values());
+          console.log(`🔍 Filtrados duplicados en estado: ${datosReporte.length} → ${datosParaTabla.length} registros únicos`);
+        }
+        
         setDatosReporte(datosParaTabla);
         setTablaDatos(datosParaTabla);
         

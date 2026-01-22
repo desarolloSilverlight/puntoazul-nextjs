@@ -55,10 +55,12 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
     console.log("Usuario seleccionado:", usuario);
     console.log("ID a usar para productos:", usuario.informacionB_idInformacionB);
     console.log("ID a usar para información:", usuario.informacionB_idInformacionB);
+    console.log("Año reporte del usuario:", usuario.informacionB_anoReporte);
     setLoading(true);
     try {
-      // Obtener productos
-      const responseProductos = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${usuario.informacionB_idInformacionB}`, {
+      // Obtener productos - enviar año para que el backend busque históricos dinámicamente
+      const anoReporte = usuario.informacionB_anoReporte || new Date().getFullYear();
+      const responseProductos = await fetch(`${API_BASE_URL}/informacion-b/getProdValidarB/${usuario.informacionB_idInformacionB}?anoReporte=${anoReporte}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -127,8 +129,29 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
   const anoReporteActual = informacionB?.anoReporte ? parseInt(informacionB.anoReporte) : null;
   const year1 = anoReporteActual ? anoReporteActual - 1 : null;
   const year2 = anoReporteActual ? anoReporteActual - 2 : null;
-  const historicoYear1 = productos && productos.length > 0 && year1 ? productos[0]?.historico?.find(h => h.anoReporte === year1.toString()) : null;
-  const historicoYear2 = productos && productos.length > 0 && year2 ? productos[0]?.historico?.find(h => h.anoReporte === year2.toString()) : null;
+  
+  // Debug: Ver qué contiene el histórico
+  console.log("=== DEBUG HISTÓRICO ===");
+  console.log("Año actual (anoReporte):", anoReporteActual);
+  console.log("Year1 (año-1):", year1);
+  console.log("Year2 (año-2):", year2);
+  console.log("Array histórico completo:", productos && productos.length > 0 ? productos[0]?.historico : "No hay productos");
+  
+  // Buscar por campo 'anoReporte' que contiene el año de los datos reportados
+  const historicoYear1 = productos && productos.length > 0 && year1 ? 
+    productos[0]?.historico?.find(h => {
+      const hAnoReporte = h.anoReporte?.toString();
+      const buscado = year1.toString();
+      console.log(`Comparando histórico anoReporte="${hAnoReporte}" con buscado="${buscado}" -> match: ${hAnoReporte === buscado}`);
+      return hAnoReporte === buscado;
+    }) : null;
+    
+  const historicoYear2 = productos && productos.length > 0 && year2 ? 
+    productos[0]?.historico?.find(h => h.anoReporte?.toString() === year2.toString()) : null;
+  
+  console.log("historicoYear1 encontrado:", historicoYear1);
+  console.log("historicoYear2 encontrado:", historicoYear2);
+  console.log("=== FIN DEBUG HISTÓRICO ===");
 
   // Fetch del parámetro y cálculo del grupo según el rango
   useEffect(() => {
@@ -241,6 +264,9 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
                     Correo
                   </th>
                   <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
+                    Año Reporte
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
                     Cantidad Productos
                   </th>
                   
@@ -257,6 +283,11 @@ export default function CardValidarB({ productos: propsProductos, goBack, fetchU
                     </td>
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
                       {usuario.informacionB_correoFacturacion}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                        {usuario.informacionB_anoReporte || 'N/A'}
+                      </span>
                     </td>
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
                       <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">

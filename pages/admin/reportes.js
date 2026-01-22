@@ -572,6 +572,53 @@ export default function Reportes() {
       return null;
     }
 
+    // Debug: Ver estructura de datos
+    console.log("=== DEBUG TONELADAS ===");
+    console.log("Primer empresa completa:", JSON.stringify(datosReporte[0], null, 2));
+    
+    // Helper para convertir gramos * unidades a toneladas
+    const toTon = (gramos, unidades) => {
+      const g = Number(gramos || 0);
+      const u = Number(unidades || 0);
+      return (g * u) / 1000000;
+    };
+
+    // Función para calcular el total de toneladas (primarios + secundarios + plásticos)
+    const calcularTotalToneladas = (anoData) => {
+      console.log("Calculando toneladas para año data:", anoData);
+      let total = 0;
+      
+      // Sumar primarios
+      if (anoData.primarios && Array.isArray(anoData.primarios)) {
+        anoData.primarios.forEach((p) => {
+          const tons = toTon(p.gramos, p.unidades);
+          console.log(`  Primario: ${p.gramos}g x ${p.unidades}u = ${tons} ton`);
+          total += tons;
+        });
+      }
+      
+      // Sumar secundarios
+      if (anoData.secundarios && Array.isArray(anoData.secundarios)) {
+        anoData.secundarios.forEach((s) => {
+          const tons = toTon(s.gramos, s.unidades);
+          console.log(`  Secundario: ${s.gramos}g x ${s.unidades}u = ${tons} ton`);
+          total += tons;
+        });
+      }
+      
+      // Sumar plásticos (todos los tipos: líquidos, otros, construcción)
+      if (anoData.plasticos && Array.isArray(anoData.plasticos)) {
+        anoData.plasticos.forEach((p) => {
+          const tons = toTon(p.gramos, p.unidades);
+          console.log(`  Plástico: ${p.gramos}g x ${p.unidades}u = ${tons} ton`);
+          total += tons;
+        });
+      }
+      
+      console.log(`  Total calculado: ${total} ton`);
+      return total;
+    };
+
     const empresasComparacion = [];
     
     // Determinar años a mostrar: solo el año seleccionado y el año anterior (si existe)
@@ -587,6 +634,8 @@ export default function Reportes() {
       ? [anoAnterior, anoSeleccionado] 
       : [anoSeleccionado];
     
+    console.log("Años a procesar:", anosDisponiblesOrdenados);
+    
     datosReporte.forEach((empresa, index) => {
       const datosEmpresa = {
         nombre: empresa.nombre || 'N/A',
@@ -595,33 +644,47 @@ export default function Reportes() {
         toneladas: {}
       };
 
-      // Extraer toneladas_reportadas solo para los años a mostrar
+      console.log(`\n--- Procesando empresa: ${empresa.nombre} ---`);
+
+      // Procesar toneladas para cada año
       anosDisponiblesOrdenados.forEach(year => {
         const yearStr = year.toString();
         
-        if (empresa.anos && empresa.anos[yearStr] && empresa.anos[yearStr].toneladas_reportadas !== undefined && empresa.anos[yearStr].toneladas_reportadas !== null) {
-          // Convertir string con coma a punto decimal y luego a float
-          let valor = empresa.anos[yearStr].toneladas_reportadas;
-          if (typeof valor === 'string') {
-            valor = valor.replace(',', '.').trim();
+        if (empresa.anos && empresa.anos[yearStr]) {
+          console.log(`Año ${yearStr} existe en datos`);
+          
+          // Si ya viene toneladas_reportadas calculado (típicamente del histórico), usarlo
+          if (empresa.anos[yearStr].toneladas_reportadas !== undefined && 
+              empresa.anos[yearStr].toneladas_reportadas !== null) {
+            let valor = empresa.anos[yearStr].toneladas_reportadas;
+            if (typeof valor === 'string') {
+              valor = valor.replace(',', '.').trim();
+            }
+            const numeroConvertido = parseFloat(valor);
+            datosEmpresa.toneladas[yearStr] = isNaN(numeroConvertido) ? 0 : numeroConvertido;
+            console.log(`✓ Usando toneladas_reportadas: ${datosEmpresa.toneladas[yearStr]}`);
+          } 
+          // Si no viene toneladas_reportadas, calcular desde arrays (año actual)
+          else if (empresa.anos[yearStr].primarios || empresa.anos[yearStr].secundarios || empresa.anos[yearStr].plasticos) {
+            const totalCalculado = calcularTotalToneladas(empresa.anos[yearStr]);
+            datosEmpresa.toneladas[yearStr] = totalCalculado;
+            console.log(`✓ Calculado desde arrays: ${totalCalculado}`);
           }
-          
-          const numeroConvertido = parseFloat(valor);
-          // Usar isNaN para verificar si la conversión fue exitosa, en lugar de usar ||
-          datosEmpresa.toneladas[yearStr] = isNaN(numeroConvertido) ? 0 : numeroConvertido;
-          
-          // Debug temporal para verificar la conversión - SOLO SI HAY PROBLEMA
-          if (empresa.anos[yearStr].toneladas_reportadas !== "0" && empresa.anos[yearStr].toneladas_reportadas !== 0) {
-            console.log(`🔍 ${empresa.nombre} - Año ${yearStr}: "${empresa.anos[yearStr].toneladas_reportadas}" -> ${datosEmpresa.toneladas[yearStr]}`);
+          // No hay datos
+          else {
+            datosEmpresa.toneladas[yearStr] = 0;
+            console.log(`✗ No hay datos para año ${yearStr}`);
           }
         } else {
           datosEmpresa.toneladas[yearStr] = 0;
+          console.log(`✗ Año ${yearStr} no existe en empresa.anos`);
         }
       });
 
       empresasComparacion.push(datosEmpresa);
     });
 
+    console.log("=== FIN DEBUG TONELADAS ===\n");
     return { empresasComparacion, anosDisponiblesOrdenados };
   };
 
@@ -1039,9 +1102,10 @@ export default function Reportes() {
           // Encabezados
           const encabezados = [
             'Razón Social', 'NIT', 'Origen',
-            `Grupo (${añoActual})`, 
-            `Grupo (${añoActual - 1})`, 
-            `Grupo (${añoActual - 2})`,
+            `${añoActual}`, 
+            `${añoActual - 1}`, 
+            `${añoActual - 2}`,
+            'Tendencia de Comportamiento',
             'Empaque RX', 'Total RX',
             'Empaque OTC', 'Total OTC',
             'Empaque Inst.', 'Total Inst.',
@@ -1063,6 +1127,21 @@ export default function Reportes() {
           
           // Agregar datos de filas
           filas.forEach(fila => {
+            // Calcular tendencia
+            const grupoActual = fila.grupo;
+            const grupoAnterior = fila.historicoYear1?.grupo;
+            let tendencia = '-';
+            
+            if (grupoActual && grupoActual !== 'Sin grupo' && grupoAnterior) {
+              if (grupoActual > grupoAnterior) {
+                tendencia = 'SUBE';
+              } else if (grupoActual < grupoAnterior) {
+                tendencia = 'BAJA';
+              } else {
+                tendencia = 'SE MANTIENE';
+              }
+            }
+            
             const row = hoja.addRow([
               fila.nombre,
               fila.nit,
@@ -1070,6 +1149,7 @@ export default function Reportes() {
               fila.grupo || 'Sin grupo',
               fila.historicoYear1?.grupo || '-',
               fila.historicoYear2?.grupo || '-',
+              tendencia,
               Number(fila.resumen.pesoEmpaqueComercialRX || 0).toFixed(2),
               Number(fila.resumen.pesoTotalComercialRX || 0).toFixed(2),
               Number(fila.resumen.pesoEmpaqueComercialOTC || 0).toFixed(2),
@@ -1090,7 +1170,7 @@ export default function Reportes() {
           
           // Agregar fila TOTAL
           const totalRow = hoja.addRow([
-            'TOTAL', '-', '-', '-', '-', '-',
+            'TOTAL', '-', '-', '-', '-', '-', '-',
             Number(total.pesoEmpaqueComercialRX || 0).toFixed(2),
             Number(total.pesoTotalComercialRX || 0).toFixed(2),
             Number(total.pesoEmpaqueComercialOTC || 0).toFixed(2),

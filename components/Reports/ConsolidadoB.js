@@ -96,6 +96,7 @@ export default function ConsolidadoB({ filas, total, año }) {
             <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Grupo ({añoActual || 'N/A'})</th>
             <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300 bg-blue-50">Grupo ({year1 || 'N/A'})</th>
             <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300 bg-blue-100">Grupo ({year2 || 'N/A'})</th>
+            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300 bg-yellow-50">Tendencia de Comportamiento</th>
             <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Comercial RX</th>
             <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Comercial OTC</th>
             <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Institucional</th>
@@ -129,6 +130,24 @@ export default function ConsolidadoB({ filas, total, año }) {
               <td className="px-2 py-1 text-xs border border-gray-300">{f.grupo || 'Sin grupo'}</td>
               <td className="px-2 py-1 text-xs border border-gray-300 bg-blue-50">{f.historicoYear1?.grupo || '-'}</td>
               <td className="px-2 py-1 text-xs border border-gray-300 bg-blue-100">{f.historicoYear2?.grupo || '-'}</td>
+              <td className="px-2 py-1 text-xs border border-gray-300 bg-yellow-50">
+                {(() => {
+                  const grupoActual = f.grupo;
+                  const grupoAnterior = f.historicoYear1?.grupo;
+                  
+                  if (!grupoActual || grupoActual === 'Sin grupo' || !grupoAnterior) {
+                    return '-';
+                  }
+                  
+                  if (grupoActual > grupoAnterior) {
+                    return '▲ SUBE';
+                  } else if (grupoActual < grupoAnterior) {
+                    return '▼ BAJA';
+                  } else {
+                    return '═ SE MANTIENE';
+                  }
+                })()}
+              </td>
               <td className="px-2 py-1 text-xs border border-gray-300">{fmt2(f.resumen.pesoEmpaqueComercialRX)}</td>
               <td className="px-2 py-1 text-xs border border-gray-300">{fmt2(f.resumen.pesoTotalComercialRX)}</td>
               <td className="px-2 py-1 text-xs border border-gray-300">{fmt2(f.resumen.pesoEmpaqueComercialOTC)}</td>
@@ -154,6 +173,7 @@ export default function ConsolidadoB({ filas, total, año }) {
             <td className="px-2 py-1 text-xs border border-gray-300">-</td>
             <td className="px-2 py-1 text-xs border border-gray-300 bg-blue-50">-</td>
             <td className="px-2 py-1 text-xs border border-gray-300 bg-blue-100">-</td>
+            <td className="px-2 py-1 text-xs border border-gray-300 bg-yellow-50">-</td>
             <td className="px-2 py-1 text-xs border border-gray-300">{fmt2(total.pesoEmpaqueComercialRX)}</td>
             <td className="px-2 py-1 text-xs border border-gray-300">{fmt2(total.pesoTotalComercialRX)}</td>
             <td className="px-2 py-1 text-xs border border-gray-300">{fmt2(total.pesoEmpaqueComercialOTC)}</td>

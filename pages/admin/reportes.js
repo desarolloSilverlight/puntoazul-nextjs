@@ -162,8 +162,8 @@ export default function Reportes() {
     }
 
     // Cargar años disponibles para reportes que los requieren
-  if ((literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion")) ||
-    (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion" || value === "consolidado"))) {
+  if ((literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion" || value === "estado")) ||
+    (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion" || value === "consolidado" || value === "estado"))) {
       try {
         const endpoint = literal === "linea_base" 
           ? `${API_BASE_URL}/informacion-f/getAnosReporte`
@@ -225,8 +225,8 @@ export default function Reportes() {
     }
     
     // Validar año para reportes que lo requieren
-  if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-     (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado"))) && !ano) {
+  if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "estado")) ||
+     (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado"))) && !ano) {
       alert("Por favor selecciona el Año para este reporte");
       return;
     }
@@ -374,6 +374,7 @@ export default function Reportes() {
           if (reporte === "estado") {
             endpoint = `${API_BASE_URL}/informacion-f/reporteEstado`;
             datosEnvio.cliente = cliente || null;
+            datosEnvio.ano = parseInt(ano);
           } else {
             endpoint = `${API_BASE_URL}/informacion-f/reportes`;
             
@@ -496,6 +497,7 @@ export default function Reportes() {
           } else if (reporte === "estado") {
             endpoint = `${API_BASE_URL}/informacion-b/reporteEstado`;
             datosEnvio.cliente = cliente || null;
+            datosEnvio.ano = parseInt(ano);
           }
         }
 
@@ -1942,7 +1944,10 @@ export default function Reportes() {
       if (!r) return;
       r.empresas += 1;
       r.toneladas += emp.toneladas;
-      r.facturacion += emp.toneladas * (r.valor || 0);
+    });
+    // Calcular facturación como: empresas * valor unitario
+    resultado.forEach(r => {
+      r.facturacion = r.empresas * (r.valor || 0);
     });
     return resultado;
   };
@@ -1974,7 +1979,7 @@ export default function Reportes() {
     });
 
     const resultado = Object.values(grupos).map(g => {
-      const facturacion = g.toneladas * (g.valor || 0);
+      const facturacion = g.empresas * (g.valor || 0);
       return {
         grupo: g.grupo,
         empresas: g.empresas,
@@ -2338,8 +2343,8 @@ export default function Reportes() {
               </div>
             )}
             {/* Selector Año (para reportes que requieren año) */}
-            {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
-              (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado"))) && (
+            {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "estado")) ||
+              (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado"))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Año</label>
                 <select
@@ -2362,7 +2367,7 @@ export default function Reportes() {
               <button
                 className="bg-blueGray-600 h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none  ease-linear transition-all duration-150"
                 onClick={handleBuscar}
-                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado"))) && !ano)}
+                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "estado")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado"))) && !ano)}
                 title={
                   ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
                    (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado")))

@@ -22,7 +22,17 @@ export default function CardRenovarFormulariosB() {
       }
       
       const data = await response.json();
-      setFormularios(Array.isArray(data) ? data : []);
+      // FILTRO TEMPORAL: Solo mantener formularios con estado exactamente "Finalizado"
+      const dataFiltrada = Array.isArray(data) ? data.filter(f => f.estado === 'Finalizado') : [];
+      setFormularios(dataFiltrada);
+      
+      console.log('📊 Formularios recibidos del backend:', data.length);
+      console.log('✅ Formularios finalizados filtrados:', dataFiltrada.length);
+      if (data.length !== dataFiltrada.length) {
+        console.warn('⚠️ Se filtraron registros con estado diferente a "Finalizado":', 
+          data.filter(f => f.estado !== 'Finalizado').map(f => ({ nit: f.nit, estado: f.estado }))
+        );
+      }
     } catch (error) {
       console.error('Error cargando formularios:', error);
       alert('Error al cargar formularios: ' + error.message);

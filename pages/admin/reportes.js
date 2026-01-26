@@ -151,9 +151,9 @@ export default function Reportes() {
   setConsolidadoF(null);
   setConsolidadoB(null);
 
-    // Si es toneladas o rangos de línea base, limpiar cliente ya que no se usa
-  if (literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion")) {
-      setCliente(""); // Limpiar cliente para toneladas y rangos
+    // Si es toneladas, rangos, facturacion o consolidado de línea base, limpiar cliente ya que no se usa
+  if (literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion" || value === "consolidado")) {
+      setCliente(""); // Limpiar cliente para reportes globales
     }
 
   // Si es grupo, peso, facturacion o consolidado de literal B, limpiar cliente ya que no se usa
@@ -162,7 +162,7 @@ export default function Reportes() {
     }
 
     // Cargar años disponibles para reportes que los requieren
-  if ((literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion" || value === "estado")) ||
+  if ((literal === "linea_base" && (value === "toneladas" || value === "rangos" || value === "facturacion" || value === "consolidado" || value === "estado")) ||
     (literal === "literal_b" && (value === "grupo" || value === "variacion_grupo" || value === "facturacion" || value === "consolidado" || value === "estado"))) {
       try {
         const endpoint = literal === "linea_base" 
@@ -225,7 +225,7 @@ export default function Reportes() {
     }
     
     // Validar año para reportes que lo requieren
-  if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "estado")) ||
+  if (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado")) ||
      (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado"))) && !ano) {
       alert("Por favor selecciona el Año para este reporte");
       return;
@@ -245,8 +245,19 @@ export default function Reportes() {
           if (literal === 'linea_base') {
             setCargandoConsolidado(true);
             try {
-              // Llamar al nuevo endpoint consolidado-raw
-              const response = await fetch(`${API_BASE_URL}/informacion-f/consolidado-raw`, {
+              // Validar que se haya seleccionado un año
+              if (!ano || ano === '') {
+                alert('Por favor seleccione un año para generar el consolidado de Línea Base.');
+                setConsolidadoF(null);
+                setCargandoConsolidado(false);
+                return;
+              }
+              
+              const añoReporte = parseInt(ano);
+              console.log('Generando consolidado Línea Base para año:', añoReporte);
+              
+              // Llamar al endpoint consolidado-raw con año
+              const response = await fetch(`${API_BASE_URL}/informacion-f/consolidado-raw?ano=${añoReporte}`, {
                 credentials: 'include'
               });
 
@@ -258,14 +269,14 @@ export default function Reportes() {
               const datosRaw = result.success && Array.isArray(result.data) ? result.data : [];
 
               if (datosRaw.length === 0) {
-                alert('No hay formularios finalizados para generar el consolidado.');
+                alert(`No hay formularios para el año ${añoReporte}.`);
                 setConsolidadoF(null);
                 setCargandoConsolidado(false);
                 return;
               }
 
-              // Pasar datos crudos al componente
-              setConsolidadoF({ datosRaw });
+              // Pasar datos crudos al componente con año
+              setConsolidadoF({ datosRaw, año: añoReporte });
 
             } catch (e) {
               console.error('Error construyendo consolidado F:', e);
@@ -536,6 +547,7 @@ export default function Reportes() {
         // Cuando un formulario se finaliza, puede estar tanto en tabla actual como en histórico
         // Filtrar por NIT único para evitar duplicados
         if (reporte === 'estado' && Array.isArray(datosParaTabla)) {
+          const longitudOriginal = datosParaTabla.length;
           const registrosUnicos = new Map();
           datosParaTabla.forEach(registro => {
             const key = `${registro.nit}_${registro.anoReporte || ano}`;
@@ -553,7 +565,7 @@ export default function Reportes() {
             }
           });
           datosParaTabla = Array.from(registrosUnicos.values());
-          console.log(`🔍 Filtrados duplicados en estado: ${datosReporte.length} → ${datosParaTabla.length} registros únicos`);
+          console.log(`🔍 Filtrados duplicados en estado: ${longitudOriginal} → ${datosParaTabla.length} registros únicos`);
         }
         
         setDatosReporte(datosParaTabla);
@@ -2367,7 +2379,7 @@ export default function Reportes() {
               </div>
             )}
             {/* Selector Año (para reportes que requieren año) */}
-            {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "estado")) ||
+            {((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado")) ||
               (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado"))) && (
               <div className="p-2">
                 <label className="block text-xs font-semibold mb-1">Seleccione Año</label>
@@ -2391,7 +2403,7 @@ export default function Reportes() {
               <button
                 className="bg-blueGray-600 h-12 text-white font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none  ease-linear transition-all duration-150"
                 onClick={handleBuscar}
-                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "estado")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado"))) && !ano)}
+                disabled={!literal || !reporte || (((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado")) || (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado" || reporte === "estado"))) && !ano)}
                 title={
                   ((literal === "linea_base" && (reporte === "toneladas" || reporte === "rangos" || reporte === "facturacion")) ||
                    (literal === "literal_b" && (reporte === "grupo" || reporte === "variacion_grupo" || reporte === "facturacion" || reporte === "consolidado")))

@@ -395,10 +395,10 @@ Equipo de Validación Punto Azul`
   // Función para calcular totales de plásticos
   const calcularTotalesPlasticos = () => {
     return plasticos.reduce((total, producto) => {
-      // Los datos ya vienen parseados desde el fetch (líneas 170-172), no hacer doble parsing
-      const liquidos = producto.liquidos || {};
-      const otros = producto.otrosProductos || producto.otros || {};
-      const construccion = producto.construccion || {};
+      // Unificar parseo igual que en la tabla resumen
+      const liquidos = typeof producto.liquidos === 'string' ? (()=>{ try { return JSON.parse(producto.liquidos || '{}'); } catch { return {}; } })() : (producto.liquidos || {});
+      const otros = typeof producto.otrosProductos === 'string' ? (()=>{ try { return JSON.parse(producto.otrosProductos || '{}'); } catch { return {}; } })() : (producto.otrosProductos || {});
+      const construccion = typeof producto.construccion === 'string' ? (()=>{ try { return JSON.parse(producto.construccion || '{}'); } catch { return {}; } })() : (producto.construccion || {});
       const unidades = safeParseFloat(producto.unidades);
 
       const totalLiquidos = Object.values(liquidos).reduce((sum, val) => {
@@ -406,19 +406,19 @@ Equipo de Validación Punto Azul`
         const resultado = (valorNumerico * unidades) / 1000000;
         return sum + (isNaN(resultado) ? 0 : resultado);
       }, 0);
-      
+
       const totalOtros = Object.values(otros).reduce((sum, val) => {
         const valorNumerico = safeParseFloat(val);
         const resultado = (valorNumerico * unidades) / 1000000;
         return sum + (isNaN(resultado) ? 0 : resultado);
       }, 0);
-      
+
       const totalConstruccion = Object.values(construccion).reduce((sum, val) => {
         const valorNumerico = safeParseFloat(val);
         const resultado = (valorNumerico * unidades) / 1000000;
         return sum + (isNaN(resultado) ? 0 : resultado);
       }, 0);
-      
+
       const subtotal = totalLiquidos + totalOtros + totalConstruccion;
       return total + (isNaN(subtotal) ? 0 : subtotal);
     }, 0);

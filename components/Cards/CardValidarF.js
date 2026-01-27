@@ -502,6 +502,7 @@ Equipo de Validación Punto Azul`
               <tr className="bg-gray-100">
                 <th className="p-2">Razón Social</th>
                 <th className="p-2">NIT</th>
+                <th className="p-2">Año Reporte</th>
                 <th className="p-2">Acciones</th>
               </tr>
             </thead>
@@ -510,6 +511,7 @@ Equipo de Validación Punto Azul`
                 <tr key={cliente.idInformacionF} className="border-t text-center">
                   <td className="p-2">{cliente.nombre}</td>
                   <td className="p-2">{cliente.nit}</td>
+                  <td className="p-2">{cliente.anoReporte || cliente.ano_reporte || cliente.ano_reportado || cliente.ano || ''}</td>
                   <td className="p-2">
                     <button
                       className="bg-lightBlue-600 text-white font-bold text-xs px-4 py-2 rounded shadow hover:shadow-md"

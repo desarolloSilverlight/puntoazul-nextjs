@@ -149,7 +149,8 @@ export default function FormularioF() {
       }
       const info = await infoResp.json();
 
-      const correoVinculado = info.correo_facturacion || info.correoFacturacion || info.email || "";
+      // Preferir correo de la persona de contacto (correo_electronico / correoElectronico), fallback a correo de facturación
+      const correoVinculado = info.correo_electronico || info.correoElectronico || info.correo || info.correo_facturacion || info.correoFacturacion || info.email || "";
       const nombre = info.nombre || info.empresa || info.razonSocial || info.razon_social || "Vinculado";
       const nit = info.nit || info.NIT || "";
 

@@ -128,7 +128,8 @@ export default function FormularioF() {
         return; // No bloquear el flujo si falla
       }
       const info = await infoResp.json();
-      const correoAsociado = info.correoFacturacion || info.correo_facturacion || info.email || "";
+      // Preferir correo de la persona de contacto (correoRe / correo_re), fallback a correo de facturación
+      const correoAsociado = info.correoRe || info.correo_re || info.correoFacturacion || info.correo_facturacion || info.email || "";
       const nombre = info.nombre || info.razonSocial || "Asociado";
       const nit = info.nit || info.NIT || "";
 

@@ -586,7 +586,8 @@ Equipo Punto Azul`);
   const handleEnviarEmail = async () => {
     console.log(productos[0])
     const idInformacionB = productos[0].idInformacionB.idInformacionB;
-    const correoDestino = productos[0].idInformacionB.correoFacturacion;
+    // Preferir el correo de la persona de contacto (correoRe) y hacer fallback al correo de facturación
+    const correoDestino = productos[0].idInformacionB.correoRe || productos[0].idInformacionB.correo_re || productos[0].idInformacionB.correoFacturacion || productos[0].idInformacionB.correo_facturacion || "";
     let nuevoEstado, motivo;
     
     // Determinar estado y motivo basado en la acción interna y no en el asunto
@@ -946,7 +947,9 @@ Equipo Punto Azul`);
             </label>
             <input 
               type="email" 
-              value={productos[0]?.idInformacionB?.correoFacturacion || ""} 
+              value={
+                productos[0]?.idInformacionB?.correoRe || productos[0]?.idInformacionB?.correo_re || productos[0]?.idInformacionB?.correoFacturacion || productos[0]?.idInformacionB?.correo_facturacion || ""
+              } 
               readOnly
               className="w-full p-2 border border-gray-300 rounded bg-gray-50"
             />

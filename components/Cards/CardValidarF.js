@@ -99,7 +99,12 @@ export default function CardValidarF({ color, clientes: propsClientes, goBack, f
       });
       if (informacionResponse.ok) {
         const informacionData = await informacionResponse.json();
-        setSelectedCliente(prev => ({ ...prev, correo_facturacion: informacionData.correo_facturacion }));
+        // Guardar tanto el correo de facturación como el correo de la persona de contacto
+        setSelectedCliente(prev => ({
+          ...prev,
+          correo_facturacion: informacionData.correo_facturacion,
+          correo_electronico: informacionData.correo_electronico || informacionData.correoElectronico || informacionData.correo || ""
+        }));
       }
       setLoadingProgress(25);
       // 2. Obtener empaques primarios
@@ -448,7 +453,7 @@ Equipo de Validación Punto Azul`
           estado: nuevoEstado,
           motivo,
           email: {
-            destinatario: selectedCliente.correo_facturacion,
+            destinatario: selectedCliente.correo_electronico || selectedCliente.correo_facturacion,
             asunto: emailSubject,
             cuerpo: emailBody
           }
@@ -1189,7 +1194,7 @@ Equipo de Validación Punto Azul`
             </label>
             <input 
               type="email" 
-              value={selectedCliente?.correo_facturacion || ""} 
+              value={selectedCliente?.correo_electronico || selectedCliente?.correo_facturacion || ""} 
               readOnly
               className="w-full p-2 border border-gray-300 rounded bg-gray-50"
             />

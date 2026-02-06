@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import Backdrop from '@mui/material/Backdrop';
+import { Oval } from 'react-loader-spinner';
 import Modal from "react-modal";
 import Admin from "layouts/Admin.js";
 import InformacionB from "components/Forms/InformacionB";
@@ -14,6 +16,7 @@ export default function FormularioF() {
   // Estados y handlers para los botones y modal
   const [showModal, setShowModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   // Modal de información
   const [isOpen, setIsOpen] = useState(false);
   // Loader y estado para controlar botones según estadoInformacionB
@@ -248,6 +251,7 @@ export default function FormularioF() {
     const idInformacionB = localStorage.getItem("idInformacionB");
     const formData = new FormData();
     formData.append("file", selectedFile);
+    setIsUploading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/informacion-b/cargaCarta/${idInformacionB}`, {
         method: "POST",
@@ -263,7 +267,15 @@ export default function FormularioF() {
       setShowModal(false);
       setSelectedFile(null);
     } catch (error) {
-      alert(`Error al subir el formulario: ${error.message}`);
+      console.error('Error en handleUploadCarta (literalb):', error);
+      const msg = String(error?.message || 'Error desconocido');
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        alert(`Error al subir el formulario: No se pudo conectar con el servidor. Compruebe su red y CORS. Detalle: ${msg}`);
+      } else {
+        alert(`Error al subir el formulario: ${msg}`);
+      }
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -294,6 +306,12 @@ export default function FormularioF() {
 
   return (
     <div className="mt-10 p-4 bg-gray-100 min-h-screen">
+      <Backdrop open={isUploading} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.modal + 1000 }}>
+        <div className="flex flex-col items-center">
+          <Oval color="#1976d2" height={60} width={60} secondaryColor="#90caf9" strokeWidth={5} />
+          <span className="mt-4 text-lg font-semibold">Subiendo documento...</span>
+        </div>
+      </Backdrop>
       {/* Botones encima de los tabs */}
       <div className="flex justify-between mb-4 items-center">
         {/* Botón Cargar Formulario: solo visible si estado es Aprobado, pero mantiene el espacio */}
@@ -365,11 +383,11 @@ export default function FormularioF() {
           <div className="mb-2 text-sm text-gray-700">Archivo seleccionado: {selectedFile.name}</div>
         )}
         <button
-          className="bg-blueGray-600 text-white px-4 py-2 rounded mt-3"
+          className={`bg-blueGray-600 text-white px-4 py-2 rounded mt-3 ${isUploading ? 'opacity-75 cursor-not-allowed' : ''}`}
           onClick={handleUploadCarta}
-          disabled={!selectedFile}
+          disabled={!selectedFile || isUploading}
         >
-          Subir
+          {isUploading ? 'Subiendo...' : 'Subir'}
         </button>
         <button
           className="bg-gray-300 text-black px-4 py-2 rounded mt-3 ml-2"

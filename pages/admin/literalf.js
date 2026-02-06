@@ -13,6 +13,7 @@ import { API_BASE_URL } from "../../utils/config";
 
 export default function FormularioF() {
   const [isSending, setIsSending] = useState(false);
+  const [isUploadingCarta, setIsUploadingCarta] = useState(false);
   // Necesario para accesibilidad con react-modal
   if (typeof window !== "undefined") {
     Modal.setAppElement("#__next");
@@ -285,6 +286,7 @@ export default function FormularioF() {
     const formData = new FormData();
     formData.append("file", selectedFile);
     
+    setIsUploadingCarta(true);
     try {
       // Paso 1: Subir el archivo al backend
       const response = await fetch(`${API_BASE_URL}/informacion-f/cargaCartaUrl/${idInformacionF}`, {
@@ -310,6 +312,8 @@ export default function FormularioF() {
       } else {
         alert(`Error al subir la carta: ${error.message}`);
       }
+    } finally {
+      setIsUploadingCarta(false);
     }
   };
 
@@ -486,18 +490,18 @@ export default function FormularioF() {
         )}
         
         <div className="flex gap-2 mt-6">
-          <button
-            className={`flex-1 px-4 py-2 rounded font-semibold transition-all ${
-              !selectedFile 
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                : 'bg-lightBlue-600 text-white hover:bg-lightBlue-700'
-            }`}
-            onClick={handleUploadCarta}
-            disabled={!selectedFile}
-          >
-            <i className="fas fa-upload mr-2"></i>
-            Subir y Finalizar
-          </button>
+            <button
+              className={`flex-1 px-4 py-2 rounded font-semibold transition-all ${
+                !selectedFile || isUploadingCarta
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-lightBlue-600 text-white hover:bg-lightBlue-700'
+              }`}
+              onClick={handleUploadCarta}
+              disabled={!selectedFile || isUploadingCarta}
+            >
+              <i className="fas fa-upload mr-2"></i>
+              {isUploadingCarta ? 'Subiendo...' : 'Subir y Finalizar'}
+            </button>
           <button
             className="px-4 py-2 rounded bg-gray-300 text-gray-700 hover:bg-gray-400 transition-all"
             onClick={() => {

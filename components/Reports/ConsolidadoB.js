@@ -102,23 +102,23 @@ export default function ConsolidadoB({ filas, total, año }) {
             <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Institucional</th>
             <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Intrahosp.</th>
             <th colSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Muestras</th>
-            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Total Empaques</th>
-            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Total Producto</th>
-            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Total Facturación ({añoActual || 'N/A'})</th>
-            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300 bg-blue-50">Total Facturación ({year1 || 'N/A'})</th>
-            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300 bg-blue-100">Total Facturación ({year2 || 'N/A'})</th>
+            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS</th>
+            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">TOTAL PESO DEL PRODUCTO</th>
+            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300">Total Peso Facturación ({añoActual || 'N/A'}) (KG)</th>
+            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300 bg-blue-50">Total Peso Facturación ({year1 || 'N/A'}) (KG)</th>
+            <th rowSpan={2} className="px-2 py-1 text-xs font-semibold border border-gray-300 bg-blue-100">Total Peso Facturación ({year2 || 'N/A'}) (KG)</th>
           </tr>
           <tr className="bg-gray-100">
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Empaque</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Total</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Empaque</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Total</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Empaque</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Total</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Empaque</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Total</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Empaque</th>
-            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Total</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso de empaques, envases y envolturas</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso total del producto</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso de empaques, envases y envolturas</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso total del producto</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso de empaques, envases y envolturas</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso total del producto</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso de empaques, envases y envolturas</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso total del producto</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso de empaques, envases y envolturas</th>
+            <th className="px-2 py-1 text-xs font-semibold border border-gray-300">Peso total del producto</th>
           </tr>
         </thead>
         <tbody>

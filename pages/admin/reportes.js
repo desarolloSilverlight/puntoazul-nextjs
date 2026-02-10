@@ -1138,21 +1138,31 @@ export default function Reportes() {
           const hoja = workbook.addWorksheet(`Consolidado ${añoActual}`);
           
           // Encabezados
+          const yearActualNum = Number(añoActual) || Number(ano) || new Date().getFullYear();
+          const year1 = yearActualNum - 1;
+          const year2 = yearActualNum - 2;
+
           const encabezados = [
             'Razón Social', 'NIT', 'Origen',
-            `${añoActual}`, 
-            `${añoActual - 1}`, 
-            `${añoActual - 2}`,
+            `Grupo ${yearActualNum}`,
+            `Grupo ${year1}`,
+            `Grupo ${year2}`,
             'Tendencia de Comportamiento',
-            'Empaque RX', 'Total RX',
-            'Empaque OTC', 'Total OTC',
-            'Empaque Inst.', 'Total Inst.',
-            'Empaque Intrahosp.', 'Total Intrahosp.',
-            'Empaque Muestras', 'Total Muestras',
-            'Total Empaques', 'Total Producto',
-            `Total Facturación (${añoActual})`,
-            `Total Facturación (${añoActual - 1})`,
-            `Total Facturación (${añoActual - 2})`
+            // RX
+            'Peso de empaques, envases y envolturas', 'Peso total del producto',
+            // OTC
+            'Peso de empaques, envases y envolturas', 'Peso total del producto',
+            // Institucional
+            'Peso de empaques, envases y envolturas', 'Peso total del producto',
+            // Intrahospitalario
+            'Peso de empaques, envases y envolturas', 'Peso total del producto',
+            // Muestras médicas
+            'Peso de empaques, envases y envolturas', 'Peso total del producto',
+            // Totales generales
+            'TOTAL DE PESO DE EMPAQUES, ENVASES Y ENVOLTURAS', 'TOTAL PESO DEL PRODUCTO',
+            `Total Peso Facturación (${yearActualNum}) (KG)`,
+            `Total Peso Facturación (${year1}) (KG)`,
+            `Total Peso Facturación (${year2}) (KG)`
           ];
           
           const headerRow = hoja.addRow(encabezados);

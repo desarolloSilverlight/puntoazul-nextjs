@@ -257,7 +257,7 @@ export default function ConsolidadoF({ datosRaw }) {
     return (
       <div key={anio} className="mb-8">
         <h3 className="text-lg font-semibold mb-3 text-center">
-          Consolidado Línea Base - Año {anio} (Todos los estados)
+          Consolidado Línea Base - Año {anio} (Aprobado y Finalizado)
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full table-auto border-collapse border border-gray-300">

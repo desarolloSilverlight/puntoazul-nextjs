@@ -8,7 +8,7 @@ export default function FormStatusCard({ title, states, totalUsers, type }) {
 
   const statusConfig = {
     sinIniciar: { color: "bg-gray-500", label: "Sin Iniciar" },
-    iniciados: { color: "bg-blue-500", label: "Iniciados" },
+    finalizados: { color: "bg-cyan-600", label: "Finalizados" },
     guardados: { color: "bg-yellow-500", label: "Guardados" },
     pendientes: { color: "bg-orange-500", label: "Pendientes" },
     aprobados: { color: "bg-green-500", label: "Aprobados" },
@@ -99,7 +99,7 @@ export default function FormStatusCard({ title, states, totalUsers, type }) {
 FormStatusCard.propTypes = {
   title: PropTypes.string.isRequired,
   states: PropTypes.shape({
-    iniciados: PropTypes.number,
+    finalizados: PropTypes.number,
     guardados: PropTypes.number,
     pendientes: PropTypes.number,
     aprobados: PropTypes.number,

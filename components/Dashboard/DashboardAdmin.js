@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { API_BASE_URL } from "../../utils/config";
-import Link from "next/link";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,96 +26,240 @@ ChartJS.register(
 
 
 export default function DashboardAdmin({ tipo }) {
+  const emptyStates = { finalizados: 0, guardados: 0, pendientes: 0, aprobados: 0, rechazados: 0 };
   const [stats, setStats] = useState({
     usuariosRegistrados: { vinculados: 0, asociados: 0, total: 0 },
     estadosFormularios: {
-      lineaBase: { iniciados: 0, guardados: 0, pendientes: 0, aprobados: 0, rechazados: 0 },
-      literalB: { iniciados: 0, guardados: 0, pendientes: 0, aprobados: 0, rechazados: 0 }
+      lineaBase: { ...emptyStates },
+      literalB: { ...emptyStates }
     },
     pendientesValidacion: 0,
-    progresoPorAno: []
   });
-  
-  const [loading, setLoading] = useState(true);
+
+  const [selectedYear, setSelectedYear] = useState("");
+  const [availableYears, setAvailableYears] = useState([]);
+  const [loadingBase, setLoadingBase] = useState(true);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [error, setError] = useState(null);
 
-  // Cargar datos del dashboard
+  const shouldLoadLineaBase = tipo !== "B";
+  const shouldLoadLiteralB = tipo !== "F";
+
+  const extractRows = (payload) => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload.data)) return payload.data;
+    if (Array.isArray(payload.empresas)) return payload.empresas;
+    if (Array.isArray(payload.result)) return payload.result;
+    return [];
+  };
+
+  const dedupeRowsByNitAndYear = (rows, year) => {
+    if (!Array.isArray(rows)) return [];
+    const uniques = new Map();
+    rows.forEach((row, index) => {
+      const nit = (row?.nit || row?.NIT || row?.identificacion || row?.usuario_nit || row?.documento || "").toString();
+      const rowYear = row?.anoReporte || row?.ano_reportado || row?.ano || year;
+      const fallback = row?.idInformacionF || row?.idInformacionB || row?.id || `row_${index}`;
+      const key = nit ? `${nit}_${rowYear}` : `${fallback}_${rowYear}`;
+
+      if (!uniques.has(key)) {
+        uniques.set(key, row);
+      } else {
+        const existing = uniques.get(key);
+        const currentId = row?.idInformacionF || row?.idInformacionB || "";
+        const existingId = existing?.idInformacionF || existing?.idInformacionB || "";
+        const currentIsHist = currentId.toString().toLowerCase().startsWith("hist");
+        const existingIsHist = existingId.toString().toLowerCase().startsWith("hist");
+
+        if (existingIsHist && !currentIsHist) {
+          uniques.set(key, row);
+        }
+      }
+    });
+    return Array.from(uniques.values());
+  };
+
+  const aggregateStatus = (rows) => {
+    const result = { ...emptyStates };
+
+    rows.forEach((row) => {
+      const estado = (row?.estado || "").toString().toLowerCase();
+
+      if (estado.includes("rechaz")) {
+        result.rechazados += 1;
+      } else if (estado.includes("pend") || estado.includes("revision") || estado.includes("revisión")) {
+        result.pendientes += 1;
+      } else if (estado.includes("finaliz")) {
+        result.finalizados += 1;
+      } else if (estado.includes("aprobad")) {
+        result.aprobados += 1;
+      } else if (estado.includes("guard") || estado.includes("progreso") || estado.includes("proceso") || estado.includes("borrador")) {
+        result.guardados += 1;
+      } else {
+        result.guardados += 1;
+      }
+    });
+
+    return result;
+  };
+
+  // Cargar usuarios y años disponibles
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchBaseData = async () => {
       try {
-        setLoading(true);
-        
-        // Obtener usuarios por perfil
-  const [vinculadosResponse, asociadosResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/users/perfilUser?nombrePerfil=Vinculado`),
-          fetch(`${API_BASE_URL}/users/perfilUser?nombrePerfil=Asociado`)
+        setLoadingBase(true);
+        setError(null);
+
+        const [vinculadosResponse, asociadosResponse, anosFResponse, anosBResponse] = await Promise.all([
+          shouldLoadLineaBase
+            ? fetch(`${API_BASE_URL}/users/perfilUser?nombrePerfil=Vinculado`)
+            : Promise.resolve({ ok: true, json: async () => [] }),
+          shouldLoadLiteralB
+            ? fetch(`${API_BASE_URL}/users/perfilUser?nombrePerfil=Asociado`)
+            : Promise.resolve({ ok: true, json: async () => [] }),
+          shouldLoadLineaBase
+            ? fetch(`${API_BASE_URL}/informacion-f/getAnosReporte`)
+            : Promise.resolve({ ok: true, json: async () => [] }),
+          shouldLoadLiteralB
+            ? fetch(`${API_BASE_URL}/informacion-b/getAnosReporte`)
+            : Promise.resolve({ ok: true, json: async () => [] })
         ]);
 
-        const [vinculadosData, asociadosData] = await Promise.all([
+        const [vinculadosData, asociadosData, anosFData, anosBData] = await Promise.all([
           vinculadosResponse.json(),
-          asociadosResponse.json()
+          asociadosResponse.json(),
+          anosFResponse.json(),
+          anosBResponse.json()
         ]);
 
         const vinculados = Array.isArray(vinculadosData) ? vinculadosData.length : 0;
         const asociados = Array.isArray(asociadosData) ? asociadosData.length : 0;
+        const yearsF = extractRows(anosFData).length ? extractRows(anosFData) : (Array.isArray(anosFData) ? anosFData : []);
+        const yearsB = extractRows(anosBData).length ? extractRows(anosBData) : (Array.isArray(anosBData) ? anosBData : []);
 
-        // Obtener conteos reales de formularios por estado
-        // Si se filtra por tipo, traer solo el necesario; caso contrario, ambos
-        const lineaBasePromise = fetch(`${API_BASE_URL}/informacion-f/count-by-status`);
-        const literalBPromise = fetch(`${API_BASE_URL}/informacion-b/count-by-status`);
-        const [lineaBaseResponse, literalBResponse] = await Promise.all([
-          tipo === 'B' ? Promise.resolve({ ok: true, json: async () => ({}) }) : lineaBasePromise,
-          tipo === 'F' ? Promise.resolve({ ok: true, json: async () => ({}) }) : literalBPromise
-        ]);
+        const mergedYears = Array.from(
+          new Set(
+            [...yearsF, ...yearsB]
+              .map((year) => parseInt(year, 10))
+              .filter((year) => !isNaN(year))
+          )
+        ).sort((a, b) => b - a);
 
-        const [lineaBaseData, literalBData] = await Promise.all([
-          lineaBaseResponse.json(),
-          literalBResponse.json()
-        ]);
-        console.log("Datos de formularios:", lineaBaseData, literalBData);
-        const estadosFormularios = {
-          lineaBase: tipo === 'B' ? { iniciados: 0, guardados: 0, pendientes: 0, aprobados: 0, rechazados: 0 } : {
-            iniciados: lineaBaseData.iniciados || 0,
-            guardados: lineaBaseData.guardados || 0,
-            pendientes: lineaBaseData.pendientes || 0,
-            aprobados: lineaBaseData.aprobados || 0,
-            rechazados: lineaBaseData.rechazados || 0
+        setAvailableYears(mergedYears);
+        setSelectedYear((current) => {
+          if (current && mergedYears.includes(parseInt(current, 10))) return current;
+          return mergedYears.length > 0 ? mergedYears[0].toString() : "";
+        });
+
+        const visibleVinculados = shouldLoadLineaBase ? vinculados : 0;
+        const visibleAsociados = shouldLoadLiteralB ? asociados : 0;
+
+        setStats((prev) => ({
+          ...prev,
+          usuariosRegistrados: {
+            vinculados: visibleVinculados,
+            asociados: visibleAsociados,
+            total: visibleVinculados + visibleAsociados,
           },
-          literalB: tipo === 'F' ? { iniciados: 0, guardados: 0, pendientes: 0, aprobados: 0, rechazados: 0 } : {
-            iniciados: literalBData.iniciados || 0,
-            guardados: literalBData.guardados || 0,
-            pendientes: literalBData.pendientes || 0,
-            aprobados: literalBData.aprobados || 0,
-            rechazados: literalBData.rechazados || 0
-          }
+        }));
+
+      } catch (err) {
+        setError(err.message);
+        console.error("Error cargando base del dashboard:", err);
+      } finally {
+        setLoadingBase(false);
+      }
+    };
+
+    fetchBaseData();
+  }, [tipo]);
+
+  // Cargar métricas por año usando la misma lógica base de reportes
+  useEffect(() => {
+    if (!selectedYear) {
+      setStats((prev) => ({
+        ...prev,
+        estadosFormularios: { lineaBase: { ...emptyStates }, literalB: { ...emptyStates } },
+        pendientesValidacion: 0,
+      }));
+      return;
+    }
+
+    const fetchMetricsByYear = async () => {
+      try {
+        setLoadingMetrics(true);
+        setError(null);
+        const year = parseInt(selectedYear, 10);
+
+        const requestBodyLB = JSON.stringify({
+          literal: "linea_base",
+          reporte: "estado",
+          cliente: null,
+          ano: year,
+        });
+        const requestBodyB = JSON.stringify({
+          literal: "literal_b",
+          reporte: "estado",
+          cliente: null,
+          ano: year,
+        });
+
+        const [lineaBaseResponse, literalBResponse] = await Promise.all([
+          shouldLoadLineaBase
+            ? fetch(`${API_BASE_URL}/informacion-f/reporteEstado`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: requestBodyLB,
+                credentials: "include",
+              })
+            : Promise.resolve({ ok: true, json: async () => [] }),
+          shouldLoadLiteralB
+            ? fetch(`${API_BASE_URL}/informacion-b/reporteEstado`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: requestBodyB,
+                credentials: "include",
+              })
+            : Promise.resolve({ ok: true, json: async () => [] }),
+        ]);
+
+        const [lineaBasePayload, literalBPayload] = await Promise.all([
+          lineaBaseResponse.json(),
+          literalBResponse.json(),
+        ]);
+
+        const lineaBaseRows = shouldLoadLineaBase
+          ? dedupeRowsByNitAndYear(extractRows(lineaBasePayload), year)
+          : [];
+        const literalBRows = shouldLoadLiteralB
+          ? dedupeRowsByNitAndYear(extractRows(literalBPayload), year)
+          : [];
+
+        const estadosFormularios = {
+          lineaBase: shouldLoadLineaBase ? aggregateStatus(lineaBaseRows) : { ...emptyStates },
+          literalB: shouldLoadLiteralB ? aggregateStatus(literalBRows) : { ...emptyStates },
         };
 
         const pendientesValidacion = estadosFormularios.lineaBase.pendientes + estadosFormularios.literalB.pendientes;
 
-    setStats({
-          usuariosRegistrados: { 
-            vinculados: tipo === 'B' ? 0 : vinculados, 
-            asociados: tipo === 'F' ? 0 : asociados, 
-            total: (tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados)
-          },
+        setStats((prev) => ({
+          ...prev,
           estadosFormularios,
           pendientesValidacion,
-          progresoPorAno: [
-      { year: 2024, completados: estadosFormularios.lineaBase.aprobados + estadosFormularios.literalB.aprobados, total: (tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados) },
-      { year: 2023, completados: Math.floor(((tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados)) * 0.85), total: Math.max(1, (tipo === 'B' ? 0 : vinculados) + (tipo === 'F' ? 0 : asociados) - 5) }
-          ]
-        });
-
+        }));
       } catch (err) {
         setError(err.message);
-        console.error("Error fetching dashboard data:", err);
+        console.error("Error cargando métricas por año:", err);
       } finally {
-        setLoading(false);
+        setLoadingMetrics(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    fetchMetricsByYear();
+  }, [selectedYear, tipo]);
+
+  const loading = loadingBase || loadingMetrics;
 
   if (loading) {
     return (
@@ -140,12 +283,12 @@ export default function DashboardAdmin({ tipo }) {
 
   // Preparar datos para gráficos
   const chartData = {
-    labels: ['Iniciados', 'Guardados', 'Pendientes', 'Aprobados', 'Rechazados'],
+    labels: ['Finalizados', 'Guardados', 'Pendientes', 'Aprobados', 'Rechazados'],
     datasets: [
       ...(tipo === 'B' ? [] : [{
         label: 'Línea Base',
         data: [
-          stats.estadosFormularios.lineaBase.iniciados,
+          stats.estadosFormularios.lineaBase.finalizados,
           stats.estadosFormularios.lineaBase.guardados,
           stats.estadosFormularios.lineaBase.pendientes,
           stats.estadosFormularios.lineaBase.aprobados,
@@ -158,7 +301,7 @@ export default function DashboardAdmin({ tipo }) {
       ...(tipo === 'F' ? [] : [{
         label: 'Literal B',
         data: [
-          stats.estadosFormularios.literalB.iniciados,
+          stats.estadosFormularios.literalB.finalizados,
           stats.estadosFormularios.literalB.guardados,
           stats.estadosFormularios.literalB.pendientes,
           stats.estadosFormularios.literalB.aprobados,
@@ -179,10 +322,10 @@ export default function DashboardAdmin({ tipo }) {
     return Math.round((n / d) * 100);
   };
 
-  const aprobadosLB = stats.estadosFormularios.lineaBase.aprobados;
-  const aprobadosB = stats.estadosFormularios.literalB.aprobados;
-  const pendientesLB = stats.estadosFormularios.lineaBase.pendientes;
-  const pendientesB = stats.estadosFormularios.literalB.pendientes;
+  const aprobadosLB = shouldLoadLineaBase ? stats.estadosFormularios.lineaBase.aprobados : 0;
+  const aprobadosB = shouldLoadLiteralB ? stats.estadosFormularios.literalB.aprobados : 0;
+  const pendientesLB = shouldLoadLineaBase ? stats.estadosFormularios.lineaBase.pendientes : 0;
+  const pendientesB = shouldLoadLiteralB ? stats.estadosFormularios.literalB.pendientes : 0;
   const usuariosV = stats.usuariosRegistrados.vinculados;
   const usuariosA = stats.usuariosRegistrados.asociados;
 
@@ -194,6 +337,31 @@ export default function DashboardAdmin({ tipo }) {
         <div className="p-8 border-b border-gray-200">
           <h1 className="text-3xl font-bold text-gray-800 mb-3">Dashboard Administrativo</h1>
           <p className="text-gray-600 text-lg">Panel de control y métricas del sistema Punto Azul</p>
+
+          <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="w-full md:max-w-xs">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Año de análisis</label>
+              <select
+                className="w-full border border-gray-300 rounded p-2 bg-white"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                disabled={!availableYears.length}
+              >
+                <option value="">Seleccione año...</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="text-sm font-medium text-blueGray-600">
+              {selectedYear
+                ? `Mostrando métricas del año ${selectedYear}`
+                : "No hay años disponibles para mostrar métricas"}
+            </div>
+          </div>
         </div>
 
         <div className="p-8">
@@ -260,7 +428,7 @@ export default function DashboardAdmin({ tipo }) {
           {/* Gráfico de Estados */}
           <div className="mb-10">
             <ChartCard
-              title="Distribución de Estados por Tipo de Formulario"
+              title={`Distribución de Estados por Tipo de Formulario${selectedYear ? ` - Año ${selectedYear}` : ""}`}
               chartData={chartData}
               chartType="bar"
             />

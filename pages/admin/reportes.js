@@ -971,104 +971,277 @@ export default function Reportes() {
             return total;
           };
 
-          // Calcular plásticos
-          const calcularPlasticos = (cliente) => {
+          // Calcular plásticos desglosados por categoría (igual a vista ConsolidadoF)
+          const calcularPlasticosDesglosados = (cliente) => {
             const plasticos = cliente.plasticos || [];
-            const result = { petAgua: 0, petOtros: 0, pet: 0, hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0 };
+            const result = {
+              liquidos: {
+                petAgua: 0,
+                petOtros: 0,
+                pet: 0,
+                hdpe: 0,
+                pvc: 0,
+                ldpe: 0,
+                pp: 0,
+                ps: 0,
+                otros: 0,
+              },
+              otrosProductos: {
+                pet: 0,
+                hdpe: 0,
+                pvc: 0,
+                ldpe: 0,
+                pp: 0,
+                ps: 0,
+                otros: 0,
+              },
+              construccion: {
+                pet: 0,
+                hdpe: 0,
+                pvc: 0,
+                ldpe: 0,
+                pp: 0,
+                ps: 0,
+                otros: 0,
+              }
+            };
+
             plasticos.forEach((p) => {
               const tons = toTon(p.gramos, p.unidades);
-              const material = (p.material || '').toLowerCase();
+              const material = (p.material || '').toUpperCase().trim();
               const tipo = (p.tipo || '').toLowerCase();
+
               if (tipo === 'liquidos') {
-                if (material === 'pet agua') result.petAgua += tons;
-                else if (material === 'pet otros') result.petOtros += tons;
-                else if (material === 'pet') result.petOtros += tons;
-                else if (material === 'hdpe') result.hdpe += tons;
-                else if (material === 'pvc') result.pvc += tons;
-                else if (material === 'ldpe') result.ldpe += tons;
-                else if (material === 'pp') result.pp += tons;
-                else if (material === 'ps') result.ps += tons;
-                else if (material === 'otros') result.otros += tons;
+                if (material === 'PET AGUA') result.liquidos.petAgua += tons;
+                else if (material === 'PET OTROS') result.liquidos.petOtros += tons;
+                else if (material === 'PET') result.liquidos.pet += tons;
+                else if (material === 'HDPE') result.liquidos.hdpe += tons;
+                else if (material === 'PVC') result.liquidos.pvc += tons;
+                else if (material === 'LDPE') result.liquidos.ldpe += tons;
+                else if (material === 'PP') result.liquidos.pp += tons;
+                else if (material === 'PS') result.liquidos.ps += tons;
+                else if (material === 'OTROS') result.liquidos.otros += tons;
               } else if (tipo === 'otros') {
-                if (material === 'pet') result.pet += tons;
-                else if (material === 'hdpe') result.hdpe += tons;
-                else if (material === 'pvc') result.pvc += tons;
-                else if (material === 'ldpe') result.ldpe += tons;
-                else if (material === 'pp') result.pp += tons;
-                else if (material === 'ps') result.ps += tons;
-                else if (material === 'otros') result.otros += tons;
+                if (material === 'PET') result.otrosProductos.pet += tons;
+                else if (material === 'HDPE') result.otrosProductos.hdpe += tons;
+                else if (material === 'PVC') result.otrosProductos.pvc += tons;
+                else if (material === 'LDPE') result.otrosProductos.ldpe += tons;
+                else if (material === 'PP') result.otrosProductos.pp += tons;
+                else if (material === 'PS') result.otrosProductos.ps += tons;
+                else if (material === 'OTROS') result.otrosProductos.otros += tons;
               } else if (tipo === 'construccion') {
-                if (material === 'pet') result.pet += tons;
-                else if (material === 'hdpe') result.hdpe += tons;
-                else if (material === 'pvc') result.pvc += tons;
-                else if (material === 'ldpe') result.ldpe += tons;
-                else if (material === 'pp') result.pp += tons;
-                else if (material === 'ps') result.ps += tons;
-                else if (material === 'otros') result.otros += tons;
+                if (material === 'PET') result.construccion.pet += tons;
+                else if (material === 'HDPE') result.construccion.hdpe += tons;
+                else if (material === 'PVC') result.construccion.pvc += tons;
+                else if (material === 'LDPE') result.construccion.ldpe += tons;
+                else if (material === 'PP') result.construccion.pp += tons;
+                else if (material === 'PS') result.construccion.ps += tons;
+                else if (material === 'OTROS') result.construccion.otros += tons;
               }
             });
+
             return result;
           };
+
+          const toExcelNumber = (value) => Number((Number(value || 0)).toFixed(8));
 
           // Crear una hoja por año
           anios.forEach((anio) => {
             const clientes = datosPorAnio[anio] || [];
             const hojaAnio = workbook.addWorksheet(`Año ${anio}`);
             
-            // Encabezados
-            const encabezadosConsolidado = [
-              'Cliente', 'NIT', 'Primario+Secundario (ton)',
-              'PET Agua (ton)', 'PET Otros (ton)', 'PET (ton)',
-              'HDPE (ton)', 'PVC (ton)', 'LDPE (ton)',
-              'PP (ton)', 'PS (ton)', 'Otros (ton)', 'Total (ton)'
-            ];
-            
-            const headerRow = hojaAnio.addRow(encabezadosConsolidado);
-            headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
-            headerRow.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: '4472C4' }
+            // Encabezado multinivel (idéntico a la tabla web)
+            const headerTop = hojaAnio.addRow([
+              'Cliente',
+              'NIT',
+              'Primario+Secundario (ton)',
+              'Líquidos (ton)',
+              '', '', '', '', '', '', '', '',
+              'Otros Productos Plásticos (ton)',
+              '', '', '', '', '', '',
+              'Plásticos de Construcción (ton)',
+              '', '', '', '', '', '',
+              'Total (ton)'
+            ]);
+
+            const headerBottom = hojaAnio.addRow([
+              '', '', '',
+              'PET Agua', 'PET Otros', 'PET', 'HDPE', 'PVC', 'LDPE', 'PP', 'PS', 'Otros',
+              'PET', 'HDPE', 'PVC', 'LDPE', 'PP', 'PS', 'Otros',
+              'PET', 'HDPE', 'PVC', 'LDPE', 'PP', 'PS', 'Otros',
+              ''
+            ]);
+
+            // Merges verticales
+            hojaAnio.mergeCells('A1:A2');
+            hojaAnio.mergeCells('B1:B2');
+            hojaAnio.mergeCells('C1:C2');
+            hojaAnio.mergeCells('AA1:AA2');
+
+            // Merges horizontales de grupos
+            hojaAnio.mergeCells('D1:L1');
+            hojaAnio.mergeCells('M1:S1');
+            hojaAnio.mergeCells('T1:Z1');
+
+            const topHeaderStyle = {
+              font: { bold: true, color: { argb: 'FFFFFF' } },
+              alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
+              fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: '4472C4' } },
+              border: {
+                top: { style: 'thin', color: { argb: 'CFCFCF' } },
+                left: { style: 'thin', color: { argb: 'CFCFCF' } },
+                bottom: { style: 'thin', color: { argb: 'CFCFCF' } },
+                right: { style: 'thin', color: { argb: 'CFCFCF' } }
+              }
             };
+
+            const groupFillByCol = (col) => {
+              if (col >= 4 && col <= 12) return 'E8F5E9';
+              if (col >= 13 && col <= 19) return 'E3F2FD';
+              if (col >= 20 && col <= 26) return 'F3E5F5';
+              return '4472C4';
+            };
+
+            for (let col = 1; col <= 27; col += 1) {
+              const topCell = headerTop.getCell(col);
+              topCell.style = topHeaderStyle;
+
+              const bottomCell = headerBottom.getCell(col);
+              bottomCell.font = { bold: true };
+              bottomCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+              bottomCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: groupFillByCol(col) }
+              };
+              bottomCell.border = {
+                top: { style: 'thin', color: { argb: 'CFCFCF' } },
+                left: { style: 'thin', color: { argb: 'CFCFCF' } },
+                bottom: { style: 'thin', color: { argb: 'CFCFCF' } },
+                right: { style: 'thin', color: { argb: 'CFCFCF' } }
+              };
+            }
+
+            // Color de grupos en fila superior (como en UI)
+            for (let col = 4; col <= 12; col += 1) {
+              headerTop.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E8F5E9' } };
+              headerTop.getCell(col).font = { bold: true, color: { argb: '1F2937' } };
+            }
+            for (let col = 13; col <= 19; col += 1) {
+              headerTop.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E3F2FD' } };
+              headerTop.getCell(col).font = { bold: true, color: { argb: '1F2937' } };
+            }
+            for (let col = 20; col <= 26; col += 1) {
+              headerTop.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F3E5F5' } };
+              headerTop.getCell(col).font = { bold: true, color: { argb: '1F2937' } };
+            }
+
+            headerTop.height = 24;
+            headerBottom.height = 24;
 
             // Datos y totales
             const totales = {
-              primarioSecundario: 0, petAgua: 0, petOtros: 0, pet: 0,
-              hdpe: 0, pvc: 0, ldpe: 0, pp: 0, ps: 0, otros: 0, total: 0
+              primarioSecundario: 0,
+              liquidos: {
+                petAgua: 0,
+                petOtros: 0,
+                pet: 0,
+                hdpe: 0,
+                pvc: 0,
+                ldpe: 0,
+                pp: 0,
+                ps: 0,
+                otros: 0,
+              },
+              otrosProductos: {
+                pet: 0,
+                hdpe: 0,
+                pvc: 0,
+                ldpe: 0,
+                pp: 0,
+                ps: 0,
+                otros: 0,
+              },
+              construccion: {
+                pet: 0,
+                hdpe: 0,
+                pvc: 0,
+                ldpe: 0,
+                pp: 0,
+                ps: 0,
+                otros: 0,
+              },
+              total: 0
             };
 
             clientes.forEach((cliente) => {
               const primSec = calcularPrimarioSecundario(cliente);
-              const plast = calcularPlasticos(cliente);
-              const totalCliente = primSec + plast.petAgua + plast.petOtros + plast.pet +
-                                   plast.hdpe + plast.pvc + plast.ldpe + plast.pp + plast.ps + plast.otros;
+              const plast = calcularPlasticosDesglosados(cliente);
+              const totalCliente = primSec +
+                plast.liquidos.petAgua + plast.liquidos.petOtros + plast.liquidos.pet +
+                plast.liquidos.hdpe + plast.liquidos.pvc + plast.liquidos.ldpe +
+                plast.liquidos.pp + plast.liquidos.ps + plast.liquidos.otros +
+                plast.otrosProductos.pet + plast.otrosProductos.hdpe + plast.otrosProductos.pvc +
+                plast.otrosProductos.ldpe + plast.otrosProductos.pp + plast.otrosProductos.ps +
+                plast.otrosProductos.otros +
+                plast.construccion.pet + plast.construccion.hdpe + plast.construccion.pvc +
+                plast.construccion.ldpe + plast.construccion.pp + plast.construccion.ps +
+                plast.construccion.otros;
 
               totales.primarioSecundario += primSec;
-              totales.petAgua += plast.petAgua;
-              totales.petOtros += plast.petOtros;
-              totales.pet += plast.pet;
-              totales.hdpe += plast.hdpe;
-              totales.pvc += plast.pvc;
-              totales.ldpe += plast.ldpe;
-              totales.pp += plast.pp;
-              totales.ps += plast.ps;
-              totales.otros += plast.otros;
+              totales.liquidos.petAgua += plast.liquidos.petAgua;
+              totales.liquidos.petOtros += plast.liquidos.petOtros;
+              totales.liquidos.pet += plast.liquidos.pet;
+              totales.liquidos.hdpe += plast.liquidos.hdpe;
+              totales.liquidos.pvc += plast.liquidos.pvc;
+              totales.liquidos.ldpe += plast.liquidos.ldpe;
+              totales.liquidos.pp += plast.liquidos.pp;
+              totales.liquidos.ps += plast.liquidos.ps;
+              totales.liquidos.otros += plast.liquidos.otros;
+              totales.otrosProductos.pet += plast.otrosProductos.pet;
+              totales.otrosProductos.hdpe += plast.otrosProductos.hdpe;
+              totales.otrosProductos.pvc += plast.otrosProductos.pvc;
+              totales.otrosProductos.ldpe += plast.otrosProductos.ldpe;
+              totales.otrosProductos.pp += plast.otrosProductos.pp;
+              totales.otrosProductos.ps += plast.otrosProductos.ps;
+              totales.otrosProductos.otros += plast.otrosProductos.otros;
+              totales.construccion.pet += plast.construccion.pet;
+              totales.construccion.hdpe += plast.construccion.hdpe;
+              totales.construccion.pvc += plast.construccion.pvc;
+              totales.construccion.ldpe += plast.construccion.ldpe;
+              totales.construccion.pp += plast.construccion.pp;
+              totales.construccion.ps += plast.construccion.ps;
+              totales.construccion.otros += plast.construccion.otros;
               totales.total += totalCliente;
 
               const fila = [
                 cliente.nombre || 'Sin nombre',
                 cliente.nit || '',
-                Number(primSec.toFixed(5)),
-                Number(plast.petAgua.toFixed(5)),
-                Number(plast.petOtros.toFixed(5)),
-                Number(plast.pet.toFixed(5)),
-                Number(plast.hdpe.toFixed(5)),
-                Number(plast.pvc.toFixed(5)),
-                Number(plast.ldpe.toFixed(5)),
-                Number(plast.pp.toFixed(5)),
-                Number(plast.ps.toFixed(5)),
-                Number(plast.otros.toFixed(5)),
-                Number(totalCliente.toFixed(5))
+                toExcelNumber(primSec),
+                toExcelNumber(plast.liquidos.petAgua),
+                toExcelNumber(plast.liquidos.petOtros),
+                toExcelNumber(plast.liquidos.pet),
+                toExcelNumber(plast.liquidos.hdpe),
+                toExcelNumber(plast.liquidos.pvc),
+                toExcelNumber(plast.liquidos.ldpe),
+                toExcelNumber(plast.liquidos.pp),
+                toExcelNumber(plast.liquidos.ps),
+                toExcelNumber(plast.liquidos.otros),
+                toExcelNumber(plast.otrosProductos.pet),
+                toExcelNumber(plast.otrosProductos.hdpe),
+                toExcelNumber(plast.otrosProductos.pvc),
+                toExcelNumber(plast.otrosProductos.ldpe),
+                toExcelNumber(plast.otrosProductos.pp),
+                toExcelNumber(plast.otrosProductos.ps),
+                toExcelNumber(plast.otrosProductos.otros),
+                toExcelNumber(plast.construccion.pet),
+                toExcelNumber(plast.construccion.hdpe),
+                toExcelNumber(plast.construccion.pvc),
+                toExcelNumber(plast.construccion.ldpe),
+                toExcelNumber(plast.construccion.pp),
+                toExcelNumber(plast.construccion.ps),
+                toExcelNumber(plast.construccion.otros),
+                toExcelNumber(totalCliente)
               ];
               hojaAnio.addRow(fila);
             });
@@ -1076,17 +1249,31 @@ export default function Reportes() {
             // Fila de totales
             const totalRow = hojaAnio.addRow([
               'TOTAL', '',
-              Number(totales.primarioSecundario.toFixed(5)),
-              Number(totales.petAgua.toFixed(5)),
-              Number(totales.petOtros.toFixed(5)),
-              Number(totales.pet.toFixed(5)),
-              Number(totales.hdpe.toFixed(5)),
-              Number(totales.pvc.toFixed(5)),
-              Number(totales.ldpe.toFixed(5)),
-              Number(totales.pp.toFixed(5)),
-              Number(totales.ps.toFixed(5)),
-              Number(totales.otros.toFixed(5)),
-              Number(totales.total.toFixed(5))
+              toExcelNumber(totales.primarioSecundario),
+              toExcelNumber(totales.liquidos.petAgua),
+              toExcelNumber(totales.liquidos.petOtros),
+              toExcelNumber(totales.liquidos.pet),
+              toExcelNumber(totales.liquidos.hdpe),
+              toExcelNumber(totales.liquidos.pvc),
+              toExcelNumber(totales.liquidos.ldpe),
+              toExcelNumber(totales.liquidos.pp),
+              toExcelNumber(totales.liquidos.ps),
+              toExcelNumber(totales.liquidos.otros),
+              toExcelNumber(totales.otrosProductos.pet),
+              toExcelNumber(totales.otrosProductos.hdpe),
+              toExcelNumber(totales.otrosProductos.pvc),
+              toExcelNumber(totales.otrosProductos.ldpe),
+              toExcelNumber(totales.otrosProductos.pp),
+              toExcelNumber(totales.otrosProductos.ps),
+              toExcelNumber(totales.otrosProductos.otros),
+              toExcelNumber(totales.construccion.pet),
+              toExcelNumber(totales.construccion.hdpe),
+              toExcelNumber(totales.construccion.pvc),
+              toExcelNumber(totales.construccion.ldpe),
+              toExcelNumber(totales.construccion.pp),
+              toExcelNumber(totales.construccion.ps),
+              toExcelNumber(totales.construccion.otros),
+              toExcelNumber(totales.total)
             ]);
             totalRow.font = { bold: true };
             totalRow.fill = {
@@ -1096,9 +1283,35 @@ export default function Reportes() {
             };
 
             // Ajustar ancho de columnas
-            hojaAnio.columns.forEach(column => {
-              column.width = 18;
-            });
+            hojaAnio.getColumn(1).width = 38;
+            hojaAnio.getColumn(2).width = 18;
+            hojaAnio.getColumn(3).width = 18;
+            for (let col = 4; col <= 27; col += 1) {
+              hojaAnio.getColumn(col).width = 14;
+            }
+
+            // Formato numérico para columnas de toneladas (C..AA)
+            for (let col = 3; col <= 27; col += 1) {
+              hojaAnio.getColumn(col).numFmt = '0.########';
+            }
+
+            // Bordes y alineación para filas de datos/totales
+            const firstDataRow = 3;
+            const lastDataRow = hojaAnio.rowCount;
+            for (let rowIdx = firstDataRow; rowIdx <= lastDataRow; rowIdx += 1) {
+              for (let col = 1; col <= 27; col += 1) {
+                const cell = hojaAnio.getRow(rowIdx).getCell(col);
+                cell.border = {
+                  top: { style: 'thin', color: { argb: 'D9D9D9' } },
+                  left: { style: 'thin', color: { argb: 'D9D9D9' } },
+                  bottom: { style: 'thin', color: { argb: 'D9D9D9' } },
+                  right: { style: 'thin', color: { argb: 'D9D9D9' } }
+                };
+                cell.alignment = col === 1
+                  ? { vertical: 'middle', horizontal: 'left' }
+                  : { vertical: 'middle', horizontal: 'center' };
+              }
+            }
           });
 
           // Crear hoja de resumen

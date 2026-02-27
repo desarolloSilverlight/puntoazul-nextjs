@@ -292,13 +292,28 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
         return;
       }
       const validarGrupo = (grupo, nombreGrupo) => {
+        let datosGrupo = producto[nombreGrupo];
+        if (typeof datosGrupo === 'string') {
+          try {
+            datosGrupo = JSON.parse(datosGrupo);
+          } catch {
+            datosGrupo = {};
+          }
+        }
+        datosGrupo = datosGrupo || {};
+        producto[nombreGrupo] = datosGrupo;
         for (const campo of grupo) {
-          let valor = producto[nombreGrupo][campo];
+          let valor = datosGrupo[campo];
           if (valor === null || valor === undefined || valor === '') {
-            producto[nombreGrupo][campo] = '0';
+            datosGrupo[campo] = '0';
             continue;
           }
-          const str = valor.toString();
+          const strOriginal = valor.toString().trim();
+          let str = strOriginal;
+          if (strOriginal.includes('.') && !strOriginal.includes(',')) {
+            str = strOriginal.replace('.', ',');
+            datosGrupo[campo] = str;
+          }
           if (str.includes('.')) { alert(`Fila ${i+1} ${nombreGrupo}.${campo}: No use punto, use coma.`); setIsLoading(false); return false; }
           if (str !== '' && !decimalRegexComa.test(str)) { alert(`Fila ${i+1} ${nombreGrupo}.${campo}: Formato inválido (máx 10 decimales con coma).`); setIsLoading(false); return false; }
         }

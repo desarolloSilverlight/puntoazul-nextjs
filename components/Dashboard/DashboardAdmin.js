@@ -324,6 +324,8 @@ export default function DashboardAdmin({ tipo }) {
 
   const aprobadosLB = shouldLoadLineaBase ? stats.estadosFormularios.lineaBase.aprobados : 0;
   const aprobadosB = shouldLoadLiteralB ? stats.estadosFormularios.literalB.aprobados : 0;
+  const finalizadosLB = shouldLoadLineaBase ? stats.estadosFormularios.lineaBase.finalizados : 0;
+  const finalizadosB = shouldLoadLiteralB ? stats.estadosFormularios.literalB.finalizados : 0;
   const pendientesLB = shouldLoadLineaBase ? stats.estadosFormularios.lineaBase.pendientes : 0;
   const pendientesB = shouldLoadLiteralB ? stats.estadosFormularios.literalB.pendientes : 0;
   const usuariosV = stats.usuariosRegistrados.vinculados;
@@ -395,12 +397,12 @@ export default function DashboardAdmin({ tipo }) {
               title="Cobertura"
               value={
                 tipo === 'B'
-                  ? `A: ${safePercent(aprobadosB, usuariosA)}%`
+                  ? `A: ${safePercent(finalizadosB, usuariosA)}%`
                   : tipo === 'F'
-                    ? `V: ${safePercent(aprobadosLB, usuariosV)}%`
-                    : `V: ${safePercent(aprobadosLB, usuariosV)}% | A: ${safePercent(aprobadosB, usuariosA)}%`
+                    ? `V: ${safePercent(finalizadosLB, usuariosV)}%`
+                    : `V: ${safePercent(finalizadosLB, usuariosV)}% | A: ${safePercent(finalizadosB, usuariosA)}%`
               }
-              subtitle="% Completados por tipo"
+              subtitle="% Finalizados por tipo"
               icon="fas fa-percentage"
               color="purple"
             />

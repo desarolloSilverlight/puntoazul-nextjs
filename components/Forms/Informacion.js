@@ -39,6 +39,11 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
   
   // Actualizar estado cuando cambie el prop
   useEffect(() => {
+    if (readonly) {
+      setIsDisabled(true);
+      return;
+    }
+
     if (propEstado) {
       setEstado(prev => {
         if (prev !== propEstado) {
@@ -60,7 +65,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
       });
       setIsDisabled(false);
     }
-  }, [propEstado]);
+  }, [propEstado, readonly]);
   
   useEffect(() => {
     console.log('Modal isOpen state:', isOpen);
@@ -91,13 +96,15 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
   // Función para manejar los cambios en los campos del formulario
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Evitar cualquier cambio cuando el formulario está bloqueado
+    if (isDisabled) return;
     setFormData((prevData) => {
       const newData = {
         ...prevData,
         [name]: value,
       };
       // Guardar tipoReporte en localStorage si cambia
-      if (name === "reporte") {
+      if (name === "reporte" && !isDisabled) {
         localStorage.setItem("tipoReporte", value);
       }
       return newData;
@@ -867,6 +874,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
                 value="unitario"
                 checked={formData.reporte === "unitario"}
                 onChange={handleChange}
+                disabled={isDisabled}
               />{" "}
               Reporte Unitario
               <i
@@ -881,6 +889,7 @@ export default function FormularioAfiliado({ color, readonly, idInformacionF: pr
                 value="totalizado"
                 checked={formData.reporte === "totalizado"}
                 onChange={handleChange}
+                disabled={isDisabled}
               />{" "}
               Reporte Totalizado
               <i

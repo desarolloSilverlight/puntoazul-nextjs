@@ -3,11 +3,12 @@ import PropTypes from "prop-types";
 import Link from "next/link";
 
 export default function FormStatusCard({ title, states, totalUsers, type }) {
-  const total = Object.values(states).reduce((sum, count) => sum + count, 0);
-  const sinIniciar = totalUsers - total;
+  const safeStates = states || {};
 
   const statusConfig = {
     sinIniciar: { color: "bg-gray-500", label: "Sin Iniciar" },
+    sin_iniciar: { color: "bg-gray-500", label: "Sin Iniciar" },
+    iniciados: { color: "bg-blue-500", label: "Iniciados" },
     finalizados: { color: "bg-cyan-600", label: "Finalizados" },
     guardados: { color: "bg-yellow-500", label: "Guardados" },
     pendientes: { color: "bg-orange-500", label: "Pendientes" },
@@ -15,10 +16,14 @@ export default function FormStatusCard({ title, states, totalUsers, type }) {
     rechazados: { color: "bg-red-500", label: "Rechazados" }
   };
 
-  const allStates = {
-    sinIniciar,
-    ...states
-  };
+  // Mantener solo estados reportados por backend (no inferir "Sin Iniciar" en frontend)
+  const allStates = Object.entries(safeStates).reduce((acc, [status, count]) => {
+    acc[status] = Number(count) || 0;
+    return acc;
+  }, {});
+
+  const totalEstados = Object.values(allStates).reduce((sum, count) => sum + count, 0);
+  const denominator = totalEstados > 0 ? totalEstados : (Number(totalUsers) || 0);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300">
@@ -33,10 +38,9 @@ export default function FormStatusCard({ title, states, totalUsers, type }) {
       <div className="mb-6">
         <div className="flex rounded-full overflow-hidden h-4 bg-gray-200">
           {Object.entries(allStates).map(([status, count]) => {
-            const percentage = totalUsers > 0 ? (count / totalUsers) * 100 : 0;
             const config = statusConfig[status];
-            
-            if (count === 0) return null;
+            if (!config || count === 0) return null;
+            const percentage = denominator > 0 ? (count / denominator) * 100 : 0;
             
             return (
               <div
@@ -54,7 +58,8 @@ export default function FormStatusCard({ title, states, totalUsers, type }) {
       <div className="grid grid-cols-2 gap-4">
         {Object.entries(allStates).map(([status, count]) => {
           const config = statusConfig[status];
-          const percentage = totalUsers > 0 ? ((count / totalUsers) * 100).toFixed(1) : '0.0';
+          if (!config) return null;
+          const percentage = denominator > 0 ? ((count / denominator) * 100).toFixed(1) : '0.0';
           
           return (
             <div key={status} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -99,6 +104,9 @@ export default function FormStatusCard({ title, states, totalUsers, type }) {
 FormStatusCard.propTypes = {
   title: PropTypes.string.isRequired,
   states: PropTypes.shape({
+    sinIniciar: PropTypes.number,
+    sin_iniciar: PropTypes.number,
+    iniciados: PropTypes.number,
     finalizados: PropTypes.number,
     guardados: PropTypes.number,
     pendientes: PropTypes.number,

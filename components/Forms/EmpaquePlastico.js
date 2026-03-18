@@ -249,7 +249,33 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoadingMessage("Guardando información...");
     setIsLoading(true);
+    if (productos.length === 0) {
+      try {
+        const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+        const url = `${API_BASE_URL}/informacion-f/crearEmpaquePlastico?importId=${encodeURIComponent(importId)}&batchIndex=0&batchCount=1&mode=replace`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify([]),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        alert("Se eliminaron todos los registros de Empaque Plástico.");
+        await fetchToneladasAcumuladas();
+      } catch (error) {
+        console.error("Error al guardar Empaque Plástico vacío:", error);
+        alert(`Error: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+        setUploadProgress({ total: 0, done: 0 });
+      }
+      return;
+    }
   const camposLiquidos = ["PET Agua", "PET Otros", "PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
   const camposOtros = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "Otros"];
   const decimalRegexComa = /^\d+(,\d{1,10})?$/;

@@ -229,6 +229,31 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     e.preventDefault();
     setLoadingMessage("Guardando información...");
     setIsLoading(true);
+    if (productos.length === 0) {
+      try {
+        const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+        const url = `${API_BASE_URL}/informacion-f/crearEmpaqueSec?importId=${encodeURIComponent(importId)}&batchIndex=0&batchCount=1&mode=replace`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify([]),
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        alert("Se eliminaron todos los registros de Empaque Secundario.");
+        await fetchToneladasAcumuladas();
+      } catch (error) {
+        console.error("Error al guardar Empaque Secundario vacío:", error);
+        alert(`Error: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+        setUploadProgress({ total: 0, done: 0 });
+      }
+      return;
+    }
     // Validaciones requeridas
   const camposNumericos = ["papel", "metalFerrosos", "metalNoFerrosos", "carton", "vidrio"];
   const decimalRegexComa = /^\d+(,\d{1,2})?$/;

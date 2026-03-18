@@ -232,10 +232,15 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
     e.preventDefault();
     setLoadingMessage("Guardando información...");
     setIsLoading(true);
+    if (!idInformacionF) {
+      alert("No se encontró idInformacionF para guardar Empaque Primario.");
+      setIsLoading(false);
+      return;
+    }
     if (productos.length === 0) {
       try {
         const importId = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-        const url = `${API_BASE_URL}/informacion-f/crearEmpaquePri?importId=${encodeURIComponent(importId)}&batchIndex=0&batchCount=1&mode=replace`;
+        const url = `${API_BASE_URL}/informacion-f/crearEmpaquePri?importId=${encodeURIComponent(importId)}&batchIndex=0&batchCount=1&mode=replace&idInformacionF=${encodeURIComponent(idInformacionF)}`;
         const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -470,7 +475,7 @@ export default function FormularioAfiliado({ color, readonly = false, idInformac
       const uploadChunk = async (index) => {
         const chunk = chunks[index];
         const isFirst = index === 0;
-        const url = `${API_BASE_URL}/informacion-f/crearEmpaquePri?importId=${encodeURIComponent(importId)}&batchIndex=${index}&batchCount=${totalChunks}&mode=${isFirst ? 'replace' : 'append'}`;
+        const url = `${API_BASE_URL}/informacion-f/crearEmpaquePri?importId=${encodeURIComponent(importId)}&batchIndex=${index}&batchCount=${totalChunks}&mode=${isFirst ? 'replace' : 'append'}&idInformacionF=${encodeURIComponent(idInformacionF)}`;
         const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -1045,6 +1045,111 @@ export default function Reportes() {
 
           const toExcelNumber = (value) => Number((Number(value || 0)).toFixed(8));
 
+          const normalizeMaterial = (material) => {
+            const value = String(material || '').trim().toUpperCase();
+            return value || 'SIN MATERIAL';
+          };
+
+          const construirDetalleMaterial = (clientes, keyMaterial) => {
+            const materialesSet = new Set();
+            const filas = [];
+            const totalesByMaterial = {};
+            let subtotalGlobal = 0;
+
+            clientes.forEach((cliente) => {
+              const items = Array.isArray(cliente[keyMaterial]) ? cliente[keyMaterial] : [];
+              const byMaterial = {};
+              let subtotal = 0;
+
+              items.forEach((item) => {
+                const material = normalizeMaterial(item.material);
+                const tons = toTon(item.gramos, item.unidades);
+                byMaterial[material] = (byMaterial[material] || 0) + tons;
+                totalesByMaterial[material] = (totalesByMaterial[material] || 0) + tons;
+                materialesSet.add(material);
+                subtotal += tons;
+              });
+
+              subtotalGlobal += subtotal;
+              filas.push({
+                nombre: cliente.nombre || 'Sin nombre',
+                nit: cliente.nit || '',
+                byMaterial,
+                subtotal,
+              });
+            });
+
+            return {
+              materiales: Array.from(materialesSet).sort((a, b) => a.localeCompare(b)),
+              filas,
+              totalesByMaterial,
+              subtotalGlobal,
+            };
+          };
+
+          const agregarHojaDetalleMaterial = ({ anio, nombreHoja, detalle, subtotalLabel, colorHeader }) => {
+            const sheetName = `${nombreHoja} ${anio}`.slice(0, 31);
+            const hoja = workbook.addWorksheet(sheetName);
+            const materiales = detalle.materiales;
+            const encabezados = ['Cliente', 'NIT', ...materiales, subtotalLabel];
+            const headerRow = hoja.addRow(encabezados);
+
+            headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+            headerRow.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: colorHeader }
+            };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+            detalle.filas.forEach((fila) => {
+              const rowData = [
+                fila.nombre,
+                fila.nit,
+                ...materiales.map((material) => toExcelNumber(fila.byMaterial[material] || 0)),
+                toExcelNumber(fila.subtotal),
+              ];
+              hoja.addRow(rowData);
+            });
+
+            const totalRow = hoja.addRow([
+              'TOTAL',
+              '-',
+              ...materiales.map((material) => toExcelNumber(detalle.totalesByMaterial[material] || 0)),
+              toExcelNumber(detalle.subtotalGlobal),
+            ]);
+            totalRow.font = { bold: true };
+            totalRow.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFD966' }
+            };
+
+            hoja.getColumn(1).width = 38;
+            hoja.getColumn(2).width = 18;
+            for (let col = 3; col <= encabezados.length; col += 1) {
+              hoja.getColumn(col).width = 16;
+              hoja.getColumn(col).numFmt = '0.########';
+            }
+
+            for (let rowIdx = 1; rowIdx <= hoja.rowCount; rowIdx += 1) {
+              for (let col = 1; col <= encabezados.length; col += 1) {
+                const cell = hoja.getRow(rowIdx).getCell(col);
+                cell.border = {
+                  top: { style: 'thin', color: { argb: 'D9D9D9' } },
+                  left: { style: 'thin', color: { argb: 'D9D9D9' } },
+                  bottom: { style: 'thin', color: { argb: 'D9D9D9' } },
+                  right: { style: 'thin', color: { argb: 'D9D9D9' } }
+                };
+                if (rowIdx > 1) {
+                  cell.alignment = col === 1
+                    ? { vertical: 'middle', horizontal: 'left' }
+                    : { vertical: 'middle', horizontal: 'center' };
+                }
+              }
+            }
+          };
+
           // Crear una hoja por año
           anios.forEach((anio) => {
             const clientes = datosPorAnio[anio] || [];
@@ -1312,6 +1417,25 @@ export default function Reportes() {
                   : { vertical: 'middle', horizontal: 'center' };
               }
             }
+
+            const detallePrimarios = construirDetalleMaterial(clientes, 'primarios');
+            const detalleSecundarios = construirDetalleMaterial(clientes, 'secundarios');
+
+            agregarHojaDetalleMaterial({
+              anio,
+              nombreHoja: 'Primarios',
+              detalle: detallePrimarios,
+              subtotalLabel: 'Subtotal Primarios (ton)',
+              colorHeader: '2F75B5'
+            });
+
+            agregarHojaDetalleMaterial({
+              anio,
+              nombreHoja: 'Secundarios',
+              detalle: detalleSecundarios,
+              subtotalLabel: 'Subtotal Secundarios (ton)',
+              colorHeader: '548235'
+            });
           });
 
           // Crear hoja de resumen
@@ -1324,7 +1448,7 @@ export default function Reportes() {
             [],
             ['DESCRIPCIÓN:'],
             ['Reporte consolidado con datos agrupados por año'],
-            ['Incluye primarios, secundarios y plásticos por cliente']
+            ['Incluye hoja consolidada y hojas de detalle de primarios y secundarios por año']
           ];
           resumenData.forEach((row, index) => {
             const excelRow = hojaResumen.addRow(row);
